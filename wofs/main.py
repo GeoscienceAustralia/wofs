@@ -1,3 +1,6 @@
+"""
+http://click.pocoo.org/5/commands/
+"""
 import click
 
 @click.group()
