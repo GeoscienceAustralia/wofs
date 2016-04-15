@@ -1,3 +1,5 @@
 """
-water detection algorithms: from observation pixel bands++ to pixel classification water or others.
+water detection algorithms: 
+from surface reflectance (observation NABR bands) and anciallary data (PQ, DSM, etc) 
+to pixel classification: water pixel or others.
 """
