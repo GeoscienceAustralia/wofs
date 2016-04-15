@@ -13,7 +13,7 @@ class Classifer:
         :return:
         """
 
-        print("Running water the classificatin algorithm: %s"%self.classifname)
+        print("Running the water classification using algorithm: %s"%self.classifname)
 
         return
 
