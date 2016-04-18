@@ -4,8 +4,11 @@
 # to classify NBAR imagery pixels into Water, NotWater, NoData.
 # An earlier version of the code can be found in ga-neo-nfrip/system/water/WaterClassifier.py
 #
-# Fei.Zhang@ga.gov.au
-# 2016-04-15
+# @copyright:   Geoscience Australia
+#
+# @Developer:   Fei.Zhang@ga.gov.au
+#
+# @Date:        2016-04-15
 #####################################################
 import numpy
 import logging
