@@ -16,5 +16,5 @@ def data_gen():
     while True:
         yield np.random.rand(10)
 
-ani = animation.FuncAnimation(fig, update, data_gen, interval=100)
+ani = animation.FuncAnimation(fig, update, data_gen, interval=1000)  # interval controls the graph change rate
 plt.show()

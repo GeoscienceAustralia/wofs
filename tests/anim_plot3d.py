@@ -1,4 +1,5 @@
 """
+Growing random lines
 A simple example of an animated plot... In 3D!
 """
 import numpy as np
@@ -38,8 +39,8 @@ def update_lines(num, dataLines, lines):
 fig = plt.figure()
 ax = p3.Axes3D(fig)
 
-# Fifty lines of random 3-D lines
-data = [Gen_RandLine(25, 3) for index in range(50)]
+# 20 lines of random 3-D lines, each line has 100 points in 3D
+data = [Gen_RandLine(100, 3) for index in range(20)]
 
 # Creating fifty line objects.
 # NOTE: Can't pass empty arrays into 3d version of plot()
@@ -58,7 +59,7 @@ ax.set_zlabel('Z')
 ax.set_title('3D Test')
 
 # Creating the Animation object
-line_ani = animation.FuncAnimation(fig, update_lines, 25, fargs=(data, lines),
-                                   interval=50, blit=False)
+line_ani = animation.FuncAnimation(fig, update_lines, 100, fargs=(data, lines),
+                                   interval=500, blit=True)
 
 plt.show()

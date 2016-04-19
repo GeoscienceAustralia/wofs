@@ -24,7 +24,7 @@ for i in range(60):
     im = plt.imshow(f(x, y), cmap='viridis', animated=True)
     ims.append([im])
 
-ani = animation.ArtistAnimation(fig, ims, interval=50, blit=True,
+ani = animation.ArtistAnimation(fig, ims, interval=1000, blit=True,
                                 repeat_delay=1000)
 
 #ani.save('dynamic_images.mp4')

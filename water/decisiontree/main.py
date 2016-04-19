@@ -54,8 +54,8 @@ if __name__ == '__main__':
 
     in_data_path=sys.argv[1]
 
-    #images= get_images() # API test with a random image
-    images= get_images(in_data_path)
+    images= get_images() # API test with a random image
+    #images= get_images(in_data_path)
 
 
     classifier = WaterClassifier()
