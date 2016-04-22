@@ -1,3 +1,7 @@
+"""
+Automatically display a stack of images
+"""
+
 import matplotlib.animation as animation
 import numpy as np
 import matplotlib.pyplot as plt
@@ -6,12 +10,13 @@ import matplotlib.pyplot as plt
 from netCDF4 import Dataset, num2date, date2num
 from ipywidgets import *
 
-#f = Dataset('/g/data/rs0/tiles/EPSG3577/LS5_TM_NBAR/LS5_TM_NBAR_3577_15_-40_2006.nc', 'r')
-f = Dataset('/Softdata/data/water_extents/149_-036_subset/py_stacked_CF.nc', 'r')
+f = Dataset('/g/data/rs0/tiles/EPSG3577/LS5_TM_NBAR/LS5_TM_NBAR_3577_15_-40_2006.nc', 'r')
+#f = Dataset('/Softdata/data/water_extents/149_-036_subset/py_stacked_CF.nc', 'r')
 
 # The NC data variable name?
-band4view='Data' #'band_2'
-bandarray = f[band4view][:, :, :]  # this may use up memory error
+band4view='band_7'
+#band4view='Data' #'band_2'
+bandarray = f[band4view][:, :, :]  # this will load all data into RAM - may use up memory, spit out error
 #bandarray = f[band4view]
 
 fig = plt.figure()
