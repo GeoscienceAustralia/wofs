@@ -1,4 +1,5 @@
 """
+Water Algorithms - The Core of WOfS system
 Purpose:  Water pixel detection algorithms: 
 Input:    Surface reflectance (observation NABR bands) and anciallary data (PQ, DSM, etc) 
 Output:   Pixel classification: water pixel or others.

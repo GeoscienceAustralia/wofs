@@ -72,7 +72,7 @@ def readimg_from_nc(ncfile):
 
 
 if __name__ == '__main__':
-#python decisiontree//main.py /g/data/rs0/tiles/EPSG3577/LS5_TM_NBAR/LS5_TM_NBAR_3577_15_-40_2006.nc
+#python detree//main.py /g/data/rs0/tiles/EPSG3577/LS5_TM_NBAR/LS5_TM_NBAR_3577_15_-40_2006.nc
 # 1 tile:    /g/data/v10/ZTEST/testdc/LS5_TM_NBAR/LS5_TM_NBAR_3577_10_-39_20060129001120781025.nc
 # 88 tiles:  /g/data/rs0/tiles/EPSG3577/LS5_TM_NBAR/LS5_TM_NBAR_3577_15_-40_2006.nc
 # Scenes:    /g/data/v10/reprocess/ls5/nbar/packaged/2006/01/LS5_TM_NBAR_P54_GANBAR01-002_096_085_20060120/product

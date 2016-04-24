@@ -7,7 +7,7 @@ Usage:
 
 ```
 module load wofs
-wofs_init.py --base_dir PATH --run_id RUN_ID --run_desc "a description"
+wofs_setup.py --base_dir PATH --run_id RUN_ID --run_desc "a description"
 ```
 where:
    
