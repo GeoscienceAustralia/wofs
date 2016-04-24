@@ -36,10 +36,10 @@ export PYTHONPATH=$WOFSV2_DIR:$NFRIP_ROOT:$NFRIP_ROOT/system/dsm:$NFRIP_ROOT/sys
 
 cd $confdir  # beaware luigi can only find client.cfg in current dir
 
-#python $WORKFLOW_DIR/wofs_summary_v2.py  --config_path ./client.cfg
 python $WOFSV2_DIR/wofs/workflow/wofs_make_extents.py  --config_path ./client.cfg
 
-#### Old modules
-#python /projects/u46/opt/modules/wofs/1.6.0/ga-neo-nfrip/workflow/wofs_summary.py  --config_path /g/data/u46/wofs/water_Q12016/client.cfg
+#### Evolved from Old modules
+#python $WORKFLOW_DIR/wofs_summary_v2.py  --config_path ./client.cfg
 #python /home/547/fxz547/wofs_run_test/ga-neo-nfrip/workflow/wofs_summary.py  --config_path ./client.cfg
+#python /projects/u46/opt/modules/wofs/1.6.0/ga-neo-nfrip/workflow/wofs_summary.py  --config_path /g/data/u46/wofs/water_Q12016/client.cfg
 
