@@ -1,4 +1,6 @@
-from wofs import FuzzyTileFinder, find_datetime, phase_annee
+from wofs.utils.fuzzy_tile_finder import FuzzyTileFinder
+from wofs.utils.tools import  phase_annee
+from wofs.utils.timeparser import find_datetime
 from datetime import datetime
 import luigi
 import os

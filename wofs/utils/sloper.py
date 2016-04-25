@@ -3,7 +3,7 @@ import numexpr
 import rasterio
 from math import radians, degrees
 from image import *
-from wofs import GriddedGeoBox
+from wofs.utils.geobox import GriddedGeoBox
 import ephem
 import logging
 

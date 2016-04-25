@@ -15,6 +15,7 @@ from gaip import write_img
 
 # import wofs
 import wofs.utils.tools as tools  # import scatter, mkdirs_if_not_present
+import wofs.utils.timeparser as timeparser  # import scatter, mkdirs_if_not_present
 from wofs.utils.geobox import GriddedGeoBox
 from wofs.utils.bordered_dsm import BorderedElevationTile
 from wofs.utils.water_band import WaterBand
@@ -653,7 +654,7 @@ class WaterExtentsMain(luigi.Task):
                 # once AGDC pull request #65 is approved
                 # Code should be:    tile.start_datetime.isoformat(), \
                 tasks.append(WaterExtent2( \
-                    tools.find_datetime(tile.datasets[DatasetType.ARG25].path).isoformat(), \
+                    timeparser.find_datetime(tile.datasets[DatasetType.ARG25].path).isoformat(), \
                     self.get_xy()[0], \
                     self.get_xy()[1], \
                     tile.datasets[DatasetType.ARG25].path, \

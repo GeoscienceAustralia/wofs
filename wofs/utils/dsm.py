@@ -3,8 +3,17 @@ from image import GeoTifImageFile
 from osgeo import osr
 from math import floor,ceil,radians
 from eotools.bodies.vincenty import vinc_dist
-from dem_tiler import earth
-from datacubeConstants import DatacubeConstants
+from wofs.waters.common.datacubeConstants import DatacubeConstants
+
+
+# from dem_tiler import earth
+#https://github.com/GeoscienceAustralia/agdc/blob/2e22c6bdd9305555db3615305ff6a5df6219cd51/deprecated/dem_tiler.py
+# WGS-84
+earth_A= 6378137.0           # equatorial radius (metres)
+earth_B = 6356752.3142        # polar radius (metres)
+earth_F = (earth_A - earth_B) /earth_A         # flattening
+#ECC2 = 1.0 - B**2/A**2  # squared eccentricity
+
 
 ELEVATION_BAND = 1
 SLOPE_BAND = 2

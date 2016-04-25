@@ -2,7 +2,7 @@ from math import degrees, radians, tan, cos, fabs
 import numpy as np
 import logging
 import rasterio
-from wofs import GriddedGeoBox
+from wofs.utils.geobox import GriddedGeoBox
 from scipy.ndimage.interpolation import rotate
 import ephem
 

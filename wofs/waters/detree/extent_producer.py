@@ -14,8 +14,8 @@ Date:       2016-04-22
 
 """
 
-import wofs.classifier
-import wofs.filters
+from wofs.waters.detree.classifier import WaterClassifier
+import wofs.waters.detree.filters as filters
 from gaip import write_img
 import rasterio as rio
 
@@ -55,28 +55,28 @@ class WaterExtentProducer(object):
         :return: water extent image - 1band-ubyte
         """
         #1. raw water extent
-        water_band, geobox = wofs.classifier.detect_water_in_nbar(self.nbar_path) # wofs.classifier.detect_water_in_nbar
+        water_band, geobox = WaterClassifier.detect_water_in_nbar(self.nbar_path) # wofs.classifier.detect_water_in_nbar
 
         #2 Nodata filter
         with rio.open(self.nbar_path) as nbar_ds:
             nbar_bands = nbar_ds.read()
             nodata = nbar_ds.meta['nodata']
 
-        water_band = wofs.filters.NoDataFilter().apply(water_band, nbar_bands, nodata)
+        water_band = filters.NoDataFilter().apply(water_band, nbar_bands, nodata)
 
         #write_img(water_band, self.output().path, fmt=GTIFF, geobox=geobox, compress='lzw')
 
         #3
         with rio.open(self.pq_path) as pq_ds:   pq_band = pq_ds.read(1)
 
-        water_band = wofs.filters.ContiguityFilter(pq_band).apply(water_band)
+        water_band =filters.ContiguityFilter(pq_band).apply(water_band)
         #write_img(water_band, self.output().path, fmt=GTIFF, geobox=geobox, compress='lzw')
 
         #4
         #with rio.open(self.pq_path) as pq_ds: pq_band = pq_ds.read(1)
             #geobox = GriddedGeoBox.from_rio_dataset(pq_ds)
 
-        water_band = wofs.filters.CloudAndCloudShadowFilter(pq_band).apply(water_band) #compare with scratch/cellid/files
+        water_band = filters.CloudAndCloudShadowFilter(pq_band).apply(water_band) #compare with scratch/cellid/files
 
 
         # TODO: Combined SolarIncidentAngle, TerrainShadow, HighSlope Masks. They all use database DSM tiles.

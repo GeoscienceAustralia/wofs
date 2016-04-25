@@ -23,7 +23,7 @@ source activate wofsv1
 #additional python modules of project
 
 #TODO: Gradually remove references to this repo's module
-NFRIP_ROOT=/g/data/u46/fxz547/Githubz/ga-neo-nfrip
+##  NFRIP_ROOT=/g/data/u46/fxz547/Githubz/ga-neo-nfrip
 WORKFLOW_DIR=$NFRIP_ROOT/workflow
 
 # New Wofs repo root where all modules will be found, as replacement of the ga-neo-nfrip
@@ -32,7 +32,8 @@ WOFSV2_DIR=/g/data/u46/fxz547/Githubz/wofs
 # Python Dependencies: agdc api etc
 DEPPY=/home/547/fxz547/wofs_run_test/agdc/api/source/main/python:/home/547/fxz547/wofs_run_test/ga-neo-landsat-processor:/home/547/fxz547/wofs_run_test/idl-functions/build/lib.linux-x86_64-2.7
 
-export PYTHONPATH=$WOFSV2_DIR:$NFRIP_ROOT:$NFRIP_ROOT/system/dsm:$NFRIP_ROOT/system/water:$NFRIP_ROOT/system/common:$DEPPY
+#export PYTHONPATH=$WOFSV2_DIR:$NFRIP_ROOT:$NFRIP_ROOT/system/dsm:$NFRIP_ROOT/system/water:$NFRIP_ROOT/system/common:$DEPPY
+export PYTHONPATH=$WOFSV2_DIR:$DEPPY
 
 cd $confdir  # beaware luigi can only find client.cfg in current dir
 
