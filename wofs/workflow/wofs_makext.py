@@ -11,7 +11,7 @@ import argparse
 import logging
 
 import rasterio as rio
-from gaip import write_img
+from gaip import write_img  #todo: decouple from gaip
 
 # import wofs
 import wofs.utils.tools as tools  # import scatter, mkdirs_if_not_present

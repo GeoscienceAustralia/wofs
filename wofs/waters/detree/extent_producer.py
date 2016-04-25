@@ -88,7 +88,7 @@ class WaterExtentProducer(object):
         #8 Land-Sea. This is the last Filter mask out the Sea pixels as flagged in PQ band
         # using the pq_band read in step- 3 and 4
 
-        water_band = wofs.SeaWaterFilter(pq_band).apply(water_band)
+        water_band = filters.SeaWaterFilter(pq_band).apply(water_band)
         #write_img(water_band, self.output().path, fmt=GTIFF, geobox=geobox, compress='lzw')
 
 
