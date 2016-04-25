@@ -1,5 +1,5 @@
 """
 This is the main top-level package of WOFS system
-    wofs.waters:        where scientific algorithm for pixel classification
+    wofs.waters:        scientific algorithms for pixels classification
     wofs.workflow:      pipeline framework automation scripts.
 """

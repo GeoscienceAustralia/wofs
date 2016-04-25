@@ -36,7 +36,7 @@ export PYTHONPATH=$WOFSV2_DIR:$NFRIP_ROOT:$NFRIP_ROOT/system/dsm:$NFRIP_ROOT/sys
 
 cd $confdir  # beaware luigi can only find client.cfg in current dir
 
-python $WOFSV2_DIR/wofs/workflow/wofs_make_extents.py  --config_path ./client.cfg
+python $WOFSV2_DIR/wofs/workflow/wofs_makext.py  --config_path ./client.cfg
 
 #### Evolved from Old modules
 #python $WORKFLOW_DIR/wofs_summary_v2.py  --config_path ./client.cfg
