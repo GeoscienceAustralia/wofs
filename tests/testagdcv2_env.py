@@ -1,3 +1,8 @@
+#################################################
+# Usage:
+#   export PYTHONPATH=/g/data/u46/fxz547/Githubz/agdc-v2
+#   python tests/testagdcv2_env.py
+#################################################
 from IPython.display import display
 from collections import defaultdict
 
