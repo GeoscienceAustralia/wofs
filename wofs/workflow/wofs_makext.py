@@ -573,7 +573,7 @@ class WaterExtent(luigi.Task):  # keep this original
 
 
 ###########################################################################################
-# @rm_single_use_inputs_after
+#
 class WaterExtent2(luigi.Task):
     """ A major Luigi task to derive water extent step-by-step through an algorithm,
      and write the final Water Extent (WOFL) file

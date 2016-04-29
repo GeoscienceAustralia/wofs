@@ -103,7 +103,7 @@ class WaterExtentProducer(object):
 
         #do things with the water extent, write out to file.
         #numpy array to raw binary file water_band.tofile(outfile)
-        write_img(water_band, outfile, fmt='GTiff', geobox=geob, compress='lzw')  # write fun from gaip ?
+        write_img(water_band, outfile, fmt='GTiff', geobox=geob, compress='lzw')  # write fun from ga-neo-landsat-processor/gaip/data.py
 
         return water_band
 

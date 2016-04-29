@@ -1,4 +1,4 @@
-from water.decisiontree import WaterClassifier
+from wofs.waters.detree import WaterClassifier
 import numpy
 import os, sys
 import matplotlib.pyplot as plt
