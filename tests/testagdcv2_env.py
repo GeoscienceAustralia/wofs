@@ -115,6 +115,8 @@ class DatcubeDao():
 
 
 ##############################################################################
+
+
 if __name__ == "__main__":
     dcdao = DatcubeDao()
 
@@ -122,11 +124,17 @@ if __name__ == "__main__":
     
     for (t,nbar, pq) in tile_dat:
         print (t, nbar.shape, pq.shape)
-
-        no_data_img = (~xr.ufuncs.isfinite(nbar)).any(dim='variable')
-
         print type(nbar)
         print type(pq)
         print type(no_data_img)
+
+        # (1138232422.2250061, (6, 4000, 4000), (4000, 4000))
+        # class 'xarray.core.dataarray.DataArray'>
+        # <class 'xarray.core.dataarray.DataArray'>
+        # <class 'xarray.core.dataarray.DataArray'>
+
+        #TODO: water classification using these xarray datas ++
+
+    no_data_img = (~xr.ufuncs.isfinite(nbar)).any(dim='variable')
 
     no_data_img.plot()
