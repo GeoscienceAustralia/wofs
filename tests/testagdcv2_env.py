@@ -100,17 +100,16 @@ class DatcubeDao():
 
             nbar_tile = self.dao.get_data_array_by_cell(variables=variables, set_nan=True, **nbar_tile_query)
 
-            no_data_tile = (~xr.ufuncs.isfinite(nbar_tile)).any(dim='variable')
-
             pq_tile_query, pq_tile_info = tileset['pqa']
             pq_tile_ds = self.dao.get_dataset_by_cell(**pq_tile_query)
             pq_tile=pq_tile_ds['pixelquality']
 
-            print "{:%c}\tnbar shape: {}\tpq shape: {}".format(to_datetime(time), nbar_tile.shape, pq_tile.shape)
+            #print "{:%c}\tnbar shape: {}\tpq shape: {}".format(to_datetime(time), nbar_tile.shape, pq_tile.shape)
             #Wed Dec 27 23:45:28 2006	nbar shape: (6, 4000, 4000)	pq shape: (4000, 4000)
 
-            #break  # Just do the first one as a test...
             tiledatas.append((time,nbar_tile,pq_tile))
+
+            break  # Just do the first one as a test...
 
         return tiledatas
 
@@ -123,3 +122,11 @@ if __name__ == "__main__":
     
     for (t,nbar, pq) in tile_dat:
         print (t, nbar.shape, pq.shape)
+
+        no_data_img = (~xr.ufuncs.isfinite(nbar)).any(dim='variable')
+
+        print type(nbar)
+        print type(pq)
+        print type(no_data_img)
+
+    no_data_img.plot()
