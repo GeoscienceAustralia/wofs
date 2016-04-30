@@ -67,8 +67,9 @@ class DatcubeDao():
     def get_data_of_cell(self, cells):
         """
         :param cells: = [(-15, -40)]
-        :return:
+        :return: list of tiles
         """
+        tiledatas=[]
 
         tile_store = self.get_tile_store(cells)
 
@@ -102,18 +103,23 @@ class DatcubeDao():
             no_data_tile = (~xr.ufuncs.isfinite(nbar_tile)).any(dim='variable')
 
             pq_tile_query, pq_tile_info = tileset['pqa']
-            pq_tile = self.dao.get_dataset_by_cell(**pq_tile_query)
+            pq_tile_ds = self.dao.get_dataset_by_cell(**pq_tile_query)
+            pq_tile=pq_tile_ds['pixelquality']
 
-            print "{:%c}\tnbar shape: {}\tpq shape: {}".format(to_datetime(time), nbar_tile.shape,
-                                                               pq_tile['pixelquality'].shape)
+            print "{:%c}\tnbar shape: {}\tpq shape: {}".format(to_datetime(time), nbar_tile.shape, pq_tile.shape)
+            #Wed Dec 27 23:45:28 2006	nbar shape: (6, 4000, 4000)	pq shape: (4000, 4000)
 
             #break  # Just do the first one as a test...
+            tiledatas.append((time,nbar_tile,pq_tile))
 
-            # pic = nbar_tile[0].plot()  # 0= blue band
+        return tiledatas
 
 
 ##############################################################################
 if __name__ == "__main__":
     dcdao = DatcubeDao()
 
-    dcdao.get_data_of_cell([(15, -40)])
+    tile_dat = dcdao.get_data_of_cell([(15, -40)])
+    
+    for (t,nbar, pq) in tile_dat:
+        print (t, nbar.shape, pq.shape)
