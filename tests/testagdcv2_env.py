@@ -42,10 +42,10 @@ class DatcubeDao():
         pq_tiles = dc.list_tiles(cells, product='pqa', platform='LANDSAT_5')  # , time=('2000', '2007'))
 
         if (len(pq_tiles) == len(nbar_tiles)):
-            print ("The cell %s has %s nabr and %s pq tiles" % (str(cells), len(nbar_tiles), len(pq_tiles)))
+            print ("The cell %s has %s nbar and %s pq tiles" % (str(cells), len(nbar_tiles), len(pq_tiles)))
         else:
             print "WARNING: unequal number of nbar and pq tiles: "
-            print ("The cell %s has %s nabr and %s pq tiles" % (str(cells), len(nbar_tiles), len(pq_tiles)))
+            print ("The cell %s has %s nbar and %s pq tiles" % (str(cells), len(nbar_tiles), len(pq_tiles)))
 
         tile_store = defaultdict(lambda: defaultdict(dict))
 
@@ -66,12 +66,11 @@ class DatcubeDao():
 ######################################################
     def get_data_of_cell(self, acell):
         """
-
-        :param acell: A cell= (-15, -40)
+        :param acell: = [(-15, -40)]
         :return:
         """
 
-        cells = [].append(acell)
+        cells = acell
         tile_store = self.get_tile_store(cells)
 
         stack = tile_store[acell]
@@ -87,7 +86,7 @@ class DatcubeDao():
                 print "not a good time-sliced tile - we have missing data!"
 
 
-                print "Cell {} at time [{:%Y-%m-%d}] has {} tiles: ".format(cell, to_datetime(time), len(tileset))
+                print "Cell {} at time [{:%Y-%m-%d}] has {} tiles: ".format(acell, to_datetime(time), len(tileset))
                 for product, tile in tileset.items():
                     print product, tile
 
@@ -99,12 +98,12 @@ class DatcubeDao():
             elif platform in ('LANDSAT_8'):
                 variables = ['band_2', 'band_3', 'band_4', 'band_5', 'band_6', 'band_8']
 
-            nbar_tile = dc.get_data_array_by_cell(variables=variables, set_nan=True, **nbar_tile_query)
+            nbar_tile = self.dao.get_data_array_by_cell(variables=variables, set_nan=True, **nbar_tile_query)
 
             no_data_tile = (~xr.ufuncs.isfinite(nbar_tile)).any(dim='variable')
 
             pq_tile_query, pq_tile_info = tileset['pqa']
-            pq_tile = dc.get_dataset_by_cell(**pq_tile_query)
+            pq_tile = self.dao.get_dataset_by_cell(**pq_tile_query)
 
             print "{:%c}\tnbar shape: {}\tpq shape: {}".format(to_datetime(time), nbar_tile.shape,
                                                                pq_tile['pixelquality'].shape)
@@ -119,4 +118,4 @@ if __name__ == "__main__":
 
     dcdao=DatcubeDao()
 
-    dcdao.get_data_of_cell((15,-40))
+    dcdao.get_data_of_cell([(15,-40)])
