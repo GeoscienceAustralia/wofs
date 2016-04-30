@@ -80,14 +80,14 @@ class DatcubeDao():
 
             tileset = stack[time]
 
+            print "Cell {} at time [{:%Y-%m-%d}] has {} tiles: ".format(acell, to_datetime(time), len(tileset))
+            for product, tile in tileset.items():
+                print product, tile
+
             if 'nbar' in tileset and 'pqa' in tileset:
                 print ("This cell has both nbar and pq data at time %s" % str(time))
             else:
                 print "not a good time-sliced tile - we have missing data!"
-
-                print "Cell {} at time [{:%Y-%m-%d}] has {} tiles: ".format(acell, to_datetime(time), len(tileset))
-                for product, tile in tileset.items():
-                    print product, tile
 
             nbar_tile_query, nbar_tile_info = tileset['nbar']
             # This will get replaced by the semantic layer
@@ -107,7 +107,7 @@ class DatcubeDao():
             print "{:%c}\tnbar shape: {}\tpq shape: {}".format(to_datetime(time), nbar_tile.shape,
                                                                pq_tile['pixelquality'].shape)
 
-            break  # Just do the first one as a test...
+            #break  # Just do the first one as a test...
 
             # pic = nbar_tile[0].plot()  # 0= blue band
 
