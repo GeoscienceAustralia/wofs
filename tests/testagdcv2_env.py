@@ -63,16 +63,16 @@ class DatcubeDao():
 
         return tile_store
 
-######################################################
-    def get_data_of_cell(self, acell):
+    ######################################################
+    def get_data_of_cell(self, cells):
         """
-        :param acell: = [(-15, -40)]
+        :param cells: = [(-15, -40)]
         :return:
         """
 
-        cells = acell
         tile_store = self.get_tile_store(cells)
 
+        acell = cells[0]
         stack = tile_store[acell]
 
         for time in sorted(stack):
@@ -84,7 +84,6 @@ class DatcubeDao():
                 print ("This cell has both nbar and pq data at time %s" % str(time))
             else:
                 print "not a good time-sliced tile - we have missing data!"
-
 
                 print "Cell {} at time [{:%Y-%m-%d}] has {} tiles: ".format(acell, to_datetime(time), len(tileset))
                 for product, tile in tileset.items():
@@ -110,12 +109,11 @@ class DatcubeDao():
 
             break  # Just do the first one as a test...
 
-    #pic = nbar_tile[0].plot()  # 0= blue band
+            # pic = nbar_tile[0].plot()  # 0= blue band
 
 
 ##############################################################################
 if __name__ == "__main__":
+    dcdao = DatcubeDao()
 
-    dcdao=DatcubeDao()
-
-    dcdao.get_data_of_cell([(15,-40)])
+    dcdao.get_data_of_cell([(15, -40)])
