@@ -25,6 +25,8 @@ def test0():
 
 def test1():
     """from Geographic (long, lat) to Aussie Albers Conic"""
+
+    print "test1() begins:"
     inProj = Proj(init='epsg:4326')
 
     # GA water pond
@@ -46,7 +48,7 @@ def test1():
 def test2():
     """from Albers to Geographic"""
 
-    print __doc__
+    print "test2() begins:"
 
     inProj = Proj(init='epsg:3577')
     x1, y1 = 1500000, -4000000  # agdc-v2 tile_index=(15,-40), appear to be low left corner
@@ -78,9 +80,48 @@ def gdalogr_way():
     point = ogr.CreateGeometryFromWkt("POINT (1500000.00, -4000000.00)")
     point.Transform(transform)
 
-    print point.ExportToWkt()
+    print point.GetX(), point.GetY()
+
+    #print point.ExportToWkt()
+
+
+def gdalbind():
+    """works OK"""
+
+    import ogr, osr,os
+    os.environ['GDAL_DATA']='/Softdata/anaconda250/share/gdal/'
+
+    pointX = -11705274.6374
+    pointY = 4826473.6922
+
+    pointX, pointY = 1500000, -4000000
+
+    # Spatial Reference System
+    inputEPSG = 3577 #3857
+    outputEPSG = 4326
+
+    # create a geometry from coordinates
+    point = ogr.Geometry(ogr.wkbPoint)
+    point.AddPoint(pointX, pointY)
+
+    # create coordinate transformation
+    inSpatialRef = osr.SpatialReference()
+    inSpatialRef.ImportFromEPSG(inputEPSG)
+
+    outSpatialRef = osr.SpatialReference()
+    outSpatialRef.ImportFromEPSG(outputEPSG)
+
+    coordTransform = osr.CoordinateTransformation(inSpatialRef, outSpatialRef)
+
+    # transform point
+    point.Transform(coordTransform)
+
+    # print point in EPSG 4326
+    print point.GetX(), point.GetY()
 #####################################################
 if __name__ == "__main__":
+
+    print "main() begins....... "
     pnts1 = test1()
 
     pnts2 = test2()
@@ -88,8 +129,13 @@ if __name__ == "__main__":
     long_diff = (pnts1[1][0] - pnts2[0][0]) / 25
     lat_diff = (pnts1[1][1] - pnts2[0][1]) / 25
 
-    print "long lat index for the GA pond:"
-    print long_diff, lat_diff
+    print "##########################"
+    print "the GA pond (long,lat) index in the raster"
+    print (long_diff, lat_diff)
 
 
-    gdalogr_way()
+    print "##########################"
+    #gdalogr_way() #does not work   ERROR 5: OGR Error: Corrupt data
+
+    print "##########################"
+    gdalbind()
