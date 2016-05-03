@@ -23,15 +23,17 @@ def test0():
     print x2, y2
 
 
-def test1():
-    """from Geographic (long, lat) to Aussie Albers Conic"""
-
-    print "test1() begins:"
-    inProj = Proj(init='epsg:4326')
-
-    # GA water pond
+def transform4326_to_3577(x1 = 149.16032, y1 = -35.34236):
+    """from Geographic (long, lat) to Aussie Albers Conic
+    Default input point: GA water pond
     x1 = 149.16032  # long
     y1 = -35.34236  # lat
+    """
+
+    print "transform4326_to_3577(): begins:"
+    inProj = Proj(init='epsg:4326')
+
+
 
     outProj = Proj(init='epsg:3577')
     # x1,y1 = 1500000,-4000000
@@ -45,13 +47,15 @@ def test1():
     return [(x1, y1), (x2, y2)]
 
 
-def test2():
-    """from Albers to Geographic"""
+def transform3577_to_4326(x1 = 1500000, y1 = -4000000):
+    """from Albers to Geographic
+     x1, y1 = 1500000, -4000000  # agdc-v2 tile_index=(15,-40), appear to be low left corner
+    """
 
-    print "test2() begins:"
+    print "transform3577_to_4326() begins:"
 
     inProj = Proj(init='epsg:3577')
-    x1, y1 = 1500000, -4000000  # agdc-v2 tile_index=(15,-40), appear to be low left corner
+
 
     outProj = Proj(init='epsg:4326')
     x2, y2 = transform(inProj, outProj, x1, y1)
@@ -86,15 +90,42 @@ def gdalogr_way():
 
 
 def gdalbind():
-    """works OK"""
+    """works OK: https://epsg.io/3577
+    PROJCS["GDA94 / Australian Albers",
+    GEOGCS["GDA94",
+        DATUM["Geocentric_Datum_of_Australia_1994",
+            SPHEROID["GRS 1980",6378137,298.257222101,
+                AUTHORITY["EPSG","7019"]],
+            TOWGS84[0,0,0,0,0,0,0],
+            AUTHORITY["EPSG","6283"]],
+        PRIMEM["Greenwich",0,
+            AUTHORITY["EPSG","8901"]],
+        UNIT["degree",0.0174532925199433,
+            AUTHORITY["EPSG","9122"]],
+        AUTHORITY["EPSG","4283"]],
+    PROJECTION["Albers_Conic_Equal_Area"],
+    PARAMETER["standard_parallel_1",-18],
+    PARAMETER["standard_parallel_2",-36],
+    PARAMETER["latitude_of_center",0],
+    PARAMETER["longitude_of_center",132],
+    PARAMETER["false_easting",0],
+    PARAMETER["false_northing",0],
+    UNIT["metre",1,
+        AUTHORITY["EPSG","9001"]],
+    AXIS["Easting",EAST],
+    AXIS["Northing",NORTH],
+    AUTHORITY["EPSG","3577"]]
+    """
 
     import ogr, osr,os
-    os.environ['GDAL_DATA']='/Softdata/anaconda250/share/gdal/'
+    #define if ERROR 4: Unable to open EPSG support file gcs.csv.
+    #Try setting the GDAL_DATA environment variable to
+    #  os.environ['GDAL_DATA']='/Softdata/anaconda250/share/gdal/'
 
     pointX = -11705274.6374
     pointY = 4826473.6922
 
-    pointX, pointY = 1500000, -4000000
+    pointX, pointY = 0, 0 # 1500000, -4000000
 
     # Spatial Reference System
     inputEPSG = 3577 #3857
@@ -122,11 +153,11 @@ def gdalbind():
 if __name__ == "__main__":
 
     print "main() begins....... "
-    pnts1 = test1()
+    pnts1 = transform4326_to_3577()
 
-    pnts2 = test2()
+    pnts2 = transform3577_to_4326()
 
-    long_diff = (pnts1[1][0] - pnts2[0][0]) / 25
+    long_diff = (pnts1[1][0] - pnts2[0][0]) / 25  # 25m grid size
     lat_diff = (pnts1[1][1] - pnts2[0][1]) / 25
 
     print "##########################"
@@ -139,3 +170,7 @@ if __name__ == "__main__":
 
     print "##########################"
     gdalbind()
+
+    print"Lake Berly-Griffin At long: 149.13356, lat: -35.29351 WOfS 99.5%"
+
+    transform4326_to_3577(149.13356,-35.29351 )

@@ -88,3 +88,8 @@ log/*
 *.tar.gz
 *.zip
 
+# private, local files
+Zlocal*
+private*
+scratch/*
+

@@ -92,7 +92,7 @@ if __name__ == '__main__':
     for im in images:
         water_classified_img = classifier.classify(im)
 
-        print ("Verific the water classified image ")
+        print ("Verify the water classified image ")
 
         #verify that classified image is a 2D (4000X4000) 1 band image with possible values 0, 128, or -999?
         print water_classified_img.shape
@@ -113,7 +113,7 @@ if __name__ == '__main__':
 
         print stats.describe(wimg1d)
 
-    #  save the image to a file
+    #  save the image to a file: numpy data
     # https://www.google.com.au/webhp?sourceid=chrome-instant&ion=1&espv=2&ie=UTF-8#q=write%20numpy%20ndarray%20to%20file
 
         outfilename="waterextent%s.npy"%(icounter)
