@@ -30,6 +30,7 @@ import yaml
 import logging
 
 from string import Template
+#https://www.python.org/dev/peps/pep-0292/
 from ConfigParser import ConfigParser
 from StringIO import StringIO
 
@@ -44,6 +45,7 @@ def mkdir_if_not_exists(path):
 logging.basicConfig()
 _logger = logging.getLogger(__file__)  # (__name__) ()is root
 _logger.setLevel(logging.INFO)
+_logger.setLevel(logging.DEBUG)
 
 
 class WofsSetup:
@@ -129,20 +131,24 @@ class WofsSetup:
         # read the template
 
         with open(template_path) as infile:
-            template = Template(infile.read())  # sys lib
+            template = Template(infile.read())  # https://docs.python.org/2/library/string.html
 
         # # base_dir must exist
         # if not os.path.exists(base_dir):
         #     raise Exception("Base directory %s does not exist" % base_dir)
 
-        # get config content from template
-
+        # get config_content from the template substituted with user's input dict.
         config_content = template.substitute(inputdict)
 
         # parse the config to get details
 
-        config = ConfigParser()
+        config = ConfigParser()  # https://docs.python.org/2/library/configparser.html
         config.readfp(StringIO(config_content))
+
+        _logger.debug(config.get('wofs','extents_dir'))
+        _logger.debug(config.get('wofs','sia_dir'))
+        _logger.debug(config.get('wofs','tsm_dir'))
+
 
         # create the working directory
         work_path = config.get('wofs', 'working_dir')
@@ -154,9 +160,13 @@ class WofsSetup:
 
         # write the config file
 
-        to_path = "%s/client.cfg" % (work_path,)
+        to_path = "%s/client.cfg" % (work_path)
         with open(to_path, "w") as outfile:
             outfile.write(config_content)
+
+        debug_simple_conf=os.path.join(work_path,'simplified_client.cfg')
+        with open(debug_simple_conf, 'wb') as configfile:
+            config.write(configfile)
 
         template_log_cfg = "%s/logging.cfg" % os.path.dirname(script_path)
         if not os.path.exists(template_log_cfg):
