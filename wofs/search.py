@@ -1,5 +1,5 @@
 """
-search datacube for relevant data resourcez: NBAR + PQ + extent, etc
+search datacube for relevant data resources: NBAR + PQ + extent, etc
 """
 
 import click

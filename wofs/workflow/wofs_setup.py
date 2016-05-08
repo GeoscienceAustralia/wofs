@@ -1,126 +1,194 @@
 #!/bin/env python
 """
-Prepare for WOfS processing by creating a working directory and copying
-key files to it.
+Purpose:    Create a working directory and set up configuration files for the WOfS system to use in processing.
 
-Usage:
+Input:      User input path2wofs.yml
+Output:     A Working dir and client.cfg logging.cfg
+Assumption: A default template_client.cfg file exists as a sibling file to this script.
+            Savy user or Developer can override this file by supplying a similar-formatted template config file in the commandline
 
-```
-module load wofs
-wofs_setup.py --base_dir PATH --run_id RUN_ID --run_desc "a description"
-```
-where:
-   
-# ``base_path`` must exist and
-# ``run_id`` is any string which is a valid component of a directory name
-# ``run_desc`` is description of the WOfS run
+Usage:      python wofs_setup.py path2wofs.yml [optional_byo_template_client.cfg]
 
-The program will read the file ``template_client.cfg`` which is expected to be
-a sibling file to this script. It will then:
+Process Details:
+    The program will read the file wofs_input.yml and ``template_client.cfg`` which
+    * read the template contents
+    * substitute the base_dir, run_id, etc variables to create a final content of ``client.cfg``
+    * create the working directory for this WOfS run
+    * write the client.cfg file to the working directory
+    * copy in the ``logging.cfg`` file to the working directory
 
-* read the template contents
-* substitute the ``base_dir``, ``run_id`` and ``run_desc`` variable to create a
-final content of ``client.cfg``
-* create the working directory for this WOfS run (the path is determined from
-the the config resulting from the previous step)
-* write the ``client.cfg`` file to the working directory
-* copy in the ``logging.cfg`` file to the working directory
-
-This ``client.cfg`` file supplies important paramaters that controle the WOfS run. 
-The file may be edited before continuing with the WOfS run.
+    This client.cfg file supplies important parameters that control the WOfS run by Luigi
+    http://luigi.readthedocs.io/en/stable/configuration.html
+    The file may be edited before further processing with the WOfS.
 """
 
 import os
 import sys
-from os.path import join as pjoin, dirname, exists
-import argparse
+import shutil
+from datetime import datetime
+import yaml
 import logging
-#no need to couple with wofs to die!from wofs import die
-# from wofs.utils import die  # a utils function
+
 from string import Template
 from ConfigParser import ConfigParser
 from StringIO import StringIO
 
-def die(msg):
-    """ Correct UNIX behavour for a dying process
-    """
-    sys.stderr.write(msg + "\n")
-    sys.exit(1)
-
-def parse_args():
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument('--base_dir', \
-        help='The directory in which to create the WOfS working directory', \
-        default='/g/data/u46/wofs')
-    parser.add_argument('--run_id', help='unique id for the WOfS run', required=True)
-    parser.add_argument('--run_desc', help='description of this WOfS run', \
-        default="Insert run description here")
-    return parser.parse_args()
 
 def mkdir_if_not_exists(path):
-    if not exists(path):
+    if not os.path.exists(path):
         os.makedirs(path)
+    else:
+        pass
 
-if __name__ == '__main__':
 
-    # check that there is a "template_client.cfg" sibling of this script file
+logging.basicConfig()
+_logger = logging.getLogger(__file__)  # (__name__) ()is root
+_logger.setLevel(logging.INFO)
 
-    script_path = os.path.abspath(__file__)
 
-    # bad Assumption: template_client.cfg in the same dir as this script.
-    template_path = "%s/template_client.cfg" % os.path.dirname(script_path)
-    if not exists(template_path):
-        die("Template %s not found" % template_path)
+class WofsSetup:
+    """
+    WOfS process initialization setup
+    """
 
-    # read the template
-    
-    with open(template_path) as infile:
-        template = Template(infile.read())
+    def __init__(self, path2yamlfile):
 
-    # base_dir must exist
+        self.yamlfile = path2yamlfile
 
-    args = parse_args() 
-    run_id = args.run_id
-    run_desc = args.run_desc
-    base_dir = args.base_dir
-    if not os.path.exists(base_dir):
-        die("Base directory %s does not exist" % base_dir)
-   
-    # get config content from template
+        return
 
-    config_content = template.substitute(args.__dict__)
+    def write2file(self, configdict, outfile):
+        # configdict = {'key1': 'value1', 'key2': 'value2'} nested
 
-    # parse the config to get details
+        with open(outfile, 'w') as f:
+            yaml.dump(configdict, f, default_flow_style=False)
 
-    config = ConfigParser()
-    config.readfp(StringIO(config_content)) 
+    def loadyaml(self):
+        """
+        Read data from an input yaml file, which contains wofs run parameters
+        :return: a dictionary representation of the yaml file
+        """
 
-    # create the working directory
+        with open(self.yamlfile, 'r') as f:
+            indict = yaml.safe_load(f)
 
-    log_cfg_path = config.get('core', 'logging_conf_file')
-    work_path = config.get('wofs', 'working_dir')
-    if exists(work_path):
-        die("Error: the directory %s exists already! Remove the dir OR change your run_id, and re-run this init script." % (work_path, ))
+        # now we got a dictionary: config
+        _logger.debug(indict.get('run_id'))
 
-    os.mkdir(work_path)
+        _logger.debug(yaml.dump(indict, None, default_flow_style=False))  # onto screen
 
-    # write the config file
-        
-    to_path = "%s/client.cfg" % (work_path, )
-    with open(to_path, "w") as outfile:
-        outfile.write(config_content)
+        return indict
 
-    # copy the logging.cfg if it doesn't exist
+    def generate_runid(self):
+        """
+        generate a run_id
+        :return:
+        """
 
-    if not exists(log_cfg_path):
-        template_path = "%s/logging.cfg" % os.path.dirname(script_path)
-        if not exists(template_path):
-            die("%s not found" % template_path)
-        with open(template_path,'r') as infile:
-            with open(log_cfg_path,'w') as outfile:
-                outfile.write(infile.read())
+        runuser = os.environ['USER']  # _datetime stamp
+        dtstamp = datetime.today().isoformat()[:19].replace(':', '-')
 
-    # all done
+        runid = "%s_%s" % (runuser, dtstamp)
+        _logger.debug(runid)
 
-    print ("WOFS initialisation is completed. Please check and tune %s/client.cfg before running workflow further"%(work_path) )
+        return runid
+
+    def main(self, template_conf_file=None):
+        """ main method to do the setup for a wofs run.
+
+        :param template_conf_file: path to an template configuration file for WofS process.
+        If none, will try to find "template_client.cfg" as a sibling file of this script file.
+        The client.cfg file will be generated and written into working dir.
+
+        :return: path2workingdir
+        """
+
+        # read in the user input parameter from a yaml file, store as a dict:
+        inputdict = self.loadyaml()
+
+        # Sanity-check the user inputs and massage them for subsequent use.
+        run_id = inputdict.get('run_id')
+        if run_id is None:
+            # generate run_id
+            inputdict['run_id'] = self.generate_runid()
+
+        #If needed, redefine the start_datetime to: 2016-01-01T00:00:00Z
+
+        # system-defined template conf file
+        if (template_conf_file is None):
+
+            # default to a "template_client.cfg" as sibling of this script file
+            script_path = os.path.abspath(__file__)
+            template_path = "%s/template_client.cfg" % os.path.dirname(script_path)
+        else:
+            template_path = template_conf_file
+
+        if not os.path.exists(template_path):
+            raise Exception("Template file %s not found" % template_path)
+
+        # read the template
+
+        with open(template_path) as infile:
+            template = Template(infile.read())  # sys lib
+
+        # # base_dir must exist
+        # if not os.path.exists(base_dir):
+        #     raise Exception("Base directory %s does not exist" % base_dir)
+
+        # get config content from template
+
+        config_content = template.substitute(inputdict)
+
+        # parse the config to get details
+
+        config = ConfigParser()
+        config.readfp(StringIO(config_content))
+
+        # create the working directory
+        work_path = config.get('wofs', 'working_dir')
+        if os.path.exists(work_path):
+            raise Exception(
+                "Error: Directory %s already exists. Please remove it or change your run_id." % (work_path,))
+
+        os.mkdir(work_path)
+
+        # write the config file
+
+        to_path = "%s/client.cfg" % (work_path,)
+        with open(to_path, "w") as outfile:
+            outfile.write(config_content)
+
+        template_log_cfg = "%s/logging.cfg" % os.path.dirname(script_path)
+        if not os.path.exists(template_log_cfg):
+            raise Exception("logging conf file %s not found" % template_log_cfg)
+
+        # copy the logging.cfg into work dir
+        work_log_cfg = os.path.join(work_path, 'logging.cfg')
+
+        shutil.copy2(template_log_cfg, work_log_cfg)
+
+        _logger.info("WOfS working dir has been created. Please check: \n %s " % (work_path))
+
+        _logger.info(os.listdir(work_path))
+
+        return work_path
+
+
+#############################################################################
+#
+# Uasge:  python wofs_setup.py wofs_input.yml [path2/template_client.cfg]
+#
+#############################################################################
+if __name__ == "__main__":
+
+    template_client = None
+    if len(sys.argv) < 2:
+        print "Usage: %s %s %s" % (sys.argv[0], "path2/wofs_input.yml", "[path2/template_client.cfg]")
+        sys.exit(1)
+    elif len(sys.argv) == 3:
+        template_client = sys.argv[2]
+
+    wofsObj = WofsSetup(sys.argv[1])
+
+    workdir = wofsObj.main(template_client)
+
