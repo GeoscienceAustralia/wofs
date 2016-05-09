@@ -1,6 +1,6 @@
 #################################################
 # Usage:
-#   export PYTHONPATH=/g/data/u46/fxz547/Githubz/agdc-v2
+#   export PYTHONPATH=.:/g/data/u46/fxz547/Githubz/agdc-v2
 #   python tests/testagdcv2_env.py
 #################################################
 
@@ -70,31 +70,31 @@ class DatcubeDao():
         return tile_store
 
     ######################################################
-    def get_data_of_cell(self, cells):
+    def get_nbarpq_data_by_cell_index(self, cellindex):
         """
-        :param cells: = [(-15, -40)]
-        :return: list of tiles
+        :param cellindex: = (15, -40)
+        :return: list of tiles-pairs [(nbar,pq), ]
         """
+
         tiledatas = []
 
-        tile_store = self.get_tile_store(cells)
+        tile_store = self.get_tile_store([].append(cellindex))
 
-        acell = cells[0]
-        stack = tile_store[acell]
+        stack = tile_store[cellindex]
 
         for time in sorted(stack):
             print ("time=", time)
 
             tileset = stack[time]
 
-            print "Cell {} at time [{:%Y-%m-%d}] has {} tiles: ".format(acell, to_datetime(time), len(tileset))
+            print "Cell {} at time [{:%Y-%m-%d}] has {} tiles: ".format(cellindex, to_datetime(time), len(tileset))
             for product, tile in tileset.items():
                 print product, tile
 
             if 'nbar' in tileset and 'pqa' in tileset:
                 print ("This cell has both nbar and pq data at time %s" % str(time))
             else:
-                print "not a good time-sliced tile - we have missing data!"
+                print "not a good tile -  missing data!"
 
             nbar_tile_query, nbar_tile_info = tileset['nbar']
             # This will get replaced by the semantic layer
@@ -146,16 +146,21 @@ def comput_img_stats(waterimg):
     print stats.describe(wimg1d)
 
 
-def write_img(waterimg,path2file):
+def write_img(waterimg, geometa, path2file):
     """
-    How to write output the numpy array waterimg into a netcdf file?
+     write output the numpy array waterimg into a netcdf file?
     :param waterimg:
+    :param geometa:
+
     :param path2file:
     :return:
     """
+    xrarr=xr.DataArray(water_classified_img,name=geometa["name"])
 
-    xrds=xr.Dataset(waterimg)
+    xrds=xrarr.to_dataset()
     xrds.to_netcdf(path2file)
+
+    return path2file
 
 
 ##############################################################################
@@ -165,13 +170,14 @@ if __name__ == "__main__":
 
     dcdao = DatcubeDao()
 
-    tile_dat = dcdao.get_data_of_cell([(15, -40)])
+    cellindex=(15, -40)
+    tile_dat = dcdao.get_nbarpq_data_by_cell_index(cellindex)
 
     classifier = WaterClassifier()
 
     icounter = 0
-    #for (t, nbar, pq) in tile_dat:
-    for (t, nbar, pq) in tile_dat[:3]: #do the first few tiles of the list
+    for (t, nbar, pq) in tile_dat:
+    #for (t, nbar, pq) in tile_dat[:3]: #do the first few tiles of the list
         print (t, nbar.shape, pq.shape)
         # print type(nbar), type(pq)
 
@@ -200,9 +206,11 @@ if __name__ == "__main__":
         # https://www.google.com.au/webhp?sourceid=chrome-instant&ion=1&espv=2&ie=UTF-8#q=write%20numpy%20ndarray%20to%20file
 
         outfilename = "waterextent%s.nc" % (icounter)
-        path2outf = os.path.join("/g/data1/u46/fxz547/wofs2/", outfilename)
+        path2outf = os.path.join("/g/data1/u46/fxz547/wofs2/extents", outfilename)
         #water_classified_img.tofile(path2outf) #raw data numpy file
-        write_img(water_classified_img, path2outf)
+
+        geometadat={"name":"waterextent", "ablersgrid_cellindex": cellindex}
+        write_img(water_classified_img, geometadat, path2outf)
         icounter += 1
 
 

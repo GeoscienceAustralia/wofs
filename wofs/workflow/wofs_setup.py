@@ -114,7 +114,7 @@ class WofsSetup:
             # generate run_id
             inputdict['run_id'] = self.generate_runid()
 
-        #If needed, redefine the start_datetime to: 2016-01-01T00:00:00Z
+        #If needed, redefine the start_datetime like: 2016-01-01T00:00:00Z
 
         # system-defined template conf file
         if (template_conf_file is None):
@@ -156,26 +156,29 @@ class WofsSetup:
             raise Exception(
                 "Error: Directory %s already exists. Please remove it or change your run_id." % (work_path,))
 
+        #  Create a workdir for this wofs run
         os.mkdir(work_path)
 
-        # write the config file
-
-        to_path = "%s/client.cfg" % (work_path)
-        with open(to_path, "w") as outfile:
-            outfile.write(config_content)
-
-        debug_simple_conf=os.path.join(work_path,'simplified_client.cfg')
-        with open(debug_simple_conf, 'wb') as configfile:
-            config.write(configfile)
-
+        #copy the logging.cfg into workdir, will be used by Luigi.
         template_log_cfg = "%s/logging.cfg" % os.path.dirname(script_path)
         if not os.path.exists(template_log_cfg):
             raise Exception("logging conf file %s not found" % template_log_cfg)
 
         # copy the logging.cfg into work dir
         work_log_cfg = os.path.join(work_path, 'logging.cfg')
-
         shutil.copy2(template_log_cfg, work_log_cfg)
+
+        #set the [core] logging_conf_file parameter correctly, and write the config file
+        config.set('core','logging_conf_file', work_log_cfg )
+
+        simple_client_conf=os.path.join(work_path,'client.cfg')
+        with open(simple_client_conf, 'wb') as configfile:
+            config.write(configfile)
+
+        # This should be for debug purpose only. Contains a lot of comments in the output file.
+        to_path = "%s/debug_client.cfg" % (work_path)
+        with open(to_path, "w") as outfile:
+            outfile.write(config_content)
 
         _logger.info("WOfS working dir has been created. Please check: \n %s " % (work_path))
 

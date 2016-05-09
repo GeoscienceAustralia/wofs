@@ -4,17 +4,18 @@
 #run_id: wofs_fzhang_2016-05-08T13-48-12
 
 # This is the root dir containing extents, sias, shadows, bordered_elev. workingdirs
-base_dir:  /Softdata/WOFSProc
+#base_dir:  /Softdata/WOFSProc
+base_dir:  /g/data/u46/fxz547/wofs2
 
 # Spatial and Temporal Coverage:
-lat_max_deg: -35
 lat_min_deg: -36
-lon_max_deg: 155
+lat_max_deg: -35
 lon_min_deg: 149
+lon_max_deg: 155
 
 start_datetime: 2000-01-01
 end_datetime:   2016-03-31
-satellites: LS5,LS7,LS8,LANDSAT_9
+satellites: LS5,LS7,LS8
 
 testDateTimeParser:  2016-01-01T00:00:00Z
 testDateTimeParser2: !!str "2016-03-31T23:59:59Z"
