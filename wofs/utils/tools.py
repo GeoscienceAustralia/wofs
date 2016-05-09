@@ -8,7 +8,7 @@ import dateutil.parser
 import argparse
 import luigi
 import logging
-from datacube.api.model import Cell
+#from datacube.api.model import Cell
 import shutil
 import numpy as np
 

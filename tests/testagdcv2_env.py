@@ -39,6 +39,11 @@ class DatcubeDao():
         return
 
     def get_tile_store(self, cells):
+        """
+        return a dictionary of tiles
+        :param cells:
+        :return:
+        """
 
         # eg, cells = [(15, -40)]  #cover Canberra
 
