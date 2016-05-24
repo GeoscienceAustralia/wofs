@@ -30,7 +30,7 @@ import yaml
 import logging
 
 from string import Template
-#https://www.python.org/dev/peps/pep-0292/
+# https://www.python.org/dev/peps/pep-0292/
 from ConfigParser import ConfigParser
 from StringIO import StringIO
 
@@ -114,7 +114,7 @@ class WofsSetup:
             # generate run_id
             inputdict['run_id'] = self.generate_runid()
 
-        #If needed, redefine the start_datetime like: 2016-01-01T00:00:00Z
+        # If needed, redefine the start_datetime like: 2016-01-01T00:00:00Z
 
         # system-defined template conf file
         if (template_conf_file is None):
@@ -145,10 +145,9 @@ class WofsSetup:
         config = ConfigParser()  # https://docs.python.org/2/library/configparser.html
         config.readfp(StringIO(config_content))
 
-        _logger.debug(config.get('wofs','extents_dir'))
-        _logger.debug(config.get('wofs','sia_dir'))
-        _logger.debug(config.get('wofs','tsm_dir'))
-
+        _logger.debug(config.get('wofs', 'extents_dir'))
+        _logger.debug(config.get('wofs', 'sia_dir'))
+        _logger.debug(config.get('wofs', 'tsm_dir'))
 
         # create the working directory
         work_path = config.get('wofs', 'working_dir')
@@ -156,10 +155,10 @@ class WofsSetup:
             raise Exception(
                 "Error: Directory %s already exists. Please remove it or change your run_id." % (work_path,))
 
-        #  Create a workdir for this wofs run
+        # Create a workdir for this wofs run
         os.mkdir(work_path)
 
-        #copy the logging.cfg into workdir, will be used by Luigi.
+        # copy the logging.cfg into workdir, will be used by Luigi.
         template_log_cfg = "%s/logging.cfg" % os.path.dirname(script_path)
         if not os.path.exists(template_log_cfg):
             raise Exception("logging conf file %s not found" % template_log_cfg)
@@ -168,10 +167,10 @@ class WofsSetup:
         work_log_cfg = os.path.join(work_path, 'logging.cfg')
         shutil.copy2(template_log_cfg, work_log_cfg)
 
-        #set the [core] logging_conf_file parameter correctly, and write the config file
-        config.set('core','logging_conf_file', work_log_cfg )
+        # set the [core] logging_conf_file parameter correctly, and write the config file
+        config.set('core', 'logging_conf_file', work_log_cfg)
 
-        simple_client_conf=os.path.join(work_path,'client.cfg')
+        simple_client_conf = os.path.join(work_path, 'client.cfg')
         with open(simple_client_conf, 'wb') as configfile:
             config.write(configfile)
 
@@ -198,10 +197,16 @@ if __name__ == "__main__":
     if len(sys.argv) < 2:
         print "Usage: %s %s %s" % (sys.argv[0], "path2/wofs_input.yml", "[path2/template_client.cfg]")
         sys.exit(1)
+
     elif len(sys.argv) == 3:
         template_client = sys.argv[2]
 
-    wofsObj = WofsSetup(sys.argv[1])
+    config_infile = sys.argv[1]
+
+    if not os.path.exists(config_infile):
+        print ("Error: the input config file %s does not exist"% config_infile)
+        sys.exit(2)
+
+    wofsObj = WofsSetup(config_infile)
 
     workdir = wofsObj.main(template_client)
-

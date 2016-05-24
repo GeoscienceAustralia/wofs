@@ -1,9 +1,11 @@
 """
 http://click.pocoo.org/5/commands/
 """
+import os
 import click
 import sys
 from workflow.wofs_setup import WofsSetup
+from workflow.wofs_query import WofsQuery
 
 @click.group()
 @click.option('--debug/--no-debug', default=False)
@@ -22,7 +24,13 @@ def setup(infile, template_conf):
 
     wofs=WofsSetup(infile )
 
-    wofs.main()
+    workdir=wofs.main()
+
+    clientconf=os.path.join(workdir,"client.cfg")
+
+    queryObj=WofsQuery(clientconf)
+
+    queryObj.main()
 
 ###################################
 @cli.command()
@@ -42,6 +50,7 @@ def sum():
 
 
 #######################################################################
+# export PYTHONPATH=/g/data/u46/fxz547/Githubz/wofs:/g/data/u46/fxz547/Githubz/agdc-v2
 # python main.py setup --infile ./workflow/wofs_input.yml
 #######################################################################
 if __name__== "__main__":

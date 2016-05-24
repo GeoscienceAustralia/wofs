@@ -8,10 +8,10 @@
 base_dir:  /g/data/u46/fxz547/wofs2
 
 # Spatial and Temporal Coverage:
-lat_min_deg: -36
-lat_max_deg: -35
-lon_min_deg: 149.0
-lon_max_deg: 150.0
+lat_min_deg: -36.0
+lat_max_deg: -35.0
+lon_min_deg: 149.01
+lon_max_deg: 150.1
 
 start_datetime: 2000-01-01
 end_datetime:   2016-03-31
