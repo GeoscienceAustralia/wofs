@@ -165,8 +165,8 @@ class AgdcDao():
 
         return tile_store
 
-    ######################################################
-    def get_nbarpq_data_by_cell_index(self, cellindex):
+######################################################
+    def get_nbarpq_data_by_cell_index(self, cellindex, qdict):
         """
         :param cellindex: = (15, -40)
         :return: list of tiles-pairs [(nbar,pq), ]
@@ -178,7 +178,7 @@ class AgdcDao():
 
         tiledatas = []
 
-        tile_store = self.get_nbarpqa_tiles([cellindex])  # [].append(cellindex))
+        tile_store = self.get_nbarpqa_tiles([cellindex], qdict)  # [].append(cellindex))
 
         stack = tile_store[cellindex]
 
@@ -195,9 +195,8 @@ class AgdcDao():
 
                 logging.info("This cell has both nbar and pq data at time=%s" % str(time))
 
-                nbar_tile_query, nbar_tile_info = tileset['nbar']
+                nbar_tile_query, platform, path2file = tileset['nbar']
                 # This will get replaced by the semantic layer
-                platform = nbar_tile_info['metadata']['platform']['code']
                 if platform in ('LANDSAT_5', 'LANDSAT_7'):
                     variables = ['band_1', 'band_2', 'band_3', 'band_4', 'band_5', 'band_7']
                 elif platform in ('LANDSAT_8'):
@@ -206,7 +205,7 @@ class AgdcDao():
                 # nbar_tile = self.dao.get_data_array_by_cell(variables=variables, set_nan=True, **nbar_tile_query)
                 nbar_tile = self.dao.get_data_array_by_cell(variables=variables, set_nan=False, **nbar_tile_query)
 
-                pq_tile_query, pq_tile_info = tileset['pqa']
+                pq_tile_query,  platform, path2file = tileset['pqa']
                 pq_tile_ds = self.dao.get_dataset_by_cell(**pq_tile_query)
                 pq_tile = pq_tile_ds['pixelquality']
 
@@ -240,7 +239,7 @@ def comput_img_stats(waterimg):
 
     print nowater_pix, water_pix, nodata_pix, totatl_pix
 
-    wimg1d = water_classified_img.flat
+    wimg1d = waterimg.flat
 
     # for i in range(0, len(wimg1d)):
     #     if (wimg1d[i] != 0) and (wimg1d[i] != 128):
@@ -258,7 +257,7 @@ def write_img(waterimg, geometa, path2file):
     :param path2file:
     :return:
     """
-    xrarr = xr.DataArray(water_classified_img, name=geometa["name"])
+    xrarr = xr.DataArray(waterimg, name=geometa["name"])
 
     xrds = xrarr.to_dataset()
     xrds.to_netcdf(path2file)
@@ -268,105 +267,20 @@ def write_img(waterimg, geometa, path2file):
 
 ##############################################################################
 
-if __name__ == "__main__B":
-
-    dcdao = AgdcDao()
-
-    cellindex = (15, -40)
-
-    tile_dat = dcdao.get_nbarpq_data_by_cell_index(cellindex)
-
-    classifier = WaterClassifier()
-
-    icounter = 0
-    for (t, nbar,
-         pq) in tile_dat:  # acquisition_id,satellite,start_datetime,end_datetime,end_datetime_year,end_datetime_month,x_index,y_index,xy,datasets
-        # 309601,LS7,2014-07-04 00:30:53,2014-07-04 00:31:17,2014,7,138,-35,"(138,-35)","{{ARG25,/g/data/rs0/tiles/EPSG4326_1deg_0.00025pixel/LS7_ETM/138_-035/2014/LS7_ETM_NBAR_138_-035_2014-07-04T00-30-53.tif},{PQ25,/g/data/rs0/tiles/EPSG4326_1deg_0.00025pixel/LS7_ETM/138_-035/2014/LS7_ETM_PQA_138_-035_2014-07-04T00-30-53.tif}}"
-        # 309653,LS7,2014-07-20 00:30:55,2014-07-20 00:31:19,2014,7,138,-35,"(138,-35)","{{ARG25,/g/data/rs0/tiles/EPSG4326_1deg_0.00025pixel/LS7_ETM/138_-035/2014/LS7_ETM_NBAR_138_-035_2014-07-20T00-30-55.tif},{PQ25,/g/data/rs0/tiles/EPSG4326_1deg_0.00025pixel/LS7_ETM/138_-035/2014/LS7_ETM_PQA_138_-035_2014-07-20T00-30-55.tif}}"
-        # 309661,LS7,2014-07-27 00:36:45,2014-07-27 00:37:09,2014,7,138,-35,"(138,-35)","{{ARG25,/g/data/rs0/tiles/EPSG4326_1deg_0.00025pixel/LS7_ETM/138_-035/2014/mosaic_cache/LS7_ETM_NBAR_138_-035_2014-07-27T00-36-45.vrt},{PQ25,/g/data/rs0/tiles/EPSG4326_1deg_0.00025pixel/LS7_ETM/138_-035/2014/mosaic_cache/LS7_ETM_PQA_138_-035_2014-07-27T00-36-45.tif}}"
-        # 309705,LS7,2014-07-11 00:37:04,2014-07-11 00:37:28,2014,7,138,-35,"(138,-35)","{{ARG25,/g/data/rs0/tiles/EPSG4326_1deg_0.00025pixel/LS7_ETM/138_-035/2014/LS7_ETM_NBAR_138_-035_2014-07-11T00-37-04.tif},{PQ25,/g/data/rs0/tiles/EPSG4326_1deg_0.00025pixel/LS7_ETM/138_-035/2014/LS7_ETM_PQA_138_-035_2014-07-11T00-37-04.tif}}"
-
-        # for (t, nbar, pq) in tile_dat[:3]: #do the first few tiles of the list
-        print (t, nbar.shape, pq.shape)
-        # print type(nbar), type(pq)# acquisition_id,satellite,start_datetime,end_datetime,end_datetime_year,end_datetime_month,x_index,y_index,xy,datasets
-        # 309601,LS7,2014-07-04 00:30:53,2014-07-04 00:31:17,2014,7,138,-35,"(138,-35)","{{ARG25,/g/data/rs0/tiles/EPSG4326_1deg_0.00025pixel/LS7_ETM/138_-035/2014/LS7_ETM_NBAR_138_-035_2014-07-04T00-30-53.tif},{PQ25,/g/data/rs0/tiles/EPSG4326_1deg_0.00025pixel/LS7_ETM/138_-035/2014/LS7_ETM_PQA_138_-035_2014-07-04T00-30-53.tif}}"
-        # 309653,LS7,2014-07-20 00:30:55,2014-07-20 00:31:19,2014,7,138,-35,"(138,-35)","{{ARG25,/g/data/rs0/tiles/EPSG4326_1deg_0.00025pixel/LS7_ETM/138_-035/2014/LS7_ETM_NBAR_138_-035_2014-07-20T00-30-55.tif},{PQ25,/g/data/rs0/tiles/EPSG4326_1deg_0.00025pixel/LS7_ETM/138_-035/2014/LS7_ETM_PQA_138_-035_2014-07-20T00-30-55.tif}}"
-        # 309661,LS7,2014-07-27 00:36:45,2014-07-27 00:37:09,2014,7,138,-35,"(138,-35)","{{ARG25,/g/data/rs0/tiles/EPSG4326_1deg_0.00025pixel/LS7_ETM/138_-035/2014/mosaic_cache/LS7_ETM_NBAR_138_-035_2014-07-27T00-36-45.vrt},{PQ25,/g/data/rs0/tiles/EPSG4326_1deg_0.00025pixel/LS7_ETM/138_-035/2014/mosaic_cache/LS7_ETM_PQA_138_-035_2014-07-27T00-36-45.tif}}"
-        # 309705,LS7,2014-07-11 00:37:04,2014-07-11 00:37:28,2014,7,138,-35,"(138,-35)","{{ARG25,/g/data/rs0/tiles/EPSG4326_1deg_0.00025pixel/LS7_ETM/138_-035/2014/LS7_ETM_NBAR_138_-035_2014-07-11T00-37-04.tif},{PQ25,/g/data/rs0/tiles/EPSG4326_1deg_0.00025pixel/LS7_ETM/138_-035/2014/LS7_ETM_PQA_138_-035_2014-07-11T00-37-04.tif}}"
-
-
-        # (1138232422.2250061, (6, 4000, 4000), (4000, 4000))
-        # class 'xarray.core.dataarray.DataArray'># acquisition_id,satellite,start_datetime,end_datetime,end_datetime_year,end_datetime_month,x_index,y_index,xy,datasets
-        # 309601,LS7,2014-07-04 00:30:53,2014-07-04 00:31:17,2014,7,138,-35,"(138,-35)","{{ARG25,/g/data/rs0/tiles/EPSG4326_1deg_0.00025pixel/LS7_ETM/138_-035/2014/LS7_ETM_NBAR_138_-035_2014-07-04T00-30-53.tif},{PQ25,/g/data/rs0/tiles/EPSG4326_1deg_0.00025pixel/LS7_ETM/138_-035/2014/LS7_ETM_PQA_138_-035_2014-07-04T00-30-53.tif}}"
-        # 309653,LS7,2014-07-20 00:30:55,2014-07-20 00:31:19,2014,7,138,-35,"(138,-35)","{{ARG25,/g/data/rs0/tiles/EPSG4326_1deg_0.00025pixel/LS7_ETM/138_-035/2014/LS7_ETM_NBAR_138_-035_2014-07-20T00-30-55.tif},{PQ25,/g/data/rs0/tiles/EPSG4326_1deg_0.00025pixel/LS7_ETM/138_-035/2014/LS7_ETM_PQA_138_-035_2014-07-20T00-30-55.tif}}"
-        # 309661,LS7,2014-07-27 00:36:45,2014-07-27 00:37:09,2014,7,138,-35,"(138,-35)","{{ARG25,/g/data/rs0/tiles/EPSG4326_1deg_0.00025pixel/LS7_ETM/138_-035/2014/mosaic_cache/LS7_ETM_NBAR_138_-035_2014-07-27T00-36-45.vrt},{PQ25,/g/data/rs0/tiles/EPSG4326_1deg_0.00025pixel/LS7_ETM/138_-035/2014/mosaic_cache/LS7_ETM_PQA_138_-035_2014-07-27T00-36-45.tif}}"
-        # 309705,LS7,2014-07-11 00:37:04,2014-07-11 00:37:28,2014,7,138,-35,"(138,-35)","{{ARG25,/g/data/rs0/tiles/EPSG4326_1deg_0.00025pixel/LS7_ETM/138_-035/2014/LS7_ETM_NBAR_138_-035_2014-07-11T00-37-04.tif},{PQ25,/g/data/rs0/tiles/EPSG4326_1deg_0.00025pixel/LS7_ETM/138_-035/2014/LS7_ETM_PQA_138_-035_2014-07-11T00-37-04.tif}}"
-
-
-        # TODO: water classification using these xarray datas ++
-
-        water_classified_img = classifier.classify(nbar.values)
-
-        # 2 Nodata filter
-        nodata_val = nbar.attrs["_FillValue"]
-
-        print nodata_val
-
-        water_classified_img = filters.NoDataFilter().apply(water_classified_img, nbar.values, nodata_val)
-
-        print ("Verify the water classified image ")
-
-        # verify that classified image is a 2D (4000X4000) 1 band image with values in defined domain {0,1,..., 128, }
-
-        comput_img_stats(water_classified_img)
-
-        #  save the image to a file: numpy data
-        # https://www.google.com.au/webhp?sourceid=chrome-instant&ion=1&espv=2&ie=UTF-8#q=write%20numpy%20ndarray%20to%20file
-
-        outfilename = "waterextent%s.nc" % (icounter)
-        path2outf = os.path.join("/g/data1/u46/fxz547/wofs2/extents", outfilename)
-        # water_classified_img.tofile(path2outf) #raw data numpy file
-
-        geometadat = {"name": "waterextent", "ablersgrid_cellindex": cellindex}
-        write_img(water_classified_img, geometadat, path2outf)
-        icounter += 1
-
-
-        #     no_data_img = (~xr.ufuncs.isfinite(nbar)).any(dim='variable')
-        #
-        # print "no_data_img type: " + str(type(no_data_img))
-        #
-        # import matplotlib.pyplot as pyplt
-        # no_data_img.plot.imshow()
-        # pyplt.show()
-        #
-        # print "end of program main"
-
-####################################################
-# Discovery cell.cdv
-# acquisition_id,satellite,start_datetime,end_datetime,end_datetime_year,end_datetime_month,x_index,y_index,xy,datasets
-# 309601,LS7,2014-07-04 00:30:53,2014-07-04 00:31:17,2014,7,138,-35,"(138,-35)","{{ARG25,/g/data/rs0/tiles/EPSG4326_1deg_0.00025pixel/LS7_ETM/138_-035/2014/LS7_ETM_NBAR_138_-035_2014-07-04T00-30-53.tif},{PQ25,/g/data/rs0/tiles/EPSG4326_1deg_0.00025pixel/LS7_ETM/138_-035/2014/LS7_ETM_PQA_138_-035_2014-07-04T00-30-53.tif}}"
-# 309653,LS7,2014-07-20 00:30:55,2014-07-20 00:31:19,2014,7,138,-35,"(138,-35)","{{ARG25,/g/data/rs0/tiles/EPSG4326_1deg_0.00025pixel/LS7_ETM/138_-035/2014/LS7_ETM_NBAR_138_-035_2014-07-20T00-30-55.tif},{PQ25,/g/data/rs0/tiles/EPSG4326_1deg_0.00025pixel/LS7_ETM/138_-035/2014/LS7_ETM_PQA_138_-035_2014-07-20T00-30-55.tif}}"
-# 309661,LS7,2014-07-27 00:36:45,2014-07-27 00:37:09,2014,7,138,-35,"(138,-35)","{{ARG25,/g/data/rs0/tiles/EPSG4326_1deg_0.00025pixel/LS7_ETM/138_-035/2014/mosaic_cache/LS7_ETM_NBAR_138_-035_2014-07-27T00-36-45.vrt},{PQ25,/g/data/rs0/tiles/EPSG4326_1deg_0.00025pixel/LS7_ETM/138_-035/2014/mosaic_cache/LS7_ETM_PQA_138_-035_2014-07-27T00-36-45.tif}}"
-# 309705,LS7,2014-07-11 00:37:04,2014-07-11 00:37:28,2014,7,138,-35,"(138,-35)","{{ARG25,/g/data/rs0/tiles/EPSG4326_1deg_0.00025pixel/LS7_ETM/138_-035/2014/LS7_ETM_NBAR_138_-035_2014-07-11T00-37-04.tif},{PQ25,/g/data/rs0/tiles/EPSG4326_1deg_0.00025pixel/LS7_ETM/138_-035/2014/LS7_ETM_PQA_138_-035_2014-07-11T00-37-04.tif}}"
-
-# Water Mapping
-# water_extent filename: Platform_Sensor_WATER_CELLID_DATETIMESTAMP
-# LS5_TM_WATER_136_-032_1987-12-07T00-12-56.014088.tif
-# LS7_ETM_WATER_136_-032_2000-03-05T00-37-07.703569.tif
-# LS8_OLI_TIRS_WATER_136_-032_2013-04-11T00-42-50.tif
 # ----------------------------------------------------------
 if __name__ == "__main__":
+
+    qdict={'latitude': (-36.0, -35.0), 'platform': ['LANDSAT_5', 'LANDSAT_7', 'LANDSAT_8'], 'longitude': (149.01, 150.1), 'time': ('2000-01-01', '2016-03-31')}
 
     dcdao = AgdcDao()
 
     cellindex = (15, -40)
     cellindex = (15, -41)
-    tile_dat = dcdao.get_nbarpq_data_by_cell_index(cellindex)
+    tile_data = dcdao.get_nbarpq_data_by_cell_index(cellindex, qdict)
 
     icounter = 0
     # for (t, nbar, pq) in tile_dat:
-    for (t, nbar, pq) in tile_dat[:3]:  # do the first few tiles of the list
+    for (t, nbar, pq) in tile_data[:3]:  # do the first few tiles of the list
 
         print (t, nbar, pq)
         print (type(nbar), type(pq))

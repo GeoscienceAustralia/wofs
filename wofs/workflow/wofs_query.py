@@ -122,6 +122,7 @@ class WofsQuery:
         mkdirs_if_not_present(self.config.get('wofs', 'summaries_dir'))
 
         qdict=self.get_query_params()
+
         print(qdict)
 
         cells = self.agdcdao.get_cells_list(qdict)
