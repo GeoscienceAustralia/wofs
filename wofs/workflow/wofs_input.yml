@@ -17,6 +17,6 @@ start_datetime: 2000-01-01
 end_datetime:   2016-03-31
 satellites: LS5,LS7,LS8
 
-testDateTimeParser:  2016-01-01T00:00:00Z
-testDateTimeParser2: !!str "2016-03-31T23:59:59Z"
+#testDateTimeParser:  2016-01-01T00:00:00Z
+#testDateTimeParser2: !!str "2016-03-31T23:59:59Z"
 

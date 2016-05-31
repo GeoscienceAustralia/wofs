@@ -166,8 +166,9 @@ class AgdcDao():
         return tile_store
 
 ######################################################
-    def get_nbarpq_data_by_cell_index(self, cellindex, qdict):
+    def get_nbarpq_data(self, cellindex, qdict):
         """
+        for a given cell-index, and query qdict, return dataarrays of nbar and pqa tile-pair
         :param cellindex: = (15, -40)
         :return: list of tiles-pairs [(nbar,pq), ]
         """
@@ -178,7 +179,7 @@ class AgdcDao():
 
         tiledatas = []
 
-        tile_store = self.get_nbarpqa_tiles([cellindex], qdict)  # [].append(cellindex))
+        tile_store = self.get_nbarpqa_tiles([cellindex], qdict)
 
         stack = tile_store[cellindex]
 
@@ -212,7 +213,7 @@ class AgdcDao():
                 # print "{:%c}\tnbar shape: {}\tpq shape: {}".format(to_datetime(time), nbar_tile.shape, pq_tile.shape)
                 # Wed Dec 27 23:45:28 2006	nbar shape: (6, 4000, 4000)	pq shape: (4000, 4000)
 
-                tiledatas.append((time, nbar_tile, pq_tile))
+                tiledatas.append((time, platform, nbar_tile, pq_tile))
 
                 # break  # use break if just do the first one as a test...
             else:
@@ -265,54 +266,69 @@ def write_img(waterimg, geometa, path2file):
     return path2file
 
 
-##############################################################################
-
+################################################################################################
 # ----------------------------------------------------------
 if __name__ == "__main__":
 
     qdict={'latitude': (-36.0, -35.0), 'platform': ['LANDSAT_5', 'LANDSAT_7', 'LANDSAT_8'], 'longitude': (149.01, 150.1), 'time': ('2000-01-01', '2016-03-31')}
+    qdict = {'latitude': (-36.0, -35.0), 'platform': ['LANDSAT_8'], 'longitude': (149.01, 150.1), 'time': ('2000-01-01', '2016-03-31')}
 
     dcdao = AgdcDao()
 
     cellindex = (15, -40)
     cellindex = (15, -41)
-    tile_data = dcdao.get_nbarpq_data_by_cell_index(cellindex, qdict)
+    tile_data = dcdao.get_nbarpq_data(cellindex, qdict)
 
     icounter = 0
     # for (t, nbar, pq) in tile_dat:
-    for (t, nbar, pq) in tile_data[:3]:  # do the first few tiles of the list
+    for (t, platform, nbar, pq) in tile_data[:3]:  # do the first few tiles of the list
 
-        print (t, nbar, pq)
+        print (t, platform, nbar, pq)
         print (type(nbar), type(pq))
         print (nbar.shape, pq.shape)
 
 
-# Output will look like
+# Output will look like:
 #
-# (1366329150.151186,
-# NBAR:
-# <xarray.DataArray u'ls8_nbar_albers' (variable: 6, y: 4000, x: 4000)>
+# (1365723995.385577, u'LANDSAT_8', <xarray.DataArray u'ls8_nbar_albers' (variable: 6, y: 4000, x: 4000)>
 # dask.array<concate..., shape=(6, 4000, 4000), dtype=int16, chunksize=(1, 4000, 4000)>
 # Coordinates:
-#     time      datetime64[ns] 2013-04-18T23:52:30.151186
-#   * y         (y) float64 -3.9e+06 -3.9e+06 -3.9e+06 -3.9e+06 -3.9e+06 ...
+#     time      datetime64[ns] 2013-04-11T23:46:35.385577
+#   * y         (y) float64 -4e+06 -4e+06 -4e+06 -4e+06 -4e+06 -4e+06 -4e+06 ...
 #   * x         (x) float64 1.5e+06 1.5e+06 1.5e+06 1.5e+06 1.5e+06 1.5e+06 ...
 #   * variable  (variable) <U6 u'band_2' u'band_3' u'band_4' u'band_5' ...
 # Attributes:
-#     _FillValue: -999,
-
-# PQ:
-# <xarray.DataArray 'pixelquality' (y: 4000, x: 4000)>
+#     _FillValue: -999, <xarray.DataArray 'pixelquality' (y: 4000, x: 4000)>
 # dask.array<getitem..., shape=(4000, 4000), dtype=int16, chunksize=(4000, 4000)>
 # Coordinates:
-#     time     datetime64[ns] 2013-04-18T23:52:30.151186
-#   * y        (y) float64 -3.9e+06 -3.9e+06 -3.9e+06 -3.9e+06 -3.9e+06 ...
+#     time     datetime64[ns] 2013-04-11T23:46:35.385577
+#   * y        (y) float64 -4e+06 -4e+06 -4e+06 -4e+06 -4e+06 -4e+06 -4e+06 ...
 #   * x        (x) float64 1.5e+06 1.5e+06 1.5e+06 1.5e+06 1.5e+06 1.5e+06 ...
 # Attributes:
 #     units: 1
 #     long_name: Quality Control
 #     flags_definition: {u'cloud_shadow_acca': {u'bit_index': 12, u'description': u'Cloud Shadow (ACCA)', u'value': 0}, u'cloud_acca': {u'bit_index': 10, u'description': u'Cloud (ACCA)', u'value': 0}, u'land_obs': {u'bit_index': 9, u'description': u'Land observation', u'value': 1}, u'band_1_saturated': {u'bit_index': 0, u'description': u'Band 1 is saturated', u'value': 0}, u'contiguity': {u'bit_index': 8, u'description': u'All bands for this pixel contain non-null values', u'value': 1}, u'band_2_saturated': {u'bit_i...)
-#
 # (<class 'xarray.core.dataarray.DataArray'>, <class 'xarray.core.dataarray.DataArray'>)
-#
+# ((6, 4000, 4000), (4000, 4000))
+
+
+# (1365724019.356951, u'LANDSAT_8', <xarray.DataArray u'ls8_nbar_albers' (variable: 6, y: 4000, x: 4000)>
+# dask.array<concate..., shape=(6, 4000, 4000), dtype=int16, chunksize=(1, 4000, 4000)>
+# Coordinates:
+#     time      datetime64[ns] 2013-04-11T23:46:59.356951
+#   * y         (y) float64 -4e+06 -4e+06 -4e+06 -4e+06 -4e+06 -4e+06 -4e+06 ...
+#   * x         (x) float64 1.5e+06 1.5e+06 1.5e+06 1.5e+06 1.5e+06 1.5e+06 ...
+#   * variable  (variable) <U6 u'band_2' u'band_3' u'band_4' u'band_5' ...
+# Attributes:
+#     _FillValue: -999, <xarray.DataArray 'pixelquality' (y: 4000, x: 4000)>
+# dask.array<getitem..., shape=(4000, 4000), dtype=int16, chunksize=(4000, 4000)>
+# Coordinates:
+#     time     datetime64[ns] 2013-04-11T23:46:59.356951
+#   * y        (y) float64 -4e+06 -4e+06 -4e+06 -4e+06 -4e+06 -4e+06 -4e+06 ...
+#   * x        (x) float64 1.5e+06 1.5e+06 1.5e+06 1.5e+06 1.5e+06 1.5e+06 ...
+# Attributes:
+#     units: 1
+#     long_name: Quality Control
+#     flags_definition: {u'cloud_shadow_acca': {u'bit_index': 12, u'description': u'Cloud Shadow (ACCA)', u'value': 0}, u'cloud_acca': {u'bit_index': 10, u'description': u'Cloud (ACCA)', u'value': 0}, u'land_obs': {u'bit_index': 9, u'description': u'Land observation', u'value': 1}, u'band_1_saturated': {u'bit_index': 0, u'description': u'Band 1 is saturated', u'value': 0}, u'contiguity': {u'bit_index': 8, u'description': u'All bands for this pixel contain non-null values', u'value': 1}, u'band_2_saturated': {u'bit_i...)
+# (<class 'xarray.core.dataarray.DataArray'>, <class 'xarray.core.dataarray.DataArray'>)
 # ((6, 4000, 4000), (4000, 4000))

@@ -67,6 +67,7 @@ class WofsSetup:
 
     def loadyaml(self):
         """
+
         Read data from an input yaml file, which contains wofs run parameters
         :return: a dictionary representation of the yaml file
         """
@@ -173,6 +174,7 @@ class WofsSetup:
         simple_client_conf = os.path.join(work_path, 'client.cfg')
         with open(simple_client_conf, 'wb') as configfile:
             config.write(configfile)
+
 
         # This should be for debug purpose only. Contains a lot of comments in the output file.
         to_path = "%s/debug_client.cfg" % (work_path)
