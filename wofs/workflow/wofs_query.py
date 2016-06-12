@@ -51,12 +51,13 @@ class WofsQuery:
         self.config = ConfigParser()  # python std lib
         self.config.read(self.configfile)  # got all the data
 
-        # self.agdcdao=AgdcDao(force_prod=True)
-
         dc = datacube.Datacube(app='wofs-dev')
         # or to use a specific config file: dc = datacube.Datacube(config='/home/547/adh547/unification.datacube.conf', app='wofs-dev')
 
+        self.agdcdao=AgdcDao(dc)
+
         self.gw = GridWorkflow(dc, product='ls5_nbar_albers')
+
 
         return
 
@@ -141,7 +142,7 @@ class WofsQuery:
         # Find the tiles for each, and write the tiles reference onto a file in the inputs_dir
         # This prepares for Luigi tasks to classify each tile
 
-        self.agdcdao.get_tiles_for_wofs(cells, qdict, inputs_dir)
+        self.agdcdao.get_tiles_for_wofs(qdict, inputs_dir)
 
 
         logging.info("main() Program finished")

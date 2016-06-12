@@ -1,7 +1,7 @@
 #################################################
 # Usage:
 #   export PYTHONPATH=.:/g/data/u46/fxz547/Githubz/agdc-v2
-#   python tests/testagdcv2_env.py
+#   python agdc_dao.py
 #################################################
 
 import os, sys
@@ -33,10 +33,11 @@ class AgdcDao():
     Datacube Data Access Object. Default prod
     """
 
-    def __init__(self, dc):
+    def __init__(self, dc=None):
 
-        # dc = datacube.Datacube(app='wofs-dev')
-        # to use a specific configfile: dc = datacube.Datacube(config='/home/547/fxz547/.datacube.conf', app='wofs-dev')
+        if dc is None:
+            dc = datacube.Datacube(app='wofs-dev')  # default use $HOME/.datacube.conf
+            # to use a specific configfile: dc = datacube.Datacube(config=/path2/your.datacube.conf', app='wofs-dev')
 
         self.gw = GridWorkflow(dc, product='ls5_nbar_albers')  # product is used to derive grid_spec
 
@@ -198,8 +199,8 @@ class AgdcDao():
         tile_keys = tile_store.keys()
 
 
-        #for key, tile in tile_store.items():
-        for key in tile_keys[:5]:
+        #for key in tile_keys  [:5]:
+        for key, tile in tile_store.items():
             print key, tile_store[key]
             cellid=key[0]
 
@@ -305,65 +306,17 @@ if __name__ == "__main__":
 
     dcdao = AgdcDao()
 
-    cells=dcdao.get_tiles_for_wofs(qdict, '/g/data1/u46/users/fxz547/wofs2/fxz547_2016-06-10T10-28-17/inputs')
+    # cells=dcdao.get_tiles_for_wofs(qdict, '/g/data1/u46/users/fxz547/wofs2/fxz547_2016-06-10T10-28-17/inputs')
 
 
     cellindex = (15, -40)
     #cellindex = (15, -41)
 
-    tile_data=[1,2,3,4,5]
     tile_data = dcdao.get_nbarpq_data(cellindex, qdict)
 
     icounter = 0
-    # for (t, nbar, pq) in tile_dat:
     for (celltime_key, nbar, pq) in tile_data[:3]:  # do the first few tiles of the list
 
         print (celltime_key, nbar, pq)
         print (type(nbar), type(pq))
-        # print (nbar.shape, pq.shape)
 
-
-# Output will look like:
-#
-# (1365723995.385577, u'LANDSAT_8', <xarray.DataArray u'ls8_nbar_albers' (variable: 6, y: 4000, x: 4000)>
-# dask.array<concate..., shape=(6, 4000, 4000), dtype=int16, chunksize=(1, 4000, 4000)>
-# Coordinates:
-#     time      datetime64[ns] 2013-04-11T23:46:35.385577
-#   * y         (y) float64 -4e+06 -4e+06 -4e+06 -4e+06 -4e+06 -4e+06 -4e+06 ...
-#   * x         (x) float64 1.5e+06 1.5e+06 1.5e+06 1.5e+06 1.5e+06 1.5e+06 ...
-#   * variable  (variable) <U6 u'band_2' u'band_3' u'band_4' u'band_5' ...
-# Attributes:
-#     _FillValue: -999, <xarray.DataArray 'pixelquality' (y: 4000, x: 4000)>
-# dask.array<getitem..., shape=(4000, 4000), dtype=int16, chunksize=(4000, 4000)>
-# Coordinates:
-#     time     datetime64[ns] 2013-04-11T23:46:35.385577
-#   * y        (y) float64 -4e+06 -4e+06 -4e+06 -4e+06 -4e+06 -4e+06 -4e+06 ...
-#   * x        (x) float64 1.5e+06 1.5e+06 1.5e+06 1.5e+06 1.5e+06 1.5e+06 ...
-# Attributes:
-#     units: 1
-#     long_name: Quality Control
-#     flags_definition: {u'cloud_shadow_acca': {u'bit_index': 12, u'description': u'Cloud Shadow (ACCA)', u'value': 0}, u'cloud_acca': {u'bit_index': 10, u'description': u'Cloud (ACCA)', u'value': 0}, u'land_obs': {u'bit_index': 9, u'description': u'Land observation', u'value': 1}, u'band_1_saturated': {u'bit_index': 0, u'description': u'Band 1 is saturated', u'value': 0}, u'contiguity': {u'bit_index': 8, u'description': u'All bands for this pixel contain non-null values', u'value': 1}, u'band_2_saturated': {u'bit_i...)
-# (<class 'xarray.core.dataarray.DataArray'>, <class 'xarray.core.dataarray.DataArray'>)
-# ((6, 4000, 4000), (4000, 4000))
-
-
-# (1365724019.356951, u'LANDSAT_8', <xarray.DataArray u'ls8_nbar_albers' (variable: 6, y: 4000, x: 4000)>
-# dask.array<concate..., shape=(6, 4000, 4000), dtype=int1 nbar_tile = tile_store[key]['nbar']6, chunksize=(1, 4000, 4000)>
-# Coordinates:
-#     time      datetime64[ns] 2013-04-11T23:46:59.356951
-#   * y         (y) float64 -4e+06 -4e+06 -4e+06 -4e+06 -4e+06 -4e+06 -4e+06 ...
-#   * x         (x) float64 1.5e+06 1.5e+06 1.5e+06 1.5e+06 1.5e+06 1.5e+06 ...
-#   * variable  (variable) <U6 u'band_2' u'band_3' u'band_4' u'band_5' ...
-# Attributes:
-#     _FillValue: -999, <xarray.DataArray 'pixelquality' (y: 4000, x: 4000)>
-# dask.array<getitem..., shape=(4000, 4000), dtype=int16, chunksize=(4000, 4000)>
-# Coordinates:
-#     time     datetime64[ns] 2013-04-11T23:46:59.356951
-#   * y        (y) float64 -4e+06 -4e+06 -4e+06 -4e+06 -4e+06 -4e+06 -4e+06 ...
-#   * x        (x) float64 1.5e+06 1.5e+06 1.5e+06 1.5e+06 1.5e+06 1.5e+06 ...
-# Attributes:
-#     units: 1
-#     long_name: Quality Control
-#     flags_definition: {u'cloud_shadow_acca': {u'bit_index': 12, u'description': u'Cloud Shadow (ACCA)', u'value': 0}, u'cloud_acca': {u'bit_index': 10, u'description': u'Cloud (ACCA)', u'value': 0}, u'land_obs': {u'bit_index': 9, u'description': u'Land observation', u'value': 1}, u'band_1_saturated': {u'bit_index': 0, u'description': u'Band 1 is saturated', u'value': 0}, u'contiguity': {u'bit_index': 8, u'description': u'All bands for this pixel contain non-null values', u'value': 1}, u'band_2_saturated': {u'bit_i...)
-# (<class 'xarray.core.dataarray.DataArray'>, <class 'xarray.core.dataarray.DataArray'>)
-# ((6, 4000, 4000), (4000, 4000))

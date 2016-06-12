@@ -77,7 +77,7 @@ if __name__ == "__main__":
 
 
     # this dict can be created from the wofs user initial input
-    qdict={'latitude': (-36.0, -35.0), 'platform': ['LANDSAT_5', 'LANDSAT_7', 'LANDSAT_8'], 'longitude': (149.01, 150.1), 'time': ('2000-01-01', '2016-03-31')}
+    qdict={'latitude': (-36.0, -35.0), 'platform': ['LANDSAT_5', 'LANDSAT_7', 'LANDSAT_8'], 'longitude': (149.01, 150.1), 'time': ('1980-01-01', '2016-03-31')}
 
     #qdict = {'latitude': (-36.0, -35.0), 'platform': ['LANDSAT_8'], 'longitude': (149.01, 150.1), 'time': ('2000-01-01', '2016-03-31')}
 
