@@ -10,11 +10,13 @@ from collections import defaultdict
 import xarray as xr
 import xarray.ufuncs
 
-from datacube.api import API
+import datacube
+from datacube.api import GridWorkflow, make_mask # masking
+
 from datacube.index import index_connect
 from datacube.config import LocalConfig
-from datacube.api._conversion import to_datetime
-from datacube.api import make_mask
+#from datacube.api._conversion import to_datetime
+from pandas import to_datetime
 
 from wofs.waters.detree import WaterClassifier
 import wofs.waters.detree.filters as filters
@@ -33,13 +35,11 @@ class AgdcDao():
 
     def __init__(self, force_prod=True):
 
-        if force_prod:
-            prod_config = LocalConfig.find(['/g/data/v10/public/modules/agdc-py2-prod/1.0.2/datacube.conf'])
-            prod_index = index_connect(prod_config, application_name='api-WOfS-dev')
-            self.dao = API(prod_index)
-        else:
-            self.dao = API(application_name='api-WOfS-dev')
 
+        dc = datacube.Datacube(app='wofs-dev')
+        # or to use a specific config file: dc = datacube.Datacube(config='/home/547/adh547/unification.datacube.conf', app='wofs-dev')
+
+        self.gw = GridWorkflow(dc, product='ls5_nbar_albers')
         return
 
     def get_cells_list(self, qdict):
@@ -52,172 +52,199 @@ class AgdcDao():
         dc.list_cells(product='nbar', longitude=149, latitude=-35, time=('1990', '2015'))
         :return:
         """
-
-        dc = self.dao  # API(app='WOfS-dev')
-
         # Query parameters:
 
         logging.debug(qdict)
 
         # {"product": "nbar", "longitude": (149, 150), "latitude": (-40, -41), "time": ('1900-01-01', '2016-03-20')}
+        # product_type= nbar | pqa
+        #cells = gw.list_cells(product_type='pqa',
+                              # longitude=(149.06,149.18), latitude=(-35.27, -35.33),time=('1996-01-01', '2016-03-20'))
 
-        cells = dc.list_cells(
-            **qdict)  # ** unpack a dict into a key-value pair argument matching the function's signature
+        cells = self.gw.list_cells( **qdict)
+        # ** unpack a dict into a key-value pair argument matching the function's signature
 
         logging.info(str(cells))
         # return cells_filtered_list =filter_cell_list(cells)
         return cells
 
-    def get_tiles_by_cell(self, cells, qdict):  # ,products=None, time_range=None, platforms=None):
-        """
-        query to discover all relevant tilesets (nbar + pqa) for a given cell_Id list
-        :return: product_tiles
-        """
-
-        tile_store = self.get_nbarpqa_tiles(cells, qdict)
-
-        for cell, stack in tile_store.items():
-            product_tiles = []
-
-            for time in sorted(stack):
-                tileset = stack[time]  # This should be a pair of nbar-pqa
-                if 'nbar' in tileset and 'pqa' in tileset:
-                    logging.debug("This cell has both nbar and pq data at time=%s" % str(time))
-                    logging.debug("%s, %s, %s", cell, to_datetime(time), len(tileset))  # , type(tiles)
-
-                    nbar_pqa_pair = []
-                    for product, tile in tileset.items():
-                        nbar_pqa_pair.append((product, tile))
-
-                    product_tiles.append(nbar_pqa_pair)
-                else:
-                    logging.warn("Skipping ....nbar-pqa mismatching tiles at time=%s", time)
-
-        return product_tiles
-
     ##----------------------------------------------------------------
-    def get_tiles_for_wofs_inputs(self, cells, qdict, inputs_dir):
+    def get_tiles_for_wofs(self, qdict, inputs_dir):
         """
             query to discover all relevant tilesets (nbar + pqa) for a list of cells, write them onto inputs_dir/cell_id
             :return: product_tiles
             """
 
-        tile_store = self.get_nbarpqa_tiles(cells, qdict)
+        tile_store = self.get_nbarpqa_tiles(qdict)
 
-        for cell, stack in tile_store.items():
-            cell_tiles = []
+        tile_keys= tile_store.keys()
 
-            for time in sorted(stack):
-                tileset = stack[time]  # This should be a pair of nbar-pqa
-                if 'nbar' in tileset and 'pqa' in tileset:
-                    logging.debug("This cell has both nbar and pq data at time=%s" % str(time))
-                    logging.debug("%s, %s, %s", cell, to_datetime(time), len(tileset))  # , type(tiles)
+        fname = os.path.join(inputs_dir, 'all_tiles')
+        with  open(fname, 'w') as infile:
+            for eachtile in tile_keys:
+                infile.write(str(eachtile) + "\n")
 
-                    nbar_pqa_pair = []
-                    for product, tile in tileset.items():
-                        nbar_pqa_pair.append((product, tile))
 
-                    cell_tiles.append(nbar_pqa_pair)
-                else:
-                    logging.warn("Cell = %s : nbar-pqa mismatching tiles at time=%s .. Skipping", str(cell), time)
-
-            cell_id = "abc%s_%s.txt" % (cell)  # a txt/csv filename based on albers cellindex
-            fname = os.path.join(inputs_dir, cell_id)
-            with  open(fname, 'w') as infile:
-                for eachtile in cell_tiles:
-                    infile.write(str(eachtile) + "\n")
+        #
+        # for time in sorted(stack):
+        #     tileset = stack[time]  # This should be a pair of nbar-pqa
+        #     if 'nbar' in tileset and 'pqa' in tileset:
+        #         logging.debug("This cell has both nbar and pq data at time=%s" % str(time))
+        #         logging.debug("%s, %s, %s", cell, to_datetime(time), len(tileset))  # , type(tiles)
+        #
+        #         nbar_pqa_pair = []
+        #         for product, tile in tileset.items():
+        #             nbar_pqa_pair.append((product, tile))
+        #
+        #         cell_tiles.append(nbar_pqa_pair)
+        #     else:
+        #         logging.warn("Cell = %s : nbar-pqa mismatching tiles at time=%s .. Skipping", str(cell), time)
+        #
+        # cell_id = "abc%s_%s.txt" % (cell)  # a txt/csv filename based on albers cellindex
+        # fname = os.path.join(inputs_dir, cell_id)
+        # with  open(fname, 'w') as infile:
+        #     for eachtile in cell_tiles:
+        #         infile.write(str(eachtile) + "\n")
 
         return
 
-    ##----------------------------------------------------------------
-    def get_nbarpqa_tiles(self, cells, qdict):
+    def get_nbarpqa_tiles(self, qdict):
+
+        #Nbar tiles
+        nbar_tiles = self.gw.list_tiles(product='ls5_nbar_albers',**qdict )
+                    # ,longitude=(149.06, 149.18), latitude=(-35.27, -35.33),time=('1996-01-01', '2016-03-20'))
+
+        # Pixel Quality Tiles
+        pq_tiles = self.gw.list_tiles(product='ls5_pq_albers', **qdict)
+
+
+        # Cell, Time -> Product -> TileDef
+        tile_def = defaultdict(dict)
+
+        for cell, tiles in nbar_tiles.items():
+            for time, tile in tiles.items():
+                tile_def[cell, time]['nbar'] = tile
+
+        for cell, tiles in pq_tiles.items():
+            for time, tile in tiles.items():
+                tile_def[cell, time]['pqa'] = tile
+
+        for celltime, products in tile_def.items():
+            if len(products) < 2:
+                print('Only found {products} at cell: {cell} at time: {time}'.format(
+                    products=products.keys(), cell=cell, time=time))
+            else:
+                print (celltime, products.keys(), len(products))
+
+        return tile_def
+
+##----------------------------------------------------------------
+    def get_nbarpqa_tiles_by_cell(self, acell, qdict):
         """
         return a list of tiles
         :param cells: a list of cell index [(15, -40), ] with one or more element
         :return:
         """
+        # gw.list_tiles((15,-40), product='ls5_nbar_albers')
 
-        dc = self.dao
-
-        nbar_tiles = dc.list_tiles(cells, product='nbar', **qdict)  # , platform='LANDSAT_8')  # ,time=('2000', '2007'))
-        pq_tiles = dc.list_tiles(cells, product='pqa', **qdict)  # , platform='LANDSAT_8')  # , time=('2000', '2007'))
+        nbar_tiles = self.gw.list_tiles(acell, product='ls5_nbar_albers', **qdict)  # , platform='LANDSAT_8')  # ,time=('2000', '2007'))
+        pq_tiles = self.gw.list_tiles(acell, product='ls5_pq_albers', **qdict)  # , platform='LANDSAT_8')  # , time=('2000', '2007'))
 
         if (len(pq_tiles) == len(nbar_tiles)):
             logging.debug("The cells have %s nbar and %s pq tiles", len(nbar_tiles), len(pq_tiles))
         else:
             logging.warn("NBAR-PQA tiles mismatch: The cells have %s nbar and %s pq tiles", len(nbar_tiles), len(pq_tiles))
 
-        tile_store = defaultdict(lambda: defaultdict(dict))
+        # Cell, Time -> Product -> TileDef
+        tile_def = defaultdict(dict)
 
-        # for tile_query, tile_info in nbar_tiles:
-        #     cell = tile_query['xy_index']
-        #     time = tile_query['time']
-        #     product = tile_info['metadata']['product_type']
-        #     tile_store[cell][time][product] = (tile_query, tile_info)
+        for cell, tiles in nbar_tiles.items():
+            for time, tile in tiles.items():
+                tile_def[cell, time]['nbar'] = tile
 
-        for tile_query, tile_info in nbar_tiles + pq_tiles:
-            cells = tile_query['xy_index']
-            time = tile_query['time']
-            product = tile_info['metadata']['product_type']
-            platform = tile_info['metadata']['platform']['code']
-            path2file = tile_info.get('path')
-            tile_store[cells][time][product] = (tile_query, platform, path2file)
+        for cell, tiles in pq_tiles.items():
+            for time, tile in tiles.items():
+                tile_def[cell, time]['pqa'] = tile
 
-        return tile_store
+        for celltime, products in tile_def.items():
+            if len(products) < 2:
+                print('Only found {products} at cell: {cell} at time: {time}'.format(
+                    products=products.keys(), cell=cell, time=time))
+            else:
+                print (celltime, products.keys(), len(products))
+
+
+        return tile_def
 
 ######################################################
-    def get_nbarpq_data(self, cellindex, qdict):
+    def get_nbarpq_data(self, acellindex, qdict):
         """
         for a given cell-index, and query qdict, return dataarrays of nbar and pqa tile-pair
         :param cellindex: = (15, -40)
         :return: list of tiles-pairs [(nbar,pq), ]
         """
 
-        print cellindex
+        print acellindex
 
         # sys.exit(10)
 
         tiledatas = []
 
-        tile_store = self.get_nbarpqa_tiles([cellindex], qdict)
+        tile_store = self.get_nbarpqa_tiles_by_cell(acellindex, qdict)
 
-        stack = tile_store[cellindex]
+        tile_keys = tile_store.keys()
 
-        for time in sorted(stack):
+
+        #for key, tile in tile_store.items():
+        for key in tile_keys[:5]:
+            print key, tile_store[key]
+            cellid=key[0]
+
+            nbar_tile = tile_store[key]['nbar']
+
+            pqa_tile = tile_store[key]['pqa']
+
+            nbar_data = self.gw.load(acellindex, nbar_tile)  # is cell really necessary??
+            pqa_data =  self.gw.load(acellindex, pqa_tile)
+
+            tiledatas.append((key, nbar_data, pqa_data) )
+
+
+        #for time in sorted(stack):
             # print ("time=", time)
 
-            tileset = stack[time]
+            #tileset = stack[time]
 
             # print "Cell {} at time [{:%Y-%m-%d}] has {} tiles: ".format(cellindex, to_datetime(time), len(tileset))
             # for product, tile in tileset.items():
             #     print product, tile
 
-            if 'nbar' in tileset and 'pqa' in tileset:
-
-                logging.info("This cell has both nbar and pq data at time=%s" % str(time))
-
-                nbar_tile_query, platform, path2file = tileset['nbar']
-                # This will get replaced by the semantic layer
-                if platform in ('LANDSAT_5', 'LANDSAT_7'):
-                    variables = ['band_1', 'band_2', 'band_3', 'band_4', 'band_5', 'band_7']
-                elif platform in ('LANDSAT_8'):
-                    variables = ['band_2', 'band_3', 'band_4', 'band_5', 'band_6', 'band_7']
-
-                # nbar_tile = self.dao.get_data_array_by_cell(variables=variables, set_nan=True, **nbar_tile_query)
-                nbar_tile = self.dao.get_data_array_by_cell(variables=variables, set_nan=False, **nbar_tile_query)
-
-                pq_tile_query,  platform, path2file = tileset['pqa']
-                pq_tile_ds = self.dao.get_dataset_by_cell(**pq_tile_query)
-                pq_tile = pq_tile_ds['pixelquality']
-
-                # print "{:%c}\tnbar shape: {}\tpq shape: {}".format(to_datetime(time), nbar_tile.shape, pq_tile.shape)
-                # Wed Dec 27 23:45:28 2006	nbar shape: (6, 4000, 4000)	pq shape: (4000, 4000)
-
-                tiledatas.append((time, platform, nbar_tile, pq_tile))
-
-                # break  # use break if just do the first one as a test...
-            else:
-                logging.warn("WARN missing data at time=%s", time)
+            # if 'nbar' in tileset and 'pqa' in tileset:
+            #
+            #     logging.info("This cell has both nbar and pq data at time=%s" % str(time))
+            #
+            #     nbar_tile_query, platform, path2file = tileset['nbar']
+            #     # This will get replaced by the semantic layer
+            #     if platform in ('LANDSAT_5', 'LANDSAT_7'):
+            #         variables = ['band_1', 'band_2', 'band_3', 'band_4', 'band_5', 'band_7']
+            #     elif platform in ('LANDSAT_8'):
+            #         variables = ['band_2', 'band_3', 'band_4', 'band_5', 'band_6', 'band_7']
+            #
+            #     # nbar_tile = self.dao.get_data_array_by_cell(variables=variables, set_nan=True, **nbar_tile_query)
+            #     nbar_tile = self.dao.get_data_array_by_cell(variables=variables, set_nan=False, **nbar_tile_query)
+            #
+            #     pq_tile_query,  platform, path2file = tileset['pqa']
+            #     pq_tile_ds = self.dao.get_dataset_by_cell(**pq_tile_query)
+            #     pq_tile = pq_tile_ds['pixelquality']
+            #
+            #     # print "{:%c}\tnbar shape: {}\tpq shape: {}".format(to_datetime(time), nbar_tile.shape, pq_tile.shape)
+            #     # Wed Dec 27 23:45:28 2006	nbar shape: (6, 4000, 4000)	pq shape: (4000, 4000)
+            #
+            #     tiledatas.append((time, platform, nbar_tile, pq_tile))
+            #
+            #     # break  # use break if just do the first one as a test...
+            # else:
+            #     logging.warn("WARN missing data at time=%s", time)
 
         return tiledatas
 
@@ -270,22 +297,27 @@ def write_img(waterimg, geometa, path2file):
 # ----------------------------------------------------------
 if __name__ == "__main__":
 
-    qdict={'latitude': (-36.0, -35.0), 'platform': ['LANDSAT_5', 'LANDSAT_7', 'LANDSAT_8'], 'longitude': (149.01, 150.1), 'time': ('2000-01-01', '2016-03-31')}
-    qdict = {'latitude': (-36.0, -35.0), 'platform': ['LANDSAT_8'], 'longitude': (149.01, 150.1), 'time': ('2000-01-01', '2016-03-31')}
+    qdict={'latitude': (-36.0, -35.0), 'platform': ['LANDSAT_5', 'LANDSAT_7', 'LANDSAT_8'], 'longitude': (149.01, 150.1), 'time': ('1990-01-01', '2016-03-31')}
+    #qdict = {'latitude': (-36.0, -35.0), 'platform': ['LANDSAT_8'], 'longitude': (149.01, 150.1), 'time': ('1990-01-01', '2016-03-31')}
 
     dcdao = AgdcDao()
 
+    cells=dcdao.get_tiles_for_wofs(qdict, '/g/data1/u46/users/fxz547/wofs2/fxz547_2016-06-10T10-28-17/inputs')
+
+
     cellindex = (15, -40)
-    cellindex = (15, -41)
+    #cellindex = (15, -41)
+
+    tile_data=[1,2,3,4,5]
     tile_data = dcdao.get_nbarpq_data(cellindex, qdict)
 
     icounter = 0
     # for (t, nbar, pq) in tile_dat:
-    for (t, platform, nbar, pq) in tile_data[:3]:  # do the first few tiles of the list
+    for (celltime_key, nbar, pq) in tile_data[:3]:  # do the first few tiles of the list
 
-        print (t, platform, nbar, pq)
+        print (celltime_key, nbar, pq)
         print (type(nbar), type(pq))
-        print (nbar.shape, pq.shape)
+        # print (nbar.shape, pq.shape)
 
 
 # Output will look like:
@@ -313,7 +345,7 @@ if __name__ == "__main__":
 
 
 # (1365724019.356951, u'LANDSAT_8', <xarray.DataArray u'ls8_nbar_albers' (variable: 6, y: 4000, x: 4000)>
-# dask.array<concate..., shape=(6, 4000, 4000), dtype=int16, chunksize=(1, 4000, 4000)>
+# dask.array<concate..., shape=(6, 4000, 4000), dtype=int1 nbar_tile = tile_store[key]['nbar']6, chunksize=(1, 4000, 4000)>
 # Coordinates:
 #     time      datetime64[ns] 2013-04-11T23:46:59.356951
 #   * y         (y) float64 -4e+06 -4e+06 -4e+06 -4e+06 -4e+06 -4e+06 -4e+06 ...

@@ -22,11 +22,13 @@ from collections import defaultdict
 import xarray as xr
 import xarray.ufuncs
 
-from datacube.api import API
+import datacube
+from datacube.api import GridWorkflow,  make_mask #masking
 from datacube.index import index_connect
 from datacube.config import LocalConfig
-from datacube.api._conversion import to_datetime
-from datacube.api import make_mask
+# from datacube.api._conversion import to_datetime
+from pandas import to_datetime
+
 
 from wofs.workflow.agdc_dao import AgdcDao
 
@@ -49,14 +51,12 @@ class WofsQuery:
         self.config = ConfigParser()  # python std lib
         self.config.read(self.configfile)  # got all the data
 
-        self.agdcdao=AgdcDao(force_prod=True)
+        # self.agdcdao=AgdcDao(force_prod=True)
 
-        # if force_prod:
-        #     prod_config = LocalConfig.find(['/g/data/v10/public/modules/agdc-py2-prod/1.0.2/datacube.conf'])
-        #     prod_index = index_connect(prod_config, application_name='api-WOfS-prod')
-        #     self.dao = API(prod_index)
-        # else:
-        #     self.dao = API(application_name='api-WOfS')
+        dc = datacube.Datacube(app='wofs-dev')
+        # or to use a specific config file: dc = datacube.Datacube(config='/home/547/adh547/unification.datacube.conf', app='wofs-dev')
+
+        self.gw = GridWorkflow(dc, product='ls5_nbar_albers')
 
         return
 
@@ -125,8 +125,9 @@ class WofsQuery:
 
         print(qdict)
 
-        cells = self.agdcdao.get_cells_list(qdict)
+        cells = self.gw.list_cells(product_type='nbar', **qdict)
 
+        logging.info("cells to be processed: %s", str(cells) )
         # for each cell, create working directories in shadow, sia, extents, bordered_el if they do not exist
         # abc - Australian  AlBers conic Cell index
         for acell in cells:
@@ -140,7 +141,7 @@ class WofsQuery:
         # Find the tiles for each, and write the tiles reference onto a file in the inputs_dir
         # This prepares for Luigi tasks to classify each tile
 
-        self.agdcdao.get_tiles_for_wofs_inputs(cells, qdict, inputs_dir)
+        #self.agdcdao.get_tiles_for_wofs(cells, qdict, inputs_dir)
 
 
         logging.info("main() Program finished")

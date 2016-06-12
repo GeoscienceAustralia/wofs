@@ -13,7 +13,7 @@ lat_max_deg: -35.0
 lon_min_deg: 149.01
 lon_max_deg: 150.1
 
-start_datetime: 2000-01-01
+start_datetime: 1991-01-01
 end_datetime:   2016-03-31
 satellites: LS5,LS7,LS8
 
