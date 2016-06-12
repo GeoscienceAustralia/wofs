@@ -33,13 +33,13 @@ class AgdcDao():
     Datacube Data Access Object. Default prod
     """
 
-    def __init__(self, force_prod=True):
+    def __init__(self, dc):
 
+        # dc = datacube.Datacube(app='wofs-dev')
+        # to use a specific configfile: dc = datacube.Datacube(config='/home/547/fxz547/.datacube.conf', app='wofs-dev')
 
-        dc = datacube.Datacube(app='wofs-dev')
-        # or to use a specific config file: dc = datacube.Datacube(config='/home/547/adh547/unification.datacube.conf', app='wofs-dev')
+        self.gw = GridWorkflow(dc, product='ls5_nbar_albers')  # product is used to derive grid_spec
 
-        self.gw = GridWorkflow(dc, product='ls5_nbar_albers')
         return
 
     def get_cells_list(self, qdict):
@@ -71,16 +71,19 @@ class AgdcDao():
     ##----------------------------------------------------------------
     def get_tiles_for_wofs(self, qdict, inputs_dir):
         """
-            query to discover all relevant tilesets (nbar + pqa) for a list of cells, write them onto inputs_dir/cell_id
-            :return: product_tiles
+            query to discover all relevant tilesets (nbar + pqa) for a list of cells, write them into inputs_dir/cell_id
+            :return: path2_all_tiles
             """
+
+        all_tiles_file='all_tiles.txt'
+        path2_all_tiles=os.path.join(inputs_dir, all_tiles_file)
+
 
         tile_store = self.get_nbarpqa_tiles(qdict)
 
         tile_keys= tile_store.keys()
 
-        fname = os.path.join(inputs_dir, 'all_tiles')
-        with  open(fname, 'w') as infile:
+        with  open(path2_all_tiles, 'w') as infile:
             for eachtile in tile_keys:
                 infile.write(str(eachtile) + "\n")
 
@@ -106,7 +109,7 @@ class AgdcDao():
         #     for eachtile in cell_tiles:
         #         infile.write(str(eachtile) + "\n")
 
-        return
+        return path2_all_tiles
 
     def get_nbarpqa_tiles(self, qdict):
 
@@ -131,10 +134,10 @@ class AgdcDao():
 
         for celltime, products in tile_def.items():
             if len(products) < 2:
-                print('Only found {products} at cell: {cell} at time: {time}'.format(
+                logging.warn('Only found {products} at cell: {cell} at time: {time}'.format(
                     products=products.keys(), cell=cell, time=time))
             else:
-                print (celltime, products.keys(), len(products))
+                logging.debug ('%s,%s', celltime, len(products))
 
         return tile_def
 
@@ -142,7 +145,7 @@ class AgdcDao():
     def get_nbarpqa_tiles_by_cell(self, acell, qdict):
         """
         return a list of tiles
-        :param cells: a list of cell index [(15, -40), ] with one or more element
+        :param acell: a cell index tuple (15, -40)
         :return:
         """
         # gw.list_tiles((15,-40), product='ls5_nbar_albers')

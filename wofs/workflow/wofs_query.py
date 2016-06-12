@@ -141,7 +141,7 @@ class WofsQuery:
         # Find the tiles for each, and write the tiles reference onto a file in the inputs_dir
         # This prepares for Luigi tasks to classify each tile
 
-        #self.agdcdao.get_tiles_for_wofs(cells, qdict, inputs_dir)
+        self.agdcdao.get_tiles_for_wofs(cells, qdict, inputs_dir)
 
 
         logging.info("main() Program finished")
