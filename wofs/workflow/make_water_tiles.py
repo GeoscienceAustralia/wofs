@@ -1,4 +1,8 @@
 #################################################
+# Purpose: Test agdc-v2 api retrieve tile data and test water classifier algorithm
+#
+# Retrieve/load tiles data_array for nbar, pq, and dsm; apply water classification algorithm to produce water tiles
+#
 # Usage:
 #   export PYTHONPATH=/g/data/u46/fxz547/Githubz/wofs/:/g/data/u46/fxz547/Githubz/agdc-v2
 #   python make_water_tiles.py
@@ -13,10 +17,10 @@ import xarray.ufuncs
 from datacube.api import API
 from datacube.index import index_connect
 from datacube.config import LocalConfig
-from datacube.api._conversion import to_datetime
+#from datacube.api._conversion import to_datetime
 from datacube.api import make_mask
 
-from wofs.waters.detree import WaterClassifier
+from wofs.waters.detree.classifier import WaterClassifier
 import wofs.waters.detree.filters as filters
 from wofs.workflow.agdc_dao import AgdcDao
 
@@ -72,94 +76,147 @@ def write_img(waterimg, geometa, path2file):
     return path2file
 
 
-##############################################################################
-if __name__ == "__main__":
+def get_dsm_data(cellindex):
+    """
+    retrieve the DSM data from the datacube, for the given cellindex, grid spec, etc
+    :param cellindex:
+    :return: DSM data
+    """
+    # TODO: Greg please
 
 
-    # this dict can be created from the wofs user initial input
-    qdict={'latitude': (-36.0, -35.0), 'platform': ['LANDSAT_5', 'LANDSAT_7', 'LANDSAT_8'], 'longitude': (149.01, 150.1), 'time': ('1980-01-01', '2016-03-31')}
+    return None
 
-    #qdict = {'latitude': (-36.0, -35.0), 'platform': ['LANDSAT_8'], 'longitude': (149.01, 150.1), 'time': ('2000-01-01', '2016-03-31')}
 
-    dcdao = AgdcDao()
+def define_water_file(platform, cellindex, nbar_tile):
+    """
+    define a proper water file name from nbar_tile dataset or xarrray? which contain platform, dtstamp
+    :param nbar_tile:
+    :return:
+    """
+    import datetime
 
-    cellindex = (15, -40)
-    # cellindex = (15, -41)
+    cellid_str = "%s_%s" % (cellindex)
+    celldir = "abc%s" % (cellid_str)  # acell's dirname in wofs/extents/
 
-    tile_data = dcdao.get_nbarpq_data(cellindex, qdict)
+    #timestamp = to_datetime(t).isoformat()[:-6]  # remove the trail +00:00, get a str like "2013-04-11T23:46:35.385577"
 
-    print("Number of (nbar,pqa) tile-pairs:", len(tile_data))
+    timestamp = datetime.datetime.now().isoformat()
+
+    print ("DateTime of satellite observation: ", timestamp)
+
+    ts = timestamp.replace(":", "-")
+    outfilename = "%s_water_%s_%s.nc" % (platform, cellid_str, ts)
+    #target: LANDSAT_8_water_15_-40_2013-04-11T23:46:35.385577.nc
+
+    EXTENTS_ROOT_DIR="/g/data1/u46/fxz547/wofs2/extents"
+
+    path2waterfile = os.path.join(EXTENTS_ROOT_DIR, celldir, outfilename)
+    # water_classified_img.tofile(path2outf) #raw data numpy file
+
+    return path2waterfile
+
+def produce_water_tile(nbar_tile, pq_tile, dsm_tile=None):
+    """
+    Apply water classifier algorithm to produce a water tile
+    Inputs: 2D arrays nbar-pq pair tiles and dsm tile,
+    :param nbar_tile:
+    :param pq_tile:
+    :param dsm_tile:
+    :return: 2D water_image
+    """
 
     classifier = WaterClassifier()
 
-    icounter = 0
-    #for (t, p, nbar, pq) in tile_data[:2]:  # only process 2-tiles in the list
+    # TODO: water classification using the input data tiles
 
-    for (t, p, nbar, pq) in tile_data:
-        print (t, p, nbar.shape, pq.shape)
+    water_classified_img = classifier.classify(nbar_tile)
 
+    # # 2 Nodata filter
+    # nodata_val = nbar_tile.attrs["_FillValue"]
+    #
+    # print nodata_val
+    #
+    # water_classified_img = filters.NoDataFilter().apply(water_classified_img, nbar_tile.values, nodata_val)
+    #
+    # print ("Verify the water classified image ")
+    #
+    # # verify that classified image is a 2D (4000X4000) 1 band image with values in defined domain {0,1,..., 128, }
 
-        # TODO: water classification using these xarray datas ++
+    comput_img_stats(water_classified_img)
 
-        water_classified_img = classifier.classify(nbar.values)
-
-        # 2 Nodata filter
-        nodata_val = nbar.attrs["_FillValue"]
-
-        print nodata_val
-
-        water_classified_img = filters.NoDataFilter().apply(water_classified_img, nbar.values, nodata_val)
-
-        print ("Verify the water classified image ")
-
-        # verify that classified image is a 2D (4000X4000) 1 band image with values in defined domain {0,1,..., 128, }
-
-        comput_img_stats(water_classified_img)
-
-        #  save the image to a file: numpy data
-        # https://www.google.com.au/webhp?sourceid=chrome-instant&ion=1&espv=2&ie=UTF-8#q=write%20numpy%20ndarray%20to%20file
-
-        cellid_str= "%s_%s" % (cellindex)
-        celldir="abc%s" % (cellid_str)  # acell's dirname in wofs/extents/
-
-        timestamp=to_datetime(t).isoformat()[:-6]  #remove the trail +00:00, get a str like "2013-04-11T23:46:35.385577"
-
-        print ("DateTime of observation: ", timestamp)
-
-        ts = timestamp.replace(":", "-")
-        outfilename = "%s_water_%s_%s.nc" % (p,cellid_str,ts) # LANDSAT_8_water_15_-40_2013-04-11T23:46:35.385577.nc
-        path2outf = os.path.join("/g/data1/u46/fxz547/wofs2/extents", celldir, outfilename)
-        # water_classified_img.tofile(path2outf) #raw data numpy file
-
-        geometadat = {"name": "waterextent", "ablersgrid_cellindex": cellindex}
-
-        write_img(water_classified_img, geometadat, path2outf)
-        icounter += 1
+    #  save the image to a file: numpy data
+    # https://www.google.com.au/webhp?sourceid=chrome-instant&ion=1&espv=2&ie=UTF-8#q=write%20numpy%20ndarray%20to%20file
 
 
-        #     no_data_img = (~xr.ufuncs.isfinite(nbar)).any(dim='variable')
-        #
-        # print "no_data_img type: " + str(type(no_data_img))
-        #
-        # import matplotlib.pyplot as pyplt
-        # no_data_img.plot.imshow()
-        # pyplt.show()
-        #
-        # print "end of program main"
+    return water_classified_img
 
-####################################################
-#  WOFS-V1
-#  Discovery cell.cdv
+
+    #     no_data_img = (~xr.ufuncs.isfinite(nbar)).any(dim='variable')
+    #
+    # print "no_data_img type: " + str(type(no_data_img))
+    #
+    # import matplotlib.pyplot as pyplt
+    # no_data_img.plot.imshow()
+    # pyplt.show()
+    #
+    # print "end of program main"
+
+
+########################################################################################################################
+#  Note:
+# in the WOFS-V1 Discovery.py input/cells.csv
 # acquisition_id,satellite,start_datetime,end_datetime,end_datetime_year,end_datetime_month,x_index,y_index,xy,datasets
 # 309601,LS7,2014-07-04 00:30:53,2014-07-04 00:31:17,2014,7,138,-35,"(138,-35)","{{ARG25,/g/data/rs0/tiles/EPSG4326_1deg_0.00025pixel/LS7_ETM/138_-035/2014/LS7_ETM_NBAR_138_-035_2014-07-04T00-30-53.tif},{PQ25,/g/data/rs0/tiles/EPSG4326_1deg_0.00025pixel/LS7_ETM/138_-035/2014/LS7_ETM_PQA_138_-035_2014-07-04T00-30-53.tif}}"
 # 309653,LS7,2014-07-20 00:30:55,2014-07-20 00:31:19,2014,7,138,-35,"(138,-35)","{{ARG25,/g/data/rs0/tiles/EPSG4326_1deg_0.00025pixel/LS7_ETM/138_-035/2014/LS7_ETM_NBAR_138_-035_2014-07-20T00-30-55.tif},{PQ25,/g/data/rs0/tiles/EPSG4326_1deg_0.00025pixel/LS7_ETM/138_-035/2014/LS7_ETM_PQA_138_-035_2014-07-20T00-30-55.tif}}"
 # 309661,LS7,2014-07-27 00:36:45,2014-07-27 00:37:09,2014,7,138,-35,"(138,-35)","{{ARG25,/g/data/rs0/tiles/EPSG4326_1deg_0.00025pixel/LS7_ETM/138_-035/2014/mosaic_cache/LS7_ETM_NBAR_138_-035_2014-07-27T00-36-45.vrt},{PQ25,/g/data/rs0/tiles/EPSG4326_1deg_0.00025pixel/LS7_ETM/138_-035/2014/mosaic_cache/LS7_ETM_PQA_138_-035_2014-07-27T00-36-45.tif}}"
 # 309705,LS7,2014-07-11 00:37:04,2014-07-11 00:37:28,2014,7,138,-35,"(138,-35)","{{ARG25,/g/data/rs0/tiles/EPSG4326_1deg_0.00025pixel/LS7_ETM/138_-035/2014/LS7_ETM_NBAR_138_-035_2014-07-11T00-37-04.tif},{PQ25,/g/data/rs0/tiles/EPSG4326_1deg_0.00025pixel/LS7_ETM/138_-035/2014/LS7_ETM_PQA_138_-035_2014-07-11T00-37-04.tif}}"
 
-# Water Mapping
+# Produce Water Mapping Tiles image_filename.tif
 # water_extent filename: Platform_Sensor_WATER_CELLID_DATETIMESTAMP
 # LS5_TM_WATER_136_-032_1987-12-07T00-12-56.014088.tif
 # LS7_ETM_WATER_136_-032_2000-03-05T00-37-07.703569.tif
 # LS8_OLI_TIRS_WATER_136_-032_2013-04-11T00-42-50.tif
 # ----------------------------------------------------------
 
+
+#########################################################################################
+# Usage:
+#   export PYTHONPATH=/g/data/u46/fxz547/Githubz/wofs/:/g/data/u46/fxz547/Githubz/agdc-v2
+#   python make_water_tiles.py
+# ----------------------------------------------------------------------------------------
+if __name__ == "__main__":
+
+    # First, let's prepare to get some (nbar,pq) pair, and dsm tiles real data
+    # cellindex = (15, -41)
+
+    cellindex = (15, -40)
+    qdict = {'latitude': (-36.0, -35.0), 'platform': ['LANDSAT_5', 'LANDSAT_7'], 'longitude': (149.01, 150.1),
+             'time': ('1980-01-01', '2016-03-31')}
+
+    dcdao = AgdcDao()
+
+    nbar_pq_data = dcdao.get_nbarpq_data(cellindex, qdict)
+    # qdict as argument is too generic here.
+    # should be more specific, able to retrieve using eg, ((15, -40), numpy.datetime64('1992-09-16T09:12:23.500000000+1000'))
+
+    # TODO: get DSM data for this cell
+    dsm_data = get_dsm_data(cellindex)
+
+    print("Number of (nbar,pqa) tile-pairs:", len(nbar_pq_data))
+
+    # Now ready to apply classification algorithm to the data tiles retrieved.
+
+    icounter = 0
+
+    for (celltime_key, nbar_tile, pq) in nbar_pq_data:
+        water_classified_img = produce_water_tile(nbar_pq_data, dsm_data)
+
+        geometadat = {"name": "waterextent", "ablersgrid_cellindex": cellindex}
+
+        path2_waterfile = define_water_file(celltime_key[0],'LS5',nbar_tile)
+
+        write_img(water_classified_img, geometadat, path2_waterfile)
+
+
+        icounter += 1

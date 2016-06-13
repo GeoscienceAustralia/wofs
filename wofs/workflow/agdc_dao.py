@@ -199,8 +199,8 @@ class AgdcDao():
         tile_keys = tile_store.keys()
 
 
-        #for key in tile_keys  [:5]:
-        for key, tile in tile_store.items():
+        for key in tile_keys [:5]:
+        #for key, tile in tile_store.items():  # trying to load all tiles may exceed resource limit, get killed in raijin
             print key, tile_store[key]
             cellid=key[0]
 

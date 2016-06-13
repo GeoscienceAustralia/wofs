@@ -17,7 +17,7 @@ import argparse
 from osgeo import gdal
 
 
-class WaterClassifier(object):
+class WaterClassifier_Old(object):
     """
     To classify NBAR images pixels as water OR Not-water, OR No-data
     """
