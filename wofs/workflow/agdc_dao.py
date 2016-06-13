@@ -82,7 +82,7 @@ class AgdcDao():
 
         tile_store = self.get_nbarpqa_tiles(qdict)
 
-        tile_keys= tile_store.keys()
+        tile_keys= sorted(tile_store.keys())
 
         with  open(path2_all_tiles, 'w') as infile:
             for eachtile in tile_keys:

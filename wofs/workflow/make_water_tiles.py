@@ -88,7 +88,7 @@ def get_dsm_data(cellindex):
     return None
 
 
-def define_water_file(platform, cellindex, nbar_tile):
+def define_water_file(platform, cellindex, dtstamp, nbar_tile):
     """
     define a proper water file name from nbar_tile dataset or xarrray? which contain platform, dtstamp
     :param nbar_tile:
@@ -100,13 +100,12 @@ def define_water_file(platform, cellindex, nbar_tile):
     celldir = "abc%s" % (cellid_str)  # acell's dirname in wofs/extents/
 
     #timestamp = to_datetime(t).isoformat()[:-6]  # remove the trail +00:00, get a str like "2013-04-11T23:46:35.385577"
+    #fakeit: dtstamp = datetime.datetime.utcnow().isoformat()
 
-    timestamp = datetime.datetime.now().isoformat()
+    print ("DateTime of satellite observation: ", dtstamp)
 
-    print ("DateTime of satellite observation: ", timestamp)
-
-    ts = timestamp.replace(":", "-")
-    outfilename = "%s_water_%s_%s.nc" % (platform, cellid_str, ts)
+    dtstamp = dtstamp.replace(":", "-")
+    outfilename = "%s_water_%s_%s.nc" % (platform, cellid_str, dtstamp)
     #target: LANDSAT_8_water_15_-40_2013-04-11T23:46:35.385577.nc
 
     EXTENTS_ROOT_DIR="/g/data1/u46/fxz547/wofs2/extents"
@@ -235,13 +234,15 @@ if __name__ == "__main__":
         
         print celltime_key
         cell_tup=celltime_key[0]
+        acq_dt=celltime_key[1]
+        dtstamp = str(acq_dt)[:19].replace(':','-')
 
 
         water_classified_img = produce_water_tile(nbar_tile, pq_tile, dsm_data)
 
         geometadat = {"name": "waterextent", "ablersgrid_cellindex": cellindex}
 
-        path2_waterfile = define_water_file('LS5', cell_tup, nbar_tile)
+        path2_waterfile = define_water_file('LS5', cell_tup, dtstamp, nbar_tile)
 
         write_img(water_classified_img, geometadat, path2_waterfile)
 
