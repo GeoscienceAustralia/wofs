@@ -96,7 +96,7 @@ def define_water_file(platform, cellindex, nbar_tile):
     """
     import datetime
 
-    cellid_str = "%s_%s" % (cellindex)
+    cellid_str = "%s_%s" % (cellindex[0],cellindex[1])
     celldir = "abc%s" % (cellid_str)  # acell's dirname in wofs/extents/
 
     #timestamp = to_datetime(t).isoformat()[:-6]  # remove the trail +00:00, get a str like "2013-04-11T23:46:35.385577"
@@ -112,6 +112,8 @@ def define_water_file(platform, cellindex, nbar_tile):
     EXTENTS_ROOT_DIR="/g/data1/u46/fxz547/wofs2/extents"
 
     path2waterfile = os.path.join(EXTENTS_ROOT_DIR, celldir, outfilename)
+    print path2waterfile
+
     # water_classified_img.tofile(path2outf) #raw data numpy file
 
     return path2waterfile
@@ -125,12 +127,27 @@ def produce_water_tile(nbar_tile, pq_tile, dsm_tile=None):
     :param dsm_tile:
     :return: 2D water_image
     """
+    
+    # have to massage the input datasets nbar_tile, pq_tile into suitable for classifiers:
+    #get the nbar_tile shape here
+    y_size=4000
+    x_size=4000
+
+    raw_image = numpy.zeros((6, y_size, x_size), dtype='int16') #'float32')
+
+    raw_image[0,:,:] = nbar_tile.blue[:,:]
+    raw_image[1,:,:] = nbar_tile.green[:,:]
+    raw_image[2,:,:] = nbar_tile.red[:,:]
+    raw_image[3,:,:] = nbar_tile.nir[:,:]
+    raw_image[4,:,:] = nbar_tile.swir1[:,:]
+    raw_image[5,:,:] = nbar_tile.swir2[:,:]
 
     classifier = WaterClassifier()
 
-    # TODO: water classification using the input data tiles
+    # TODO: water classification using the input nbar data tiles
 
-    water_classified_img = classifier.classify(nbar_tile)
+    water_classified_img = classifier.classify(raw_image)
+    del raw_image
 
     # # 2 Nodata filter
     # nodata_val = nbar_tile.attrs["_FillValue"]
@@ -189,12 +206,17 @@ if __name__ == "__main__":
 
     # First, let's prepare to get some (nbar,pq) pair, and dsm tiles real data
     # cellindex = (15, -41)
-
     cellindex = (15, -40)
-    qdict = {'latitude': (-36.0, -35.0), 'platform': ['LANDSAT_5', 'LANDSAT_7'], 'longitude': (149.01, 150.1),
-             'time': ('1980-01-01', '2016-03-31')}
+
+    qdict={'latitude': (-36.0, -35.0), 'platform': ['LANDSAT_5', 'LANDSAT_7', 'LANDSAT_8'], 'longitude': (149.01, 150.1), 'time': ('1990-01-01', '2016-03-31')}
+    #qdict = {'latitude': (-36.0, -35.0), 'platform': ['LANDSAT_8'], 'longitude': (149.01, 150.1), 'time': ('1990-01-01', '2016-03-31')}
+    #cellindex = (15, -40)
+    # the following qdict not working in api????????????
+    #qdict = {'latitude': (-36.0, -35.0), 'platform': ['LANDSAT_5', 'LANDSAT_7'], 'longitude': (149.01, 150.1), 'time': ('1990-01-01', '2016-03-31')}
 
     dcdao = AgdcDao()
+
+    #tile_data = dcdao.get_nbarpq_data(cellindex, qdict)
 
     nbar_pq_data = dcdao.get_nbarpq_data(cellindex, qdict)
     # qdict as argument is too generic here.
@@ -209,12 +231,17 @@ if __name__ == "__main__":
 
     icounter = 0
 
-    for (celltime_key, nbar_tile, pq) in nbar_pq_data:
-        water_classified_img = produce_water_tile(nbar_pq_data, dsm_data)
+    for (celltime_key, nbar_tile, pq_tile) in nbar_pq_data:
+        
+        print celltime_key
+        cell_tup=celltime_key[0]
+
+
+        water_classified_img = produce_water_tile(nbar_tile, pq_tile, dsm_data)
 
         geometadat = {"name": "waterextent", "ablersgrid_cellindex": cellindex}
 
-        path2_waterfile = define_water_file(celltime_key[0],'LS5',nbar_tile)
+        path2_waterfile = define_water_file('LS5', cell_tup, nbar_tile)
 
         write_img(water_classified_img, geometadat, path2_waterfile)
 

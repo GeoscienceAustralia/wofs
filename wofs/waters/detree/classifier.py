@@ -19,10 +19,10 @@ from osgeo import gdal
 
 import os
 import rasterio
-from wofs.utils.geobox import GriddedGeoBox
+#from wofs.utils.geobox import GriddedGeoBox
 
-from datacube.api.model import BANDS
-from datacube.api.model import DatasetType, Satellite
+#from datacube.api.model import BANDS
+#from datacube.api.model import DatasetType, Satellite
 
 logger = logging.getLogger(__name__)
 

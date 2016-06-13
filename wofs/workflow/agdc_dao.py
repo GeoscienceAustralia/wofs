@@ -18,8 +18,8 @@ from datacube.config import LocalConfig
 #from datacube.api._conversion import to_datetime
 from pandas import to_datetime
 
-from wofs.waters.detree import WaterClassifier
-import wofs.waters.detree.filters as filters
+#from wofs.waters.detree.classifier import WaterClassifier
+#import wofs.waters.detree.filters as filters
 import numpy
 from scipy import stats
 
