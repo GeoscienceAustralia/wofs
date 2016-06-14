@@ -181,6 +181,18 @@ class AgdcDao():
 
         return tile_def
 
+    def get_dsm_data(self, acellindex, qdict):
+        query = qdict.copy()
+        query.pop('time', None)
+        dsm_tiles = self.gw.list_tiles(acellindex, product='dsm1sv10', **query)
+
+        def load_dsm(acellindex, sources):
+            assert len(sources) == 1
+            data = self.gw.load(acellindex, next(iter(sources.values())))
+            return data.squeeze('time').drop('time')
+
+        return {index: load_dsm(acellindex, sources) for index, sources in dsm_tiles.items()}
+
     ######################################################
     def get_one_nbarpq_tiledata(self, acellindex, timestamp, qdict=None):
         """
