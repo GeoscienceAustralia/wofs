@@ -77,19 +77,6 @@ def write_img(waterimg, geometa, path2file):
     return path2file
 
 
-# ------------------------------------------------------------
-def get_dsm_data(cellindex):
-    """
-    retrieve the DSM data from the datacube, for the given cellindex, grid spec, etc
-    :param cellindex:
-    :return: DSM data
-    """
-    # TODO: Greg please
-
-
-    return None
-
-
 def define_water_fname(platform, cellindex, dtstamp, nbar_tile=None):
     """
     define a proper water file name from nbar_tile dataset or xarrray? which contain platform, dtstamp
@@ -222,7 +209,7 @@ if __name__ == "__main__":
     # should be more specific, able to retrieve using eg, ((15, -40), numpy.datetime64('1992-09-16T09:12:23.500000000+1000'))
 
     # TODO: get DSM data for this cell
-    dsm_data = get_dsm_data(cellindex)
+    dsm_data = dcdao.get_dsm_data(cellindex, {})
 
     print("Number of (nbar,pqa) tile-pairs:", len(nbar_pq_data))
 
@@ -239,7 +226,7 @@ if __name__ == "__main__":
         platform='LS5'  #get from the nbar data?
 
 
-        water_classified_img = produce_water_tile(nbar_tile, pq_tile, dsm_data)
+        water_classified_img = produce_water_tile(nbar_tile, pq_tile, dsm_data[cellindex_tup])
 
         geometadat = {"name": "waterextent", "ablersgrid_cellindex": cellindex}
 
