@@ -12,52 +12,59 @@
 import os, sys
 from collections import defaultdict
 
+import numpy
+from scipy import stats
 import xarray as xr
 import xarray.ufuncs
 
-from datacube.api import API
+import datacube
+from datacube.api import GridWorkflow
 from datacube.index import index_connect
 from datacube.config import LocalConfig
 #from datacube.api._conversion import to_datetime
-from datacube.api import make_mask
+from datacube.api import make_mask #, masking
 
 from wofs.waters.detree.classifier import WaterClassifier
 import wofs.waters.detree.filters as filters
 from wofs.workflow.agdc_dao import AgdcDao
+import wofs.waters.WaterConstants as WaterConstants
 
-import numpy
-from scipy import stats
 
 import logging
 
 logging.basicConfig(level=logging.INFO)
 
-
 # ------------------------------------------------------------
 def comput_img_stats(waterimg):
     """
-    compute and show the pixel values, etc of a 1-band image, typically classfied image with water extent
-    :param waterimg:
+    compute and show the pixel values stats of a 1-band image, typically water extent
+    :param waterimg: 2D numpy array
     :return:
     """
 
     print waterimg.shape
 
-    nowater_pix = numpy.sum(waterimg == 0)  # not water
-    water_pix = numpy.sum(waterimg == 128)  # water
-    nodata_pix = numpy.sum(waterimg == 1)  # water_extent nodata==1
 
-    totatl_pix = nowater_pix + water_pix + nodata_pix
+    water_pix = numpy.sum(waterimg == WaterConstants.WATER_PRESENT)  # water=128
+    cloud_pix= numpy.sum(waterimg == WaterConstants.MASKED_CLOUD)   # 64
+    cloudshadow_pix= numpy.sum(waterimg == WaterConstants.MASKED_CLOUD_SHADOW) #32
+    highslope_pix=numpy.sum(waterimg == WaterConstants.MASKED_HIGH_SLOPE) #16
+    terrainshadow_pix=numpy.sum(waterimg == WaterConstants.MASKED_TERRAIN_SHADOW) #8
+    sea_pix= numpy.sum(waterimg == WaterConstants.MASKED_SEA_WATER)  #4
+    noncontig_pix= numpy.sum(waterimg == WaterConstants.MASKED_NO_CONTIGUITY) #2
+    nodata_pix = numpy.sum(waterimg == WaterConstants.NO_DATA)  # water_extent nodata==1
+    nowater_pix = numpy.sum(waterimg == WaterConstants.WATER_NOT_PRESENT)  # not water =0
 
-    print nowater_pix, water_pix, nodata_pix, totatl_pix
+    print water_pix,cloud_pix, cloudshadow_pix, noncontig_pix, nodata_pix,  nowater_pix
+
+    total_pix = water_pix + cloud_pix +  cloudshadow_pix+ noncontig_pix + nodata_pix + nowater_pix
+    print ('Total number of pixel should be 16M ',total_pix)
 
     wimg1d = waterimg.flat
 
-    # for i in range(0, len(wimg1d)):
-    #     if (wimg1d[i] != 0) and (wimg1d[i] != 128):
-    #         print i, wimg1d[i]
-
     print stats.describe(wimg1d)
+
+    return
 
 # ------------------------------------------------------------
 def write_img(waterimg, geometa, path2file):
@@ -138,7 +145,7 @@ def produce_water_tile(nbar_tile, pq_tile, dsm_tile=None):
     y_size=4000
     x_size=4000
 
-    raw_image = numpy.zeros((6, y_size, x_size), dtype='int16') #'float32')
+    raw_image = numpy.zeros((6, y_size, x_size), dtype='int16')  #'float32')
 
     raw_image[0,:,:] = nbar_tile.blue[:,:]
     raw_image[1,:,:] = nbar_tile.green[:,:]
@@ -149,17 +156,54 @@ def produce_water_tile(nbar_tile, pq_tile, dsm_tile=None):
 
     classifier = WaterClassifier()
 
-    # TODO: water classification using the input nbar data tiles
-
+    # water classification using the input nbar data tiles
+    # 1. raw water extent
     water_classified_img = classifier.classify(raw_image)
     del raw_image
 
-    # # 2 Nodata filter
-    # nodata_val = nbar_tile.attrs["_FillValue"]
-    #
-    # print nodata_val
-    #
+    # 2 Nodata filter, where pixels are outside scene. null (value -999)
     # water_classified_img = filters.NoDataFilter().apply(water_classified_img, nbar_tile.values, nodata_val)
+    print("no_data value=", nbar_tile.green.nodata)
+    no_data_mask = (nbar_tile.green[:,:] == nbar_tile.green.nodata).to_masked_array()
+    #no_data_mask = (nbar_tile.green.values== nbar_tile.green.nodata)
+    total_no_data_pixel=numpy.sum(no_data_mask == True)
+    print ('no data pixels: ',  total_no_data_pixel)
+    print no_data_mask.shape  #(1,4000,4000)
+    water_classified_img [no_data_mask[0]] =1  # set the no_data pixels of the water_band as 1
+    del no_data_mask
+
+    # 3 Non-Contiguity, where 1 or more bands had problem
+    # with rio.open(self.pq_path) as pq_ds:   pq_band = pq_ds.read(1)
+    #
+    # water_band = filters.ContiguityFilter(pq_band).apply(water_band)
+    # # write_img(water_band, self.output().path, fmt=GTIFF, geobox=geobox, compress='lzw')
+    no_contig_mask = make_mask(pq_tile, contiguous=False).pixelquality
+
+    water_classified_img[no_contig_mask] = WaterConstants.MASKED_NO_CONTIGUITY  # set the non_contig pixels =2
+
+    # comput_img_stats(water_classified_img)
+
+    # 4
+    # water_band = filters.CloudAndCloudShadowFilter(pq_band).apply(water_band)  # compare with scratch/cellid/files
+    cloud_mask=make_mask(pq_tile, cloud_acca='cloud', cloud_fmask='cloud',contiguous=True).pixelquality
+    water_classified_img[cloud_mask] = WaterConstants.MASKED_CLOUD
+
+    cloudshad_mask = make_mask(pq_tile, cloud_shadow_acca='cloud_shadow', cloud_shadow_fmask='cloud_shadow'
+                               ,contiguous=True).pixelquality
+    water_classified_img[cloudshad_mask] = WaterConstants.MASKED_CLOUD_SHADOW
+
+    # # TODO: Combined SolarIncidentAngle, TerrainShadow, HighSlope Masks. They all use database DSM tiles.
+    # # Computationally expensive and re-projection required.
+    # # 5 SIA #6 TerrainShadow #7 HighSlope
+    #
+    # # TODO: water_band=SolarTerrainShadowSlope(self.dsm_path).filter(water_band)
+    #
+    # # 8 Land-Sea. This is the last Filter mask out the Sea pixels as flagged in PQ band
+    # # using the pq_band read in step- 3 and 4
+    #
+    # water_band = filters.SeaWaterFilter(pq_band).apply(water_band)
+    # comput_img_stats(water_classified_img)
+
     #
     # print ("Verify the water classified image ")
     #
@@ -170,10 +214,6 @@ def produce_water_tile(nbar_tile, pq_tile, dsm_tile=None):
     #  save the image to a file: numpy data
     # https://www.google.com.au/webhp?sourceid=chrome-instant&ion=1&espv=2&ie=UTF-8#q=write%20numpy%20ndarray%20to%20file
 
-
-    return water_classified_img
-
-
     #     no_data_img = (~xr.ufuncs.isfinite(nbar)).any(dim='variable')
     #
     # print "no_data_img type: " + str(type(no_data_img))
@@ -183,6 +223,8 @@ def produce_water_tile(nbar_tile, pq_tile, dsm_tile=None):
     # pyplt.show()
     #
     # print "end of program main"
+
+    return water_classified_img
 
 
 ############################################################################################################
@@ -217,7 +259,7 @@ if __name__ == "__main__":
 
     #tile_data = dcdao.get_nbarpq_data(cellindex, qdict)
 
-    nbar_pq_data = dcdao.get_multi_nbarpq_tiledata(cellindex, qdict)
+    nbar_pq_data = dcdao.get_multi_nbarpq_tiledata(cellindex, qdict,maxtiles=10)
     # qdict as argument is too generic here.
     # should be more specific, able to retrieve using eg, ((15, -40), numpy.datetime64('1992-09-16T09:12:23.500000000+1000'))
 

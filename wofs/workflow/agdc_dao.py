@@ -85,10 +85,11 @@ class AgdcDao():
         tile_keys = sorted(tile_store.keys())
 
         with  open(path2_all_tiles, 'w') as infile:
-            for eachtile in tile_keys:
-                infile.write(str(eachtile) + "\n")
+            for each_tkey in tile_keys:
+                infile.write(str(each_tkey) + "\n")
 
-        #
+        # Now for each cell, write a separate txt file to record the discovered tiles for the cell.
+
         # for time in sorted(stack):
         #     tileset = stack[time]  # This should be a pair of nbar-pqa
         #     if 'nbar' in tileset and 'pqa' in tileset:
@@ -103,7 +104,7 @@ class AgdcDao():
         #     else:
         #         logging.warn("Cell = %s : nbar-pqa mismatching tiles at time=%s .. Skipping", str(cell), time)
         #
-        # cell_id = "abc%s_%s.txt" % (cell)  # a txt/csv filename based on albers cellindex
+        # cell_id = "c%s_%s.txt" % (cell)  # a txt/csv filename based on cellindex
         # fname = os.path.join(inputs_dir, cell_id)
         # with  open(fname, 'w') as infile:
         #     for eachtile in cell_tiles:
