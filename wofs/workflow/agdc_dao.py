@@ -40,7 +40,7 @@ class AgdcDao():
             dc = datacube.Datacube(app='wofs-dev')  # default use $HOME/.datacube.conf
             # to use a specific configfile: dc = datacube.Datacube(config=/path2/your.datacube.conf', app='wofs-dev')
 
-        self.gw = GridWorkflow(dc, product='ls5_nbar_albers')  # product is used to derive grid_spec
+        self.gw = GridWorkflow(dc.index, product='ls5_nbar_albers')  # product is used to derive grid_spec
 
         return
 
@@ -164,34 +164,31 @@ class AgdcDao():
         # Cell, Time -> Product -> TileDef
         tile_def = defaultdict(dict)
 
-        for cell, tiles in nbar_tiles.items():
-            for time, tile in tiles.items():
-                tile_def[cell, time]['nbar'] = tile
+        for index, tile in nbar_tiles.items():
+            tile_def[index[:2], index[2]]['nbar'] = tile
 
-        for cell, tiles in pq_tiles.items():
-            for time, tile in tiles.items():
-                tile_def[cell, time]['pqa'] = tile
+        for index, tile in pq_tiles.items():
+            tile_def[index[:2], index[2]]['pqa'] = tile
 
-        for celltime, products in tile_def.items():
+        for index, products in tile_def.items():
             if len(products) < 2:
                 logging.warn('Only found {products} at cell: {cell} at time: {time}'.format(
-                    products=products.keys(), cell=cell, time=time))
+                    products=products.keys(), cell=index[:2], time=index[2]))
             else:
-                logging.debug('%s,%s', celltime, len(products))
+                logging.debug('%s,%s', index, len(products))
 
         return tile_def
 
     def get_dsm_data(self, acellindex, qdict):
         query = qdict.copy()
         query.pop('time', None)
-        dsm_tiles = self.gw.list_tiles(acellindex, product='dsm1sv10', **query)
+        dsm_cells = self.gw.list_cells(acellindex, product='dsm1sv10', **query)
 
-        def load_dsm(acellindex, sources):
-            assert len(sources) == 1
-            data = self.gw.load(acellindex, next(iter(sources.values())))
+        def load_dsm(cell):
+            data = self.gw.load(cell)
             return data.squeeze('time').drop('time')
 
-        return {index: load_dsm(acellindex, sources) for index, sources in dsm_tiles.items()}
+        return {index: load_dsm(cell) for index, cell in dsm_cells.items()}
 
     ######################################################
     def get_one_nbarpq_tiledata(self, acellindex, timestamp, qdict=None):
@@ -276,7 +273,7 @@ class AgdcDao():
         return tiledatas
 
 ######################################################
-    def get_multi_nbarpq_tiledata(self, acellindex, qdict=None, maxtiles=10):
+    def get_multi_nbarpq_tiledata(self, acellindex, qdict=None, maxtiles=1):
         """
         for a given cell-index, and query qdict, return dataarrays of nbar and pqa tile-pair
         :param maxtiles: The maxi number of tiles can return
@@ -307,8 +304,8 @@ class AgdcDao():
 
             pqa_tile = tile_store[key]['pqa']
 
-            nbar_data = self.gw.load(acellindex, nbar_tile)  # is cell really necessary??
-            pqa_data = self.gw.load(acellindex, pqa_tile)
+            nbar_data = self.gw.load(nbar_tile)
+            pqa_data = self.gw.load(pqa_tile)
 
             tiledatas.append((key, nbar_data, pqa_data))
 
