@@ -40,6 +40,7 @@ class AgdcDao():
             dc = datacube.Datacube(app='wofs-dev')  # default use $HOME/.datacube.conf
             # to use a specific configfile: dc = datacube.Datacube(config=/path2/your.datacube.conf', app='wofs-dev')
 
+        #self.gw = GridWorkflow(dc, product='ls5_nbar_albers')  # product is used to derive grid_spec
         self.gw = GridWorkflow(dc.index, product='ls5_nbar_albers')  # product is used to derive grid_spec
 
         return
@@ -180,9 +181,10 @@ class AgdcDao():
 
         return tile_def
 
-    def get_dsm_data(self, acellindex, qdict):
+    def get_dsm_data(self, acellindex, qdict={}):
         query = qdict.copy()
         query.pop('time', None)
+        query.pop('platform', None)
         dsm_cells = self.gw.list_cells(acellindex, product='dsm1sv10', **query)
 
         def load_dsm(cell):
@@ -340,10 +342,13 @@ if __name__ == "__main__":
     #tile_data = dcdao.get_one_nbarpq_tiledata(cellindex, ts, qdict)
     tile_data = dcdao.get_multi_nbarpq_tiledata(cellindex, qdict)
 
+    dsm_tile=dcdao.get_dsm_data(cellindex,{})
+    print (dsm_tile)
+
     print ("Number of (nbar-pqa) tile data found = ", len(tile_data))
 
     icounter=0
-    for (celltime_key, nbar, pq) in tile_data[:10]:  # do the first few tiles of the list
+    for (celltime_key, nbar, pq) in tile_data[:1]:  # do the first few tiles of the list
         icounter=icounter+1
 
         print (celltime_key, nbar, pq)

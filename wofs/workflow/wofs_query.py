@@ -56,7 +56,7 @@ class WofsQuery:
 
         self.agdcdao=AgdcDao(dc)
 
-        self.gw = GridWorkflow(dc, product='ls5_nbar_albers')
+        self.gw = GridWorkflow(dc.index, product='ls5_nbar_albers')
 
 
         return
@@ -126,7 +126,8 @@ class WofsQuery:
 
         print(qdict)
 
-        cells = self.gw.list_cells(product_type='nbar', **qdict)
+        cells = self.gw.list_cells(product='ls5_nbar_albers', **qdict )
+            #product='ls5_pq_albers(product_type='nbar', **qdict)
 
         logging.info("cells to be processed: %s", str(cells) )
         # for each cell, create working directories in shadow, sia, extents, bordered_el if they do not exist

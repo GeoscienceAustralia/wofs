@@ -113,6 +113,30 @@ def define_water_fname(platform, cellindex, dtstamp, nbar_tile=None):
 
     return path2waterfile
 
+def get_no_data_mask(nbar_data):
+    """
+    get a mask of where the nodata is set in any of the bands.
+    The code must change if the AGDC-v2 API changes
+    :param nbar_data: a 6-bands nbar tile
+    :return: no_data_mask  xarray 3D [1,4000,4000]
+    """
+
+    # Get the nodata values (as an 6 elem array)for each of the 6 bands (in case they aren't the same)
+    no_data_values = nbar_data.apply(lambda data_array: data_array.nodata).to_array(dim='band')
+
+    # Turn the Dataset into a DataArray, so we can check all bands
+    stack = nbar_data.to_array(dim='band')
+
+    # Find all values that are set to no data, from any band
+    no_data_mask = (stack == no_data_values).any(dim='band')
+
+    logging.debug(type(no_data_mask))
+
+    #no_data_mask.plot()
+
+    return no_data_mask
+
+
 def produce_water_tile(nbar_tile, pq_tile, dsm_tile=None):
     """
     Apply a water classifier algorithm and relevant filters, to produce a water tile.
@@ -124,7 +148,7 @@ def produce_water_tile(nbar_tile, pq_tile, dsm_tile=None):
     :param pq_tile:
     :param dsm_tile:
 
-    :return: 2D water_image......
+    :return: water_image
     """
     
     # have to massage the input datasets nbar_tile, pq_tile into suitable for classifiers:
@@ -148,23 +172,14 @@ def produce_water_tile(nbar_tile, pq_tile, dsm_tile=None):
     water_classified_img = classifier.classify(raw_image)
     del raw_image
 
-    # 2 Nodata filter, where pixels are outside scene. null (value -999)
-    # water_classified_img = filters.NoDataFilter().apply(water_classified_img, nbar_tile.values, nodata_val)
-    print("no_data value=", nbar_tile.green.nodata)
-    no_data_mask = (nbar_tile.green[:,:] == nbar_tile.green.nodata).to_masked_array()
-    #no_data_mask = (nbar_tile.green.values== nbar_tile.green.nodata)
-    total_no_data_pixel=numpy.sum(no_data_mask == True)
-    print ('no data pixels: ',  total_no_data_pixel)
-    print no_data_mask.shape  #(1,4000,4000)
-    water_classified_img [no_data_mask[0]] =1  # set the no_data pixels of the water_band as 1
-    del no_data_mask
+    #2 moved down
 
     # 3 Non-Contiguity, where 1 or more bands had problem
     # with rio.open(self.pq_path) as pq_ds:   pq_band = pq_ds.read(1)
     #
     # water_band = filters.ContiguityFilter(pq_band).apply(water_band)
     # # write_img(water_band, self.output().path, fmt=GTIFF, geobox=geobox, compress='lzw')
-    no_contig_mask = make_mask(pq_tile, contiguous=False).pixelquality
+    no_contig_mask = make_mask(pq_tile, contiguous=False).pixelquality.values[0]
 
     water_classified_img[no_contig_mask] = WaterConstants.MASKED_NO_CONTIGUITY  # set the non_contig pixels =2
 
@@ -172,12 +187,27 @@ def produce_water_tile(nbar_tile, pq_tile, dsm_tile=None):
 
     # 4
     # water_band = filters.CloudAndCloudShadowFilter(pq_band).apply(water_band)  # compare with scratch/cellid/files
-    cloud_mask=make_mask(pq_tile, cloud_acca='cloud', cloud_fmask='cloud',contiguous=True).pixelquality
+    cloud_mask=make_mask(pq_tile, cloud_acca='cloud', cloud_fmask='cloud',contiguous=True).pixelquality.values[0]
     water_classified_img[cloud_mask] = WaterConstants.MASKED_CLOUD
 
     cloudshad_mask = make_mask(pq_tile, cloud_shadow_acca='cloud_shadow', cloud_shadow_fmask='cloud_shadow'
-                               ,contiguous=True).pixelquality
+                               ,contiguous=True).pixelquality.values[0]
+
     water_classified_img[cloudshad_mask] = WaterConstants.MASKED_CLOUD_SHADOW
+
+
+    # 2 Nodata filter, where nbar pixels are outside scene. null (value -999)
+    # water_classified_img = filters.NoDataFilter().apply(water_classified_img, nbar_tile.values, nodata_val)
+    print("no_data value=", nbar_tile.green.nodata)
+    #no_data_mask = (nbar_tile.green[:,:] == nbar_tile.green.nodata).to_masked_array()
+    no_data_mask = get_no_data_mask(nbar_tile)
+    total_no_data_pixel=numpy.sum(no_data_mask == True)
+    print ('no data pixels: ',  total_no_data_pixel)
+    print no_data_mask.shape  #(1,4000,4000)
+
+    # Apply no data pixel mask here to override pixels masked before as cloud, cloud-shadow, or non-contiguity.
+    water_classified_img [no_data_mask.values[0]] =1  # set the no_data pixels of the water_band as 1
+    del no_data_mask
 
     # # TODO: Combined SolarIncidentAngle, TerrainShadow, HighSlope Masks. They all use database DSM tiles.
     # # Computationally expensive and re-projection required.
@@ -246,7 +276,7 @@ if __name__ == "__main__":
 
     #tile_data = dcdao.get_nbarpq_data(cellindex, qdict)
 
-    nbar_pq_data = dcdao.get_multi_nbarpq_tiledata(cellindex, qdict,maxtiles=10)
+    nbar_pq_data = dcdao.get_multi_nbarpq_tiledata(cellindex, qdict,maxtiles=20)
     # qdict as argument is too generic here.
     # should be more specific, able to retrieve using eg, ((15, -40), numpy.datetime64('1992-09-16T09:12:23.500000000+1000'))
 
