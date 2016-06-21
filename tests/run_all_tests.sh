@@ -13,4 +13,4 @@ export PYTHONPATH=$WOFSROOT:$AGDCROOT
 python $WOFSROOT/wofs/main.py setup --infile $WOFSROOT/wofs/workflow/wofs_input.yml
 
 # water classification
-python $WOFSROOT/wofs/workflow/make_water_tiles.py
+python $WOFSROOT/wofs/workflow/make_water_tiles.py 15 -40 1991

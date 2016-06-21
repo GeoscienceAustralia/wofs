@@ -26,7 +26,7 @@ from scipy import stats
 import logging
 
 # logging.basicConfig(level=logging.INFO)
-logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.INFO)
+logging.basicConfig(format='%(asctime)s %(levelname)s %(message)s', level=logging.DEBUG)
 
 
 class AgdcDao():
@@ -44,6 +44,28 @@ class AgdcDao():
         self.gw = GridWorkflow(dc.index, product='ls5_nbar_albers')  # product is used to derive grid_spec
 
         return
+
+    def get_platform_instrum(self, prodname):
+        """
+        find the satellite name and sensor
+        :param prodname: =~ 'ls5_nbar_albers'
+        :return: (sat, sensor)
+         The Result looks like (u'LANDSAT_5', u'TM')
+        """
+
+        dc= datacube.Datacube(app='wofs-dev')
+        prodlist = dc.list_products()  # pandas df
+
+        prodlist[prodlist.name == prodname ]  # the row for your product
+
+        # get your values as numpy.ndarr
+        satsens = prodlist[prodlist.name == 'ls5_nbar_albers'][['platform', 'instrument']].values
+
+        satname = satsens[0, 0]
+        sensor = satsens[0, 1]
+
+        return (satname, sensor)
+
 
     def get_cells_list(self, qdict):
         """
@@ -143,7 +165,7 @@ class AgdcDao():
 
         return tile_def
 
-    ##----------------------------------------------------------------
+    # ----------------------------------------------------------------
     def get_nbarpqa_tiles_by_cell(self, acell, qdict):
         """
         return a list of tiles
@@ -160,7 +182,7 @@ class AgdcDao():
         if (len(pq_tiles) == len(nbar_tiles)):
             logging.debug("The cells have %s nbar and %s pq tiles", len(nbar_tiles), len(pq_tiles))
         else:
-            logging.warn("NBAR-PQA tiles mismatch: The cells have %s nbar and %s pq tiles", len(nbar_tiles),
+            logging.warn("Mismatched NBAR-PQA tiles: The cells have %s nbar and %s pq tiles", len(nbar_tiles),
                          len(pq_tiles))
 
         # Cell, Time -> Product -> TileDef
@@ -172,17 +194,26 @@ class AgdcDao():
         for index, tile in pq_tiles.items():
             tile_def[index[:2], index[2]]['pqa'] = tile
 
+
         for index, products in tile_def.items():
             if len(products) < 2:
-                logging.warn('Only found {products} at cell: {cell} at time: {time}'.format(
-                    products=products.keys(), cell=index[:2], time=index[2]))
+                logging.warn('un-paired nbar-pqa product for cell %s', str(index))
+                logging.warn("remove this un-paired tile from the dict")
+                tile_def.pop(index)
             else:
                 logging.debug('%s,%s', index, len(products))
 
         return tile_def
 
+    # ----------------------------------------------------------------
     def get_dsm_data(self, acellindex, qdict={}):
-        query = qdict.copy()
+        """
+        get dsm data for sia, terrainshadow, highslope filters
+        :param acellindex:
+        :param qdict:
+        :return:
+        """
+        query = qdict.copy()  #avoid modify the original input qdict in-situ
         query.pop('time', None)
         query.pop('platform', None)
         dsm_cells = self.gw.list_cells(acellindex, product='dsm1sv10', **query)
@@ -336,6 +367,8 @@ if __name__ == "__main__":
     ts = numpy.datetime64('1990-03-03T10:11:16.000000000+1100')
 
     dcdao = AgdcDao()
+    satsensor=dcdao.get_platform_instrum('ls5_nbar_albers')
+    print (satsensor)
 
     dcdao.get_tiles_for_wofs(qdict, '/g/data1/u46/users/fxz547/wofs2/')
 

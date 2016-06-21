@@ -6,7 +6,7 @@
 #
 # Usage:
 #   export PYTHONPATH=/g/data/u46/fxz547/Githubz/wofs/:/g/data/u46/fxz547/Githubz/agdc-v2
-#   python make_water_tiles.py
+#   python make_water_tiles.py 15 -40 1991
 #################################################
 
 import os, sys
@@ -215,7 +215,7 @@ def produce_water_tile(nbar_tile, pq_tile, dsm_tile=None):
     #
     # # TODO: water_band=SolarTerrainShadowSlope(self.dsm_path).filter(water_band)
     #
-    # # 8 Land-Sea. This is the last Filter mask out the Sea pixels as flagged in PQ band
+    # # TODO: 8 Land-Sea. This is the last Filter mask out the Sea pixels as flagged in PQ band
     # # using the pq_band read in step- 3 and 4
     #
     # water_band = filters.SeaWaterFilter(pq_band).apply(water_band)
@@ -243,40 +243,24 @@ def produce_water_tile(nbar_tile, pq_tile, dsm_tile=None):
 
     return water_classified_img
 
+#################################################################
+def do_cell_year(cellindex, year):
+    """
+    do a cell over a year
+    :param cellindex:
+    :param year:
+    :return:
+    """
 
-############################################################################################################
-#  Note:
-# the WOFS-V1 Water Tiles name pattern: water_extent filename: Platform_Sensor_WATER_CELLID_DATETIMESTAMP.tif
-# eg
-# LS5_TM_WATER_136_-032_1987-12-07T00-12-56.014088.tif
-# LS7_ETM_WATER_136_-032_2000-03-05T00-37-07.703569.tif
-# LS8_OLI_TIRS_WATER_136_-032_2013-04-11T00-42-50.tif
-# ----------------------------------------------------------
-
-
-########################################################################################################################
-# Usage:
-#   export PYTHONPATH=/g/data/u46/fxz547/Githubz/wofs/:/g/data/u46/fxz547/Githubz/agdc-v2
-#   python make_water_tiles.py
-# ----------------------------------------------------------------------------------------
-if __name__ == "__main__":
-
-    # First, let's prepare to get some (nbar,pq) pair, and dsm tiles real data
-    # cellindex = (15, -41)
-    cellindex = (15, -40)
-
-    # OK: qdict={'latitude': (-36.0, -35.0), 'platform': ['LANDSAT_5', 'LANDSAT_7', 'LANDSAT_8'], 'longitude': (149.01, 150.1), 'time': ('1990-01-01', '2016-03-31')}
-
-    # OK qdict={'latitude': (-36.0, -35.0), 'platform': ['LANDSAT_5'], 'longitude': (149.01, 155.1), 'time': ('1990-01-01', '1990-03-31')}
-    # OK qdict={'platform': ['LANDSAT_5'],  'time': ('1990-01-01', '1991-03-31')}
-    qdict = {'platform': ['LANDSAT_5'], 'time': ('1990-03-01', '1990-12-31')}
-
+    yearfirstday='%s-01-01'%(year)
+    yearlastday='%s-12-31'%(year)
+    qdict = {'platform': ['LANDSAT_5'], 'time': (yearfirstday, yearlastday)}
+    print (qdict)
 
     dcdao = AgdcDao()
 
-    #tile_data = dcdao.get_nbarpq_data(cellindex, qdict)
 
-    nbar_pq_data = dcdao.get_multi_nbarpq_tiledata(cellindex, qdict,maxtiles=20)
+    nbar_pq_data = dcdao.get_multi_nbarpq_tiledata(cellindex, qdict, maxtiles=2)
     # qdict as argument is too generic here.
     # should be more specific, able to retrieve using eg, ((15, -40), numpy.datetime64('1992-09-16T09:12:23.500000000+1000'))
 
@@ -290,13 +274,11 @@ if __name__ == "__main__":
     icounter = 0
 
     for (celltime_key, nbar_tile, pq_tile) in nbar_pq_data:
-        
         print celltime_key
-        cellindex_tup=celltime_key[0]
-        acq_dt=celltime_key[1]
-        dtstamp = str(acq_dt)[:19].replace(':','-')
-        platform='LS5'  #get from the nbar data?
-
+        cellindex_tup = celltime_key[0]
+        acq_dt = celltime_key[1]
+        dtstamp = str(acq_dt)[:19].replace(':', '-')
+        platform = 'LS5'  # get from the nbar data?
 
         water_classified_img = produce_water_tile(nbar_tile, pq_tile, dsm_data[cellindex_tup])
 
@@ -307,3 +289,59 @@ if __name__ == "__main__":
         write_img(water_classified_img, geometadat, path2_waterfile)
 
         icounter += 1
+
+############################################################################################################
+#  Note:
+# the WOFS-V1 Water Tiles name pattern: water_extent filename: Platform_Sensor_WATER_CELLID_DATETIMESTAMP.tif
+# eg
+# LS5_TM_WATER_136_-032_1987-12-07T00-12-56.014088.tif
+# LS7_ETM_WATER_136_-032_2000-03-05T00-37-07.703569.tif
+# LS8_OLI_TIRS_WATER_136_-032_2013-04-11T00-42-50.tif
+# ----------------------------------------------------------
+
+########################################################################################################################
+# [fxz547@vdi-n18 fxz547_2016-06-17T10-49-12]$ cat inputs/all_tiles.txt  | cut -c2-9 | uniq
+# (14, -42)
+# (14, -41)
+# (14, -40)
+# (14, -39)
+# (15, -42)
+# (15, -41)
+# (15, -40)
+# (15, -39
+# (15, -38)
+# (16, -42)
+# (16, -41)
+# (16, -40)
+# (16, -39)
+# (16, -38)
+# (17, -41)
+# (17, -40)
+# (17, -39)
+# (17, -38)
+#   Canberra cellindex = (15, -40)  and coast cellindex = (16, -40)
+# ----------------------------------------------------------------------------------------
+if __name__ == "__main__":
+    """ Run this script in the commandline with cellid and year to classify water
+    Usage:
+    export PYTHONPATH=/g/data/u46/fxz547/Githubz/wofs/:/g/data/u46/fxz547/Githubz/agdc-v2
+    python make_water_tiles.py 15 -40 1991
+
+    """
+
+    inx=int(sys.argv[1])
+    iny = int(sys.argv[2])
+    inyear = sys.argv[3]  # 1990
+
+    print (inx, iny, inyear)
+
+
+    cellindex = (inx, iny)   # (15, -40)
+
+    do_cell_year(cellindex, inyear)
+
+    # OK: qdict={'latitude': (-36.0, -35.0), 'platform': ['LANDSAT_5', 'LANDSAT_7', 'LANDSAT_8'], 'longitude': (149.01, 150.1), 'time': ('1990-01-01', '2016-03-31')}
+
+    # OK qdict={'latitude': (-36.0, -35.0), 'platform': ['LANDSAT_5'], 'longitude': (149.01, 155.1), 'time': ('1990-01-01', '1990-03-31')}
+    # OK qdict={'platform': ['LANDSAT_5'],  'time': ('1990-01-01', '1991-03-31')}
+
