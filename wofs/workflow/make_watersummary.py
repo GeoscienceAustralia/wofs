@@ -173,15 +173,19 @@ if __name__ == "__main__":
     file_ext = sys.argv[2]  # file name extension nc or tif
 
     #derive a ncfile from input info dirname = os.path
+    cellid='abc_15_-40'
+    cellid=sys.argv[3]
 
-    outncfile='/tmp/ztestfile.nc'
+    out_dir='/g/data/u46/users/fxz547/wofs2/fxz547_2016-06-21T14-23-54/summaries'
+    outncfile='water_summary_%s.nc'% (cellid)
+    path2ncfile=os.path.join(out_dir, outncfile)
 
     sumObj = SummarizeExtents(indir)
 
     res = sumObj.main(file_ext)
 
     print np.sum(res[0])  # water obs
-    print np.sum(res[1])  # dry obs 
+    print np.sum(res[0]+ res[1] )  # res[1] is dry obs 
     # definition?:  clearObs = waterobs + dryobs
 
     ncobj = Netcdf4IO()
@@ -189,11 +193,11 @@ if __name__ == "__main__":
     #  the nc file writer
     mywater_sum = np.empty(dtype='uint8', shape=(2, 4000, 4000))
     mywater_sum[0, :, :] = res[0][:, :]
-    mywater_sum[1, :, :] = res[1][:, :]
+    mywater_sum[1, :, :] = res[0][:, :] + res[1][:, :]
 
     metad = {'epoc_seconds': 1234567890.123}
 
-    ncobj.to_file(outncfile, mywater_sum, metadict=metad)
+    ncobj.to_file(path2ncfile, mywater_sum, metadict=metad)
 
     # check the output nc file: ncview, ncdump -hkv
 
