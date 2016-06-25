@@ -89,7 +89,8 @@ log/*
 *.zip
 
 # private, local files
-Zlocal*
+local*
+zlocal*
 private*
 scratch/*
 
