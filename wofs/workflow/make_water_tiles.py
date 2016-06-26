@@ -172,7 +172,7 @@ def produce_water_tile(nbar_tile, pq_tile, dsm_tile=None):
     water_classified_img = classifier.classify(raw_image)
     del raw_image
 
-    #2 moved down
+    #2 NoData Filter moved down
 
     # 3 Non-Contiguity, where 1 or more bands had problem
     # with rio.open(self.pq_path) as pq_ds:   pq_band = pq_ds.read(1)
@@ -215,7 +215,8 @@ def produce_water_tile(nbar_tile, pq_tile, dsm_tile=None):
     #
     # # TODO: water_band=SolarTerrainShadowSlope(self.dsm_path).filter(water_band)
     #
-    # # TODO: 8 Land-Sea. This is the last Filter mask out the Sea pixels as flagged in PQ band
+    # # LandSea Filter is No Longer required to kee the see water observation, according to Norman
+    #           8 Land-Sea. This is the last Filter mask out the Sea pixels as flagged in PQ band
     # # using the pq_band read in step- 3 and 4
     #
     # water_band = filters.SeaWaterFilter(pq_band).apply(water_band)
@@ -278,7 +279,7 @@ def do_cell_year(cellindex, year):
         cellindex_tup = celltime_key[0]
         acq_dt = celltime_key[1]
         dtstamp = str(acq_dt)[:19].replace(':', '-')
-        platform = 'LS5'  # get from the nbar data?
+        platform = 'LS5'  # get from the nbar tile data
 
         water_classified_img = produce_water_tile(nbar_tile, pq_tile, dsm_data[cellindex_tup])
 
