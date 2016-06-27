@@ -9,13 +9,14 @@
 #   python make_water_tiles.py 15 -40 1991
 #################################################
 
-import os, sys
-from collections import defaultdict
+import os
+import sys
 
 import numpy
 from scipy import stats
 import xarray as xr
 import xarray.ufuncs
+from pathlib import Path
 
 import datacube
 from datacube.api import GridWorkflow
@@ -23,9 +24,10 @@ from datacube.index import index_connect
 from datacube.config import LocalConfig
 #from datacube.api._conversion import to_datetime
 from datacube.storage import  masking
+from datacube.storage.storage import write_dataset_to_netcdf
+from datacube.api import make_mask
 
 from wofs.waters.detree.classifier import WaterClassifier
-import wofs.waters.detree.filters as filters
 from wofs.workflow.agdc_dao import AgdcDao
 import wofs.waters.WaterConstants as WaterConstants
 
@@ -154,8 +156,7 @@ def produce_water_tile(nbar_tile, pq_tile, dsm_tile=None):
     
     # have to massage the input datasets nbar_tile, pq_tile into suitable for classifiers:
     #get the nbar_tile shape here
-    y_size=4000
-    x_size=4000
+    _, y_size, x_size = nbar_tile.blue.shape
 
 
     #raw_image = numpy.zeros((6, y_size, x_size), dtype='int16')  #'float32')
@@ -261,7 +262,11 @@ def produce_water_tile(nbar_tile, pq_tile, dsm_tile=None):
     #
     # print "end of program main"
 
-    return water_classified_img
+    return xarray.Dataset({'waterextent': (nbar_tile.red.dims,
+                                           water_classified_img.reshape(1, y_size, x_size),
+                                           {'crs': nbar_tile.crs})},
+                          coords=nbar_tile.coords,
+                          attrs={'crs': nbar_tile.crs})
 
 #################################################################
 def do_cell_year(cellindex, year):
@@ -302,11 +307,12 @@ def do_cell_year(cellindex, year):
 
         water_classified_img = produce_water_tile(nbar_tile, pq_tile, dsm_data[cellindex_tup])
 
-        geometadat = {"name": "waterextent", "ablersgrid_cellindex": cellindex}
-
         path2_waterfile = define_water_fname(platform, cellindex_tup, dtstamp, nbar_tile)
 
-        write_img(water_classified_img, geometadat, path2_waterfile)
+        write_dataset_to_netcdf(water_classified_img,
+                                global_attributes={},
+                                variable_params={'waterextent': {'zlib': True}},
+                                filename=Path(path2_waterfile))
 
         icounter += 1
 
