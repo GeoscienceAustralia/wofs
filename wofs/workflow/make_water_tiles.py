@@ -186,9 +186,10 @@ def produce_water_tile(nbar_tile, pq_tile, dsm_tile=None):
     # water classification using the input nbar data tiles
     # 1. raw water extent
 
-    # water_classified_img = classifier.classify(raw_image)  #the very classifier implemented in agdc-v1
+    water_classified_img = classifier.classify(raw_image)  #the very classifier implemented in agdc-v1
 
-    water_classified_img = classifier.classify_by_pickled_model(raw_image)
+    # Dale: can plugin test your classification method here at this stage.
+    # water_classified_img = classifier.classify_by_pickled_model(raw_image)
 
     del raw_image
 
@@ -285,7 +286,7 @@ def do_cell_year(cellindex, year):
     dcdao = AgdcDao()
 
 
-    nbar_pq_data = dcdao.get_multi_nbarpq_tiledata(cellindex, qdict, maxtiles=100)  # maxtiles=100
+    nbar_pq_data = dcdao.get_multi_nbarpq_tiledata(cellindex, qdict, maxtiles=2)  # maxtiles=100
     # qdict as argument is too generic here.
     # should be more specific, able to retrieve using eg, ((15, -40), numpy.datetime64('1992-09-16T09:12:23.500000000+1000'))
 
