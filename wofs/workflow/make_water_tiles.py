@@ -22,7 +22,7 @@ from datacube.api import GridWorkflow
 from datacube.index import index_connect
 from datacube.config import LocalConfig
 #from datacube.api._conversion import to_datetime
-from datacube.api import make_mask #, masking
+from datacube.storage import  masking
 
 from wofs.waters.detree.classifier import WaterClassifier
 import wofs.waters.detree.filters as filters
@@ -55,7 +55,8 @@ def comput_img_stats(waterimg):
     nodata_pix = numpy.sum(waterimg == WaterConstants.NO_DATA)  # water_extent nodata==1
     nowater_pix = numpy.sum(waterimg == WaterConstants.WATER_NOT_PRESENT)  # not water =0
 
-    print water_pix,cloud_pix, cloudshadow_pix, noncontig_pix, nodata_pix,  nowater_pix
+    print ('Pixel Stats: ',"water_pix,cloud_pix, cloudshadow_pix, noncontig_pix, nodata_pix,  nowater_pix")
+    print ('Pixel Stats: ', water_pix,cloud_pix, cloudshadow_pix, noncontig_pix, nodata_pix,  nowater_pix)
 
     total_pix = water_pix + cloud_pix +  cloudshadow_pix+ noncontig_pix + nodata_pix + nowater_pix
     print ('Total number of pixel should be 16M ',total_pix)
@@ -156,7 +157,9 @@ def produce_water_tile(nbar_tile, pq_tile, dsm_tile=None):
     y_size=4000
     x_size=4000
 
-    raw_image = numpy.zeros((6, y_size, x_size), dtype='int16')  #'float32')
+
+    #raw_image = numpy.zeros((6, y_size, x_size), dtype='int16')  #'float32')
+    raw_image = numpy.ones((6, y_size, x_size), dtype='int16')  #'float32')
 
     raw_image[0,:,:] = nbar_tile.blue[:,:]
     raw_image[1,:,:] = nbar_tile.green[:,:]
@@ -165,11 +168,27 @@ def produce_water_tile(nbar_tile, pq_tile, dsm_tile=None):
     raw_image[4,:,:] = nbar_tile.swir1[:,:]
     raw_image[5,:,:] = nbar_tile.swir2[:,:]
 
+
+    # Why?: Try to mask off the bad pixels, and only classify the good pixels as follows had resulted wrong water classific even for Original
+    # Dilema: If not do this masking, the scikit-learn classifier will encounter -inf for some images
+    # such as ((15, -40), numpy.datetime64('1990-04-04T09:10:42.000000000+1000'))
+
+    # get the mask for bad/imperfect pixels.
+    # bad_pixel_mask = ~ (masking.make_mask(pq_tile, ga_good_pixel=True).pixelquality.values[0])
+    # # reset the bad pixels values=-100, so that they do not cause inf issues later. However, this resulted wrong water classified
+    # for i in range(0,6):
+    #     raw_image[i][bad_pixel_mask]= -100
+
+
     classifier = WaterClassifier()
 
     # water classification using the input nbar data tiles
     # 1. raw water extent
-    water_classified_img = classifier.classify(raw_image)
+
+    # water_classified_img = classifier.classify(raw_image)  #the very classifier implemented in agdc-v1
+
+    water_classified_img = classifier.classify_by_pickled_model(raw_image)
+
     del raw_image
 
     #2 NoData Filter moved down
@@ -179,7 +198,7 @@ def produce_water_tile(nbar_tile, pq_tile, dsm_tile=None):
     #
     # water_band = filters.ContiguityFilter(pq_band).apply(water_band)
     # # write_img(water_band, self.output().path, fmt=GTIFF, geobox=geobox, compress='lzw')
-    no_contig_mask = make_mask(pq_tile, contiguous=False).pixelquality.values[0]
+    no_contig_mask =masking.make_mask(pq_tile, contiguous=False).pixelquality.values[0]
 
     water_classified_img[no_contig_mask] = WaterConstants.MASKED_NO_CONTIGUITY  # set the non_contig pixels =2
 
@@ -187,10 +206,10 @@ def produce_water_tile(nbar_tile, pq_tile, dsm_tile=None):
 
     # 4
     # water_band = filters.CloudAndCloudShadowFilter(pq_band).apply(water_band)  # compare with scratch/cellid/files
-    cloud_mask=make_mask(pq_tile, cloud_acca='cloud', cloud_fmask='cloud',contiguous=True).pixelquality.values[0]
+    cloud_mask = masking.make_mask(pq_tile, cloud_acca='cloud', cloud_fmask='cloud',contiguous=True).pixelquality.values[0]
     water_classified_img[cloud_mask] = WaterConstants.MASKED_CLOUD
 
-    cloudshad_mask = make_mask(pq_tile, cloud_shadow_acca='cloud_shadow', cloud_shadow_fmask='cloud_shadow'
+    cloudshad_mask =masking.make_mask(pq_tile, cloud_shadow_acca='cloud_shadow', cloud_shadow_fmask='cloud_shadow'
                                ,contiguous=True).pixelquality.values[0]
 
     water_classified_img[cloudshad_mask] = WaterConstants.MASKED_CLOUD_SHADOW
@@ -261,7 +280,7 @@ def do_cell_year(cellindex, year):
     dcdao = AgdcDao()
 
 
-    nbar_pq_data = dcdao.get_multi_nbarpq_tiledata(cellindex, qdict, maxtiles=100)
+    nbar_pq_data = dcdao.get_multi_nbarpq_tiledata(cellindex, qdict, maxtiles=100)  # maxtiles=100
     # qdict as argument is too generic here.
     # should be more specific, able to retrieve using eg, ((15, -40), numpy.datetime64('1992-09-16T09:12:23.500000000+1000'))
 
@@ -326,7 +345,7 @@ if __name__ == "__main__":
     """ Run this script in the commandline with cellid and year to classify water
     Usage:
     export PYTHONPATH=/g/data/u46/fxz547/Githubz/wofs/:/g/data/u46/fxz547/Githubz/agdc-v2
-    python make_water_tiles.py 15 -40 1991
+    python make_water_tiles.py 15 -40 1990
 
     """
 

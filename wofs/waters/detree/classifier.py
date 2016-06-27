@@ -307,12 +307,21 @@ class WaterClassifier(object):
 
         import pickle, math
 
-        # prepare predictive attributes from the raw input images
-        X = compute_attributes(images)
+        # transform the image band pixel values (raw variables) into the predictive variable attributes
+        #NaN band ratio  
+        images = images.astype('float32')
 
-        # load a classification model, may be trained and pickled already, or each time.
+        NVar=2  # number of predictive variables/attrib used
+        X = compute_attributes(images, NVar)
+
+        # load a classification model, trained and pickled already using a well-defined sample set.
         # Todo: refactoring
-        path2pickmodfile = "/g/data/u46/fxz547/Githubz/geodata_analytics/notebooks/detree_clf.pickle"
+        if (NVar == 2):
+            path2pickmodfile = "/g/data/u46/fxz547/Githubz/geodanalytics/notebooks/detree_clfV2D5.pickle"
+        elif (NVar ==3):
+            path2pickmodfile = "/g/data/u46/fxz547/Githubz/geodanalytics/notebooks/detree_clfV3D5.pickle"
+        else:
+            logging.error("Classification model has not been defined for NVar=%s", NVar)
 
         with open(path2pickmodfile, 'rb') as f:
             # The protocol version used is detected automatically, so we do not
@@ -325,13 +334,15 @@ class WaterClassifier(object):
 
         ncols= int( math.sqrt(y.size) )
 
-        logging.debug(ncols)  # should be 4000
+        logging.debug('scikit-learn %s', ncols)  # should be 4000
 
         classified = numpy.reshape(y, (-1, ncols))  #numpy.zeros((rows, cols), dtype='uint8')
 
         #OR y.shape = (y.size/ncols, ncols); return y # which is a 2D image now
 
         # use y to re-define the pixels values of the classified img
+
+        logging.debug("Check the shape of the classified water_tile %s", classified.shape)
 
         return classified
 
@@ -342,15 +353,18 @@ def band_ratio(a, b):
     Calculates a normalised ratio index of the images a and b
     """
     c = (a - b) / (a + b)
+
+    logging.debug('Band ratio images dtype should be float32/64: %s, %s, %s',a.dtype, b.dtype, c.dtype)
+
     return c
 
 
 #######################################################################
-def compute_attributes(images):
+def compute_attributes(images, nv):
     """
-    compute designed feature_attributes from input images
-    :param images: 6-band NBAR image(nrow, ncol)
-    :return: 2D numpy array (nf, nrow * ncol), where nf is the number of attributes used in the model.
+    compute designed variable_attributes from input images
+    :param images: 6-band NBAR image(6, nrow, ncol)
+    :return: 2D numpy array (nrow*ncol, nv), where nv=2,3, is the number of predictive var-attributes used in the model.
     """
 
     dims = images.shape
@@ -365,7 +379,7 @@ def compute_attributes(images):
     # datype = images.dtype
 
 
-    Xp = numpy.empty((rows*cols,3), dtype='float32')
+    Xp = numpy.ones((rows*cols,nv), dtype='float32')
 
     NDI_52 = band_ratio(images[4], images[1])
     # NDI_43 = band_ratio(images[3], images[2])
@@ -373,9 +387,15 @@ def compute_attributes(images):
     # and the SHortWave Infrared1 which is the band-5 for LS5/7; but band-6 for the LS8
     #SWI_1 = images[4]
 
+
     Xp[:,0] = NDI_52.flatten()
-    Xp[:,1] =NDI_72.flatten()
-    Xp[:,2] = images[4].flatten()
+    Xp[:,1] = NDI_72.flatten()
+
+    if (nv==3):  # use band-5 shortwaveInfrRed-1
+        Xp[:,2] = images[4].flatten()
+
+    #dump the Xp for debugging. 2GB file very slowdown.
+    #numpy.savetxt('/short/v10/fxz547/tmp4wofs/Xp.txt', Xp, delimiter=',')
 
     return Xp
 
