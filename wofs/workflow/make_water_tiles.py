@@ -272,10 +272,11 @@ def produce_water_tile(nbar_tile, pq_tile, dsm_tile=None):
     sia = 90-numpy.degrees(numpy.arccos(sia))
 
     # # TODO: water_band=SolarTerrainShadowSlope(self.dsm_path).filter(water_band)
+
+
     #
-    # # LandSea Filter is No Longer required to kee the see water observation, according to Norman
-    #           8 Land-Sea. This is the last Filter mask out the Sea pixels as flagged in PQ band
-    # # using the pq_band read in step- 3 and 4
+    #  8. LandSea. This is the last Filter mask out the Sea pixels as flagged in PQ band
+    #     LandSea Filter is No Longer required according to Norman. To keep the sea water observations.
     #
     # water_band = filters.SeaWaterFilter(pq_band).apply(water_band)
     # comput_img_stats(water_classified_img)
