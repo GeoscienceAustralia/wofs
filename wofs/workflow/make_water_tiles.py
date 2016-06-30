@@ -1,14 +1,16 @@
-#################################################
-# Purpose: Test use agdc-v2 api to retrieve tiles data and test a water classifier algorithm
-#
-# Retrieve/load tiles data_array for nbar, pq, and dsm; apply water classification algorithm to produce water tiles
-# Output:  water tiles written in to  /g/data/u46/fxz547/wofs2/extents/abccellid/*.nc
-#
-# Usage:
-#   export PYTHONPATH=/g/data/u46/fxz547/Githubz/wofs/:/g/data/u46/fxz547/Githubz/agdc-v2
-#   python make_water_tiles.py 15 -40 1991
-#################################################
+#! /bin/env python
+"""
+Purpose: Test use agdc-v2 api to retrieve tiles data and test a water classifier algorithm
 
+Retrieve/load tiles data_array for nbar, pq, and dsm; apply water classification algorithm to produce water tiles
+Output:  water tiles written in to  /g/data/u46/fxz547/wofs2/extents/abccellid/*.nc
+
+Usage:
+  export PYTHONPATH=/g/data/u46/fxz547/Githubz/wofs/:/g/data/u46/fxz547/Githubz/agdc-v2
+  python make_water_tiles.py 15 -40 1991
+
+"""
+##########################################################
 import os
 import sys
 
@@ -286,7 +288,7 @@ def do_cell_year(cellindex, year):
     dcdao = AgdcDao()
 
 
-    nbar_pq_data = dcdao.get_multi_nbarpq_tiledata(cellindex, qdict, maxtiles=2)  # maxtiles=100
+    nbar_pq_data = dcdao.get_multi_nbarpq_tiledata(cellindex, qdict, maxtiles=2)  # maxtiles=100 for a year
     # qdict as argument is too generic here.
     # should be more specific, able to retrieve using eg, ((15, -40), numpy.datetime64('1992-09-16T09:12:23.500000000+1000'))
 
@@ -367,8 +369,9 @@ if __name__ == "__main__":
 
     do_cell_year(cellindex, inyear)
 
-    # OK: qdict={'latitude': (-36.0, -35.0), 'platform': ['LANDSAT_5', 'LANDSAT_7', 'LANDSAT_8'], 'longitude': (149.01, 150.1), 'time': ('1990-01-01', '2016-03-31')}
 
-    # OK qdict={'latitude': (-36.0, -35.0), 'platform': ['LANDSAT_5'], 'longitude': (149.01, 155.1), 'time': ('1990-01-01', '1990-03-31')}
-    # OK qdict={'platform': ['LANDSAT_5'],  'time': ('1990-01-01', '1991-03-31')}
+######################################################################################################################
+# OK: qdict={'latitude': (-36.0, -35.0), 'platform': ['LANDSAT_5', 'LANDSAT_7', 'LANDSAT_8'], 'longitude': (149.01, 150.1), 'time': ('1990-01-01', '2016-03-31')}
+# OK qdict={'latitude': (-36.0, -35.0), 'platform': ['LANDSAT_5'], 'longitude': (149.01, 155.1), 'time': ('1990-01-01', '1990-03-31')}
+# OK qdict={'platform': ['LANDSAT_5'],  'time': ('1990-01-01', '1991-03-31')}
 

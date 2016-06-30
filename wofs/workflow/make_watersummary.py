@@ -2,6 +2,7 @@
 """
 Summary all water extent tiles in a directory, to produce a water summary.
 
+Usage example: python make_watersummary.py /g/data/u46/users/fxz547/wofs2/extents/abc15_-40 nc  15_-40
 """
 import sys, os, time
 import matplotlib.pyplot as plt
@@ -159,9 +160,11 @@ class SummarizeExtents(object):
 
 ######################################################################################################
 # How to Run:
+#   export PYTHONPATH=/g/data/u46/fxz547/Githubz/wofs
+#   python make_watersummary.py /g/data/u46/users/fxz547/wofs2/extents/abc15_-40 nc  15_-40
+# OR
 #   python make_watersummary.py /g/data/u46/wofs/extents/149_-036/ tif
-#   python make_watersummary.py /g/data/u46/users/fxz547/wofs2/extents/abc15_-40 nc
-#
+#  ---------------------------------------------------------------------------------------------------
 if __name__ == "__main__":
 
     if len(sys.argv) < 3:
@@ -176,7 +179,8 @@ if __name__ == "__main__":
     cellid='abc_15_-40'
     cellid=sys.argv[3]
 
-    out_dir='/g/data/u46/users/fxz547/wofs2/fxz547_2016-06-21T14-23-54/summaries'
+    #out_dir='/g/data/u46/users/fxz547/wofs2/fxz547_2016-06-21T14-23-54/summaries'
+    out_dir = '/g/data/u46/users/fxz547/wofs2/summaries'
     outncfile='water_summary_%s.nc'% (cellid)
     path2ncfile=os.path.join(out_dir, outncfile)
 
@@ -199,10 +203,11 @@ if __name__ == "__main__":
 
     ncobj.to_file(path2ncfile, mywater_sum, metadict=metad)
 
+#############
     # check the output nc file: ncview, ncdump -hkv
 
-    plt.imshow(res[0])  # water obs, the first band
+    # plt.imshow(res[0])  # water obs, the first band
 
     # plt.imshow(res[0]+ res[1], cmap='Greys') # Clear observation=0+1 will be the second band
 
-    plt.show()
+    # plt.show()
