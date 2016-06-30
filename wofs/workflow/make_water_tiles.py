@@ -13,10 +13,14 @@ import os
 import sys
 
 import numpy
+import math
+import ephem
 from scipy import stats
 import xarray as xr
 import xarray.ufuncs
 from pathlib import Path
+from pandas import to_datetime
+from scipy import ndimage
 
 import datacube
 from datacube.api import GridWorkflow
@@ -25,6 +29,7 @@ from datacube.config import LocalConfig
 #from datacube.api._conversion import to_datetime
 from datacube.storage import  masking
 from datacube.storage.storage import write_dataset_to_netcdf
+from datacube.model import CRS, GeoPolygon
 from datacube.api import make_mask
 
 from wofs.waters.detree.classifier import WaterClassifier
@@ -140,6 +145,28 @@ def get_no_data_mask(nbar_data):
     return no_data_mask
 
 
+def solar_vector(p, time, crs):
+    poly = GeoPolygon([p, (p[0], p[1] + 100)], crs).to_crs(CRS('EPSG:4326'))
+    lon, lat = poly.points[0]
+    dlon = poly.points[1][0] - lon
+    dlat = poly.points[1][1] - lat
+    # azimuth north to east of the vertical direction of the crs
+    vert_az = math.atan2(dlon*math.cos(math.radians(lat)), dlat)
+
+    observer = ephem.Observer()
+    observer.lat = math.radians(lat)
+    observer.lon = math.radians(lon)
+    observer.date = time
+    sun = ephem.Sun(observer)
+
+    sun_az = sun.az-vert_az
+    x = math.sin(sun_az)*math.cos(sun.alt)
+    y = math.cos(sun_az)*math.cos(sun.alt)
+    z = math.sin(sun.alt)
+
+    return x, y, z
+
+
 def produce_water_tile(nbar_tile, pq_tile, dsm_tile=None):
     """
     Apply a water classifier algorithm and relevant filters, to produce a water tile.
@@ -234,6 +261,14 @@ def produce_water_tile(nbar_tile, pq_tile, dsm_tile=None):
     # # Computationally expensive and re-projection required.
     # # 5 SIA #6 TerrainShadow #7 HighSlope
     #
+
+    tile_center = (nbar_tile.x.values[x_size/2], nbar_tile.y.values[y_size/2])
+    solar_vec = solar_vector(tile_center, to_datetime(nbar_tile.time.values[0]), nbar_tile.crs)
+    xgrad = dsm_tile.apply(ndimage.sobel, axis=1).elevation / dsm_tile.affine.a
+    ygrad = dsm_tile.apply(ndimage.sobel, axis=0).elevation / dsm_tile.affine.e
+    sia = (solar_vec[2] - xgrad*solar_vec[0] - ygrad*solar_vec[1])/numpy.sqrt(xgrad*xgrad + ygrad*ygrad + 1)
+    sia = 90-numpy.degrees(numpy.arccos(sia))
+
     # # TODO: water_band=SolarTerrainShadowSlope(self.dsm_path).filter(water_band)
     #
     # # LandSea Filter is No Longer required to kee the see water observation, according to Norman
