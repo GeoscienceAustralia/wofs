@@ -1,6 +1,6 @@
 # Water Observation from Space (WOfS)
 
-Continetal-scale water mapping using Earth-Observation Satellite Imagery time series.
+Continental-scale Water Mapping Using Earth-Observation Satellite Imagery Time Series.
 
 #  Installation
 
