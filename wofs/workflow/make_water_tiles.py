@@ -264,11 +264,20 @@ def produce_water_tile(nbar_tile, pq_tile, dsm_tile=None):
     # # 5 SIA #6 TerrainShadow #7 HighSlope
     #
 
-    tile_center = (nbar_tile.x.values[x_size/2], nbar_tile.y.values[y_size/2])
-    solar_vec = solar_vector(tile_center, to_datetime(nbar_tile.time.values[0]), nbar_tile.crs)
     xgrad = dsm_tile.apply(ndimage.sobel, axis=1).elevation / dsm_tile.affine.a
     ygrad = dsm_tile.apply(ndimage.sobel, axis=0).elevation / dsm_tile.affine.e
-    sia = (solar_vec[2] - xgrad*solar_vec[0] - ygrad*solar_vec[1])/numpy.sqrt(xgrad*xgrad + ygrad*ygrad + 1)
+
+    # length of the terrain normal vector
+    norm_len = numpy.sqrt(xgrad*xgrad + ygrad*ygrad + 1.0)
+
+    #hypot = numpy.hypot(xgrad, ygrad)
+    #slope = numpy.degrees(numpy.arctan(hypot))
+
+    slope = numpy.degrees(numpy.arccos(1.0/norm_len))
+
+    tile_center = (nbar_tile.x.values[x_size/2], nbar_tile.y.values[y_size/2])
+    solar_vec = solar_vector(tile_center, to_datetime(nbar_tile.time.values[0]), nbar_tile.crs)
+    sia = (solar_vec[2] - xgrad*solar_vec[0] - ygrad*solar_vec[1])/norm_len
     sia = 90-numpy.degrees(numpy.arccos(sia))
 
     # # TODO: water_band=SolarTerrainShadowSlope(self.dsm_path).filter(water_band)
