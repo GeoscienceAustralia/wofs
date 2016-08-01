@@ -263,27 +263,28 @@ def produce_water_tile(nbar_tile, pq_tile, dsm_tile=None):
     # # Computationally expensive and re-projection required.
     # # 5 SIA #6 TerrainShadow #7 HighSlope
     #
+    # TODO: water_band=SolarTerrainShadowSlope(self.dsm_path).filter(water_band)
 
-    xgrad = dsm_tile.apply(ndimage.sobel, axis=1).elevation / dsm_tile.affine.a
-    ygrad = dsm_tile.apply(ndimage.sobel, axis=0).elevation / dsm_tile.affine.e
+    if (dsm_tile is None):
+        pass
+    else:
+        xgrad = dsm_tile.apply(ndimage.sobel, axis=1).elevation / dsm_tile.affine.a
+        ygrad = dsm_tile.apply(ndimage.sobel, axis=0).elevation / dsm_tile.affine.e
 
-    # length of the terrain normal vector
-    norm_len = numpy.sqrt(xgrad*xgrad + ygrad*ygrad + 1.0)
+        # length of the terrain normal vector
+        norm_len = numpy.sqrt(xgrad*xgrad + ygrad*ygrad + 1.0)
 
-    #hypot = numpy.hypot(xgrad, ygrad)
-    #slope = numpy.degrees(numpy.arctan(hypot))
+        #hypot = numpy.hypot(xgrad, ygrad)
+        #slope = numpy.degrees(numpy.arctan(hypot))
 
-    slope = numpy.degrees(numpy.arccos(1.0/norm_len))
+        slope = numpy.degrees(numpy.arccos(1.0/norm_len))
 
-    tile_center = (nbar_tile.x.values[x_size/2], nbar_tile.y.values[y_size/2])
-    solar_vec = solar_vector(tile_center, to_datetime(nbar_tile.time.values[0]), nbar_tile.crs)
-    sia = (solar_vec[2] - xgrad*solar_vec[0] - ygrad*solar_vec[1])/norm_len
-    sia = 90-numpy.degrees(numpy.arccos(sia))
-
-    # # TODO: water_band=SolarTerrainShadowSlope(self.dsm_path).filter(water_band)
+        tile_center = (nbar_tile.x.values[x_size/2], nbar_tile.y.values[y_size/2])
+        solar_vec = solar_vector(tile_center, to_datetime(nbar_tile.time.values[0]), nbar_tile.crs)
+        sia = (solar_vec[2] - xgrad*solar_vec[0] - ygrad*solar_vec[1])/norm_len
+        sia = 90-numpy.degrees(numpy.arccos(sia))
 
 
-    #
     #  8. LandSea. This is the last Filter mask out the Sea pixels as flagged in PQ band
     #     LandSea Filter is No Longer required according to Norman. To keep the sea water observations.
     #
@@ -333,12 +334,12 @@ def do_cell_year(cellindex, year):
     dcdao = AgdcDao()
 
 
-    nbar_pq_data = dcdao.get_multi_nbarpq_tiledata(cellindex, qdict, maxtiles=2)  # maxtiles=100 for a year
+    nbar_pq_data = dcdao.get_multi_nbarpq_tiledata(cellindex, qdict, maxtiles=100)  # maxtiles=100 for a year
     # qdict as argument is too generic here.
     # should be more specific, able to retrieve using eg, ((15, -40), numpy.datetime64('1992-09-16T09:12:23.500000000+1000'))
 
     # TODO: get DSM data for this cell
-    dsm_data = dcdao.get_dsm_data(cellindex, {})
+    # dsm_data = dcdao.get_dsm_data(cellindex, {})
 
     print("Number of (nbar,pqa) tile-pairs:", len(nbar_pq_data))
 
@@ -353,7 +354,8 @@ def do_cell_year(cellindex, year):
         dtstamp = str(acq_dt)[:19].replace(':', '-')
         platform = 'LS5'  # get from the nbar tile data
 
-        water_classified_img = produce_water_tile(nbar_tile, pq_tile, dsm_data[cellindex_tup])
+        #water_classified_img = produce_water_tile(nbar_tile, pq_tile, dsm_data[cellindex_tup])
+        water_classified_img = produce_water_tile(nbar_tile, pq_tile)
 
         path2_waterfile = define_water_fname(platform, cellindex_tup, dtstamp, nbar_tile)
 
