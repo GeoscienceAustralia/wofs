@@ -43,6 +43,36 @@ import logging
 
 logging.basicConfig(level=logging.INFO)
 
+UNKNOWN = -1
+LIT = 255
+SHADED = 0
+
+
+def _shadeRow(shade_mask, elev_M, sun_alt_deg, pixel_scale_M, no_data, fuzz=0.0):
+    """
+    shade the supplied row of the elevation model
+    """
+
+    # threshold is TAN of sun's altitude
+    tanSunAlt = math.tan(sun_alt_deg)
+
+    # pure terrain angle shadow
+    shade_mask[0] = LIT
+    shade_mask[1:] = numpy.where((elev_M[:-1]-elev_M[1:])/pixel_scale_M < tanSunAlt, LIT, SHADED)
+
+    # project shadows from tips (light->shadow transition)
+    switch = numpy.where(shade_mask[:-1] != shade_mask[1:])
+    for i in switch[0]:
+        if shade_mask[i] == LIT:
+            # TODO: horizontal fuzz?
+            shadow_level = (elev_M[i] + fuzz) - numpy.arange(shade_mask.size-i)*(tanSunAlt*pixel_scale_M)
+            shade_mask[i:][shadow_level > elev_M[i:]] = SHADED
+
+    shade_mask[elev_M == no_data] = UNKNOWN
+
+    return shade_mask
+
+
 # ------------------------------------------------------------
 def comput_img_stats(waterimg):
     """
@@ -166,7 +196,7 @@ def solar_vector(p, time, crs):
     y = math.cos(sun_az)*math.cos(sun.alt)
     z = math.sin(sun.alt)
 
-    return x, y, z
+    return x, y, z, sun_az, sun.alt
 
 
 def produce_water_tile(nbar_tile, pq_tile, dsm_tile=None):
@@ -265,24 +295,51 @@ def produce_water_tile(nbar_tile, pq_tile, dsm_tile=None):
     #
     # TODO: water_band=SolarTerrainShadowSlope(self.dsm_path).filter(water_band)
 
-    if (dsm_tile is None):
-        pass
-    else:
-        xgrad = dsm_tile.apply(ndimage.sobel, axis=1).elevation / dsm_tile.affine.a
-        ygrad = dsm_tile.apply(ndimage.sobel, axis=0).elevation / dsm_tile.affine.e
+    xgrad = dsm_tile.apply(ndimage.sobel, axis=1).elevation / dsm_tile.affine.a
+    ygrad = dsm_tile.apply(ndimage.sobel, axis=0).elevation / dsm_tile.affine.e
 
-        # length of the terrain normal vector
-        norm_len = numpy.sqrt(xgrad*xgrad + ygrad*ygrad + 1.0)
+    # length of the terrain normal vector
+    norm_len = numpy.sqrt(xgrad*xgrad + ygrad*ygrad + 1.0)
 
-        #hypot = numpy.hypot(xgrad, ygrad)
-        #slope = numpy.degrees(numpy.arctan(hypot))
+    #hypot = numpy.hypot(xgrad, ygrad)
+    #slope = numpy.degrees(numpy.arctan(hypot))
 
-        slope = numpy.degrees(numpy.arccos(1.0/norm_len))
+    slope = numpy.degrees(numpy.arccos(1.0/norm_len))
 
-        tile_center = (nbar_tile.x.values[x_size/2], nbar_tile.y.values[y_size/2])
-        solar_vec = solar_vector(tile_center, to_datetime(nbar_tile.time.values[0]), nbar_tile.crs)
-        sia = (solar_vec[2] - xgrad*solar_vec[0] - ygrad*solar_vec[1])/norm_len
-        sia = 90-numpy.degrees(numpy.arccos(sia))
+    tile_center = (nbar_tile.x.values[x_size/2], nbar_tile.y.values[y_size/2])
+    solar_vec = solar_vector(tile_center, to_datetime(nbar_tile.time.values[0]), nbar_tile.crs)
+    sia = (solar_vec[2] - xgrad*solar_vec[0] - ygrad*solar_vec[1])/norm_len
+    sia = 90-numpy.degrees(numpy.arccos(sia))
+
+    # # TODO: water_band=SolarTerrainShadowSlope(self.dsm_path).filter(water_band)
+    rot_degrees = 90.0 + math.degrees(solar_vec[3])
+    sun_alt_deg = math.degrees(solar_vec[4])
+    # print solar_vec, rot_degrees, sun_alt_deg
+    pixel_scale_M = 25.0 #TODO: proper res
+    no_data = -1000
+
+    rotated_elv_array = ndimage.interpolation.rotate(dsm_tile.elevation.values,
+                                                     rot_degrees,
+                                                     reshape=True,
+                                                     output=numpy.float32,
+                                                     cval=no_data,
+                                                     prefilter=False)
+
+    # create the shadow mask by ray-tracying along each row
+    shadows = numpy.zeros_like(rotated_elv_array)
+    for row in range(0, rotated_elv_array.shape[0]):
+        _shadeRow(shadows[row], rotated_elv_array[row], solar_vec[4], pixel_scale_M, no_data, fuzz=10.0)
+
+    del rotated_elv_array
+
+    shadows = ndimage.interpolation.rotate(shadows, -rot_degrees, reshape=False, output=numpy.float32, cval=no_data,
+                                          prefilter=False)
+
+    dr = (shadows.shape[0] - y_size) / 2
+    dc = (shadows.shape[1] - x_size) / 2
+
+    shadows = shadows[dr:dr + y_size, dc:dc + x_size]
+    shadows = xarray.DataArray(shadows.reshape(dsm_tile.elevation.shape), coords=dsm_tile.elevation.coords)
 
 
     #  8. LandSea. This is the last Filter mask out the Sea pixels as flagged in PQ band
@@ -328,7 +385,7 @@ def do_cell_year(cellindex, year):
 
     yearfirstday='%s-01-01'%(year)
     yearlastday='%s-12-31'%(year)
-    qdict = {'platform': ['LANDSAT_5'], 'time': (yearfirstday, yearlastday)}
+    qdict = {'platform': 'LANDSAT_5', 'time': (yearfirstday, yearlastday)}
     print (qdict)
 
     dcdao = AgdcDao()
