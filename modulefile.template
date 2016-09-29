@@ -1,0 +1,23 @@
+#%Module########################################################################
+##
+## ${module_name} modulefile
+##
+
+proc ModulesHelp { } {
+        global version
+
+        puts stderr "   ${module_description}"
+        puts stderr "   Version ${version}"
+}
+
+set version       ${version}
+set name          ${module_name}
+set base          ${module_dir}
+
+module-whatis   "${module_description} ${version}"
+
+if { ! [is-loaded ${agdc_module}] } {
+    module load ${agdc_module}
+}
+prepend-path PYTHONPATH ${python_dest}
+prepend-path PATH ${module_dest}/bin:${module_dest}/scripts
