@@ -1,3 +1,0 @@
-"""
-confidence model building algorithm
-"""
