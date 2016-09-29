@@ -7,7 +7,7 @@ umask 002
 variant=prod
 export module_dir=/g/data/v10/public/modules
 export agdc_module=agdc-py2-prod
-export module_description="Datacube NDVI utilities and configuration"
+export module_description="Datacube WOfS utilities and configuration"
 
 while [[ $# > 0 ]]
 do
@@ -35,7 +35,7 @@ done
 
 module load ${agdc_module}
 
-export module_name=agdc-ndvi
+export module_name=agdc-wofs
 export version=`git describe --tags --always`
 python_version=`python -c 'import sys; print "%s.%s"%sys.version_info[:2]'`
 

@@ -4,7 +4,7 @@
 set -eu
 set -x
 
-pylint -j 2 --reports no ndvi
+pylint -j 2 --reports no wofs
 
 # Run tests, taking coverage.
 # Users can specify extra folders as arguments.

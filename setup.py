@@ -7,14 +7,14 @@ import os
 
 from setuptools import setup, find_packages
 
-setup(name='ndvi',
+setup(name='wofs',
       version=os.environ.get('version', 0.0),
-      description='Geoscience Australia - NDVI for AGDC',
+      description='Geoscience Australia - WOfS for AGDC',
       long_description=open('README.rst', 'r').read(),
       license='Apache License 2.0',
-      url='https://github.com/GeoscienceAustralia/ndvi',
-      author='AGDC Collaboration',
-      maintainer='AGDC Collaboration',
+      url='https://github.com/GeoscienceAustralia/wofs',
+      author='Geoscience Australia',
+      maintainer='Geoscience Australia',
       maintainer_email='',
       packages=find_packages(),
       install_requires=[
@@ -22,6 +22,6 @@ setup(name='ndvi',
       ],
       entry_points={
           'console_scripts': [
-              'datacube-ndvi = ndvi.ndvi_app:ndvi_app',
+              'datacube-wofs = wofs.wofs_app:wofs_app',
           ]
       })

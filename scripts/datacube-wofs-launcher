@@ -11,7 +11,7 @@ CONFIG_DIR = ROOT_DIR / 'config'
 SCRIPT_DIR = ROOT_DIR / 'scripts'
 
 
-@click.group(help='Datacube NDVI Application Launcher')
+@click.group(help='Datacube WOfS Application Launcher')
 def cli():
     pass
 
@@ -53,7 +53,7 @@ def qsub(app_config, year, queue, project, nodes, walltime, name, config=None, e
 
     if taskfile is None:
         if not app_config.exists():
-            print('%s is not a valid NDVI application config file' % app_config)
+            print('%s is not a valid WOfS application config file' % app_config)
             return 1
 
         do_system_check(config_arg)
@@ -79,7 +79,7 @@ def make_taskfile(year, app_config, config_arg, confirm=True):
     taskfile = Path(app_config.stem + year_append + '.bin').absolute()
 
     year_arg = '--year %(year)s' % dict(year=year) if year is not None else ''
-    prep = 'datacube-ndvi -v %(config_arg)s --app-config "%(app_config)s" %(year_arg)s --save-tasks "%(taskfile)s"'
+    prep = 'datacube-wofs -v %(config_arg)s --app-config "%(app_config)s" %(year_arg)s --save-tasks "%(taskfile)s"'
     cmd = prep % dict(config_arg=config_arg,
                       app_config=app_config,
                       taskfile=taskfile,
@@ -92,7 +92,7 @@ def make_taskfile(year, app_config, config_arg, confirm=True):
 
 def do_file_check(taskfile, config_arg, confirm=True):
     """Checks for tasks with output files that already exist"""
-    test = 'datacube-ndvi -v %(config_arg)s --load-tasks "%(taskfile)s" --dry-run'
+    test = 'datacube-wofs -v %(config_arg)s --load-tasks "%(taskfile)s" --dry-run'
     cmd = test % dict(config_arg=config_arg,
                       taskfile=taskfile)
     if not confirm or click.confirm('\n' + cmd + '\nRUN?', default=False):
@@ -102,7 +102,7 @@ def do_file_check(taskfile, config_arg, confirm=True):
 def do_qsub(taskfile, name, nodes, walltime, queue, project, config_arg, env_arg, confirm=True):
     """Submits the job to qsub"""
     name = name or taskfile.stem
-    app_cmd = ('datacube-ndvi -v {config_arg} '
+    app_cmd = ('datacube-wofs -v {config_arg} '
                '--load-tasks "{taskfile}" '
                '--backlog 500 '
                '--executor distributed DSCHEDULER'.format(config_arg=config_arg, taskfile=taskfile))
