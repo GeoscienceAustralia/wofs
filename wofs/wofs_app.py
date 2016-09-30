@@ -1,3 +1,9 @@
+"""
+Copied from the NDVI/FC template, this is a quick and dirty approach to 
+producing a datacube application with full compatibility.
+"""
+
+
 from __future__ import absolute_import, print_function
 
 import errno
@@ -79,12 +85,40 @@ def get_filename(config, tile_index, sources):
                                      start_time=to_datetime(sources.time.values[0]).strftime('%Y%m%d%H%M%S%f'),
                                      end_time=to_datetime(sources.time.values[-1]).strftime('%Y%m%d%H%M%S%f'))
 
+def generate_tasks(self, index, time, extent={}):
+    """ Yield loadables (nbar,ps,dsm) and targets, for dispatch to workers.
+
+    This function is the equivalent of an SQL join query,
+    and is required as a workaround for datacube API abstraction layering.        
+    """
+    gw = datacube.api.GridWorkflow(index, product=self.product.name) # GridSpec from product definition
+
+    wofls_loadables = gw.list_tiles(product=self.product.name, time=time, **extent)
+
+    for platform in sensor.keys():
+        source_loadables = gw.list_tiles(product=platform+'_nbar_albers', time=time, **extent)
+        pq_loadables = gw.list_tiles(product=platform+'_pq_albers', time=time, **extent)
+        dsm_loadables = gw.list_tiles(product='dsm1sv10', **extent)                
+
+        assert len(set(t for (x,y,t) in dsm_loadables)) == 1 # assume mosaic won't require extra fusing
+        dsm_loadables = {(x,y):val for (x,y,t),val in dsm_loadables.items()} # make mosaic atemporal
+
+        # only valid where EO, PQ and DSM are *all* available (and WOFL isn't yet)
+        keys = set(source_loadables) & set(pq_loadables) .difference(set(wofls_loadables))
+        # should sort spatially, consider repartitioning workload to minimise DSM reads.
+        for x,y,t in keys:
+            if (x,y) in dsm_loadables: # filter complete
+                fn = filename_template.format(sensor=sensor[platform],
+                                              tile_index=(x,y),
+                                              time=pandas.to_datetime(t).strftime('%Y%m%d%H%M%S%f'))
+                s,p,d = map(gw.update_tile_lineage, # fully flesh-out the metadata
+                            [ source_loadables[(x,y,t)], pq_loadables[(x,y,t)], dsm_loadables[(x,y)] ])
+                yield ((s,p,d), pathlib.Path(destination,fn))
+
 
 def make_wofs_tasks(index, config, year=None, **kwargs):
     input_type = config['nbar_dataset_type']
     output_type = config['wofs_dataset_type']
-
-    workflow = GridWorkflow(index, output_type.grid_spec)
 
     # TODO: Filter query to valid options
     query = {}
@@ -94,16 +128,7 @@ def make_wofs_tasks(index, config, year=None, **kwargs):
         elif isinstance(year, tuple):
             query['time'] = Range(datetime(year=year[0], month=1, day=1), datetime(year=year[1]+1, month=1, day=1))
 
-    tiles_in = workflow.list_tiles(product=input_type.name, **query)
-    tiles_out = workflow.list_tiles(product=output_type.name, **query)
-
-    def make_task(tile, **task_kwargs):
-        task = dict(nbar=workflow.update_tile_lineage(tile))
-        task.update(task_kwargs)
-        return task
-
-    tasks = [make_task(tile, tile_index=key, filename=get_filename(config, tile_index=key, sources=tile.sources))
-             for key, tile in tiles_in.items() if key not in tiles_out]
+    tasks = list(generate_tasks(index, time=query['time']))
 
     _LOG.info('%s tasks discovered', len(tasks))
     return tasks
@@ -137,49 +162,71 @@ def calculate_wofs(nbar, nodata, dtype, units):
     return wofs
 
 
-def do_wofs_task(config, task):
-    global_attributes = config['global_attributes']
-    variable_params = config['variable_params']
-    file_path = Path(task['filename'])
-    output_type = config['wofs_dataset_type']
-    measurement = output_type.measurements['wofs']
-    output_dtype = np.dtype(measurement['dtype'])
-    nodata_value = np.dtype(output_dtype).type(measurement['nodata'])
+def do_wofs_task(config, (loadables, file_path)):
+        """ Load data, run WOFS algorithm, attach metadata, and write output.
+        
+        Input: 
+            - three-tuple of Tile objects (NBAR, PQ, DSM)
+            - path object (output file destination)
+        Output:
+            - indexable object (referencing output data location)
+        """        
+        if file_path.exists():
+            raise OSError(errno.EEXIST, 'Output file already exists', str(file_path))
+            
+        # load data
+        protosource, protopq, protodsm = loadables
+        load = datacube.api.GridWorkflow.load
+        source = load(protosource, measurements=bands)
+        pq = load(protopq)
+        dsm = load(protodsm, resampling='cubic')
+        
+        # Core computation
+        result = self.core(*(x.isel(time=0) for x in [source, pq, dsm]))
+        
+        # Convert 2D DataArray to 3D DataSet
+        result = xarray.concat([result], source.time).to_dataset(name='water')
+        
+        # add metadata
+        result.water.attrs['nodata'] = 1 # lest it default to zero (i.e. clear dry)
+        result.water.attrs['units'] = '1' # unitless (convention)
 
-    if file_path.exists():
-        raise OSError(errno.EEXIST, 'Output file already exists', str(file_path))
+        # Attach CRS. Note this is poorly represented in NetCDF-CF
+        # (and unrecognised in xarray), likely improved by datacube-API model.
+        result.attrs['crs'] = source.crs
+        
+        # inherit spatial metadata
+        box, envelope = box_and_envelope(loadables)
 
-    measurements = ['red', 'nir']
+        # Provenance tracking
+        allsources = [ds for tile in loadables for ds in tile.sources.values[0]]
 
-    nbar_tile = task['nbar']
-    nbar = GridWorkflow.load(nbar_tile, measurements)
+        # Create indexable record
+        new_record = datacube.model.utils.make_dataset(
+                            product=self.product,
+                            sources=allsources,
+                            center_time=result.time.values[0],
+                            uri=file_path.absolute().as_uri(),
+                            extent=box,
+                            valid_data=envelope,
+                            app_info=self.info )   
+                            
+        # inherit optional metadata from EO, for future convenience only
+        def harvest(what, datasets=[ds for time in protosource.sources.values for ds in time]):
+            values = [ds.metadata_doc[what] for ds in datasets]
+            assert all(value==values[0] for value in values)
+            return values[0]
+        new_record.metadata_doc['platform'] = harvest('platform') 
+        new_record.metadata_doc['instrument'] = harvest('instrument') 
+        
+        # copy metadata record into xarray 
+        result['dataset'] = docvariable(new_record, result.time)
 
-    wofs = calculate_wofs(nbar, nodata=nodata_value, dtype=output_dtype, units=measurement['units'])
+        # write output
+        datacube.storage.storage.write_dataset_to_netcdf(
+            result, file_path, global_attributes=self.global_attributes)
 
-    def _make_dataset(labels, sources):
-        assert len(sources)
-        geobox = nbar.geobox
-        source_data = union_points(*[dataset.extent.to_crs(geobox.crs).points for dataset in sources])
-        valid_data = intersect_points(geobox.extent.points, source_data)
-        dataset = make_dataset(product=output_type,
-                               sources=sources,
-                               extent=geobox.extent,
-                               center_time=labels['time'],
-                               uri=file_path.absolute().as_uri(),
-                               app_info=get_app_metadata(config),
-                               valid_data=GeoPolygon(valid_data, geobox.crs))
-        return dataset
-
-    datasets = xr_apply(nbar_tile.sources, _make_dataset, dtype='O')
-    wofs['dataset'] = datasets_to_doc(datasets)
-
-    write_dataset_to_netcdf(
-        dataset=wofs,
-        filename=Path(file_path),
-        global_attributes=global_attributes,
-        variable_params=variable_params,
-    )
-    return datasets
+        return [new_record]
 
 
 def validate_year(ctx, param, value):

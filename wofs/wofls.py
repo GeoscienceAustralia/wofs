@@ -22,12 +22,7 @@ Issues:
 import numpy as np
 import classifier_josh as classifier
 import filters
-from boilerplate import wofloven as boilerplate
 
-
-@boilerplate(#lat=(-30.0, -30.1),#-31.0),
-             #lon=(147.0,147.1),##148.0),
-             time=('1992-08-01','1992-09-10'))#('2016-05-01','2017-01-01'))
 def woffles(source, pq, dsm):
     """Generate a Water Observation Feature Layer from NBAR, PQ and surface elevation inputs."""
 
