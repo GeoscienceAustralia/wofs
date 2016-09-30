@@ -1,0 +1,66 @@
+cmi_id: "WO_25_2.0.0"
+cmi_nid: "5"
+title: "Water Observations 25 v. 2.0.0"
+summary: "Water Observations from Space (WO_25_2.0) is a gridded dataset indicating areas where surface water has been observed using the Geoscience Australia (GA) Earth observation satellite data holdings. The current product (Version 1.5) includes observations taken between 1987 and 2016 (inclusive) from the Landsat 5, 7 and 8 satellites. WO_25_2.0 covers all of mainland Australia and Tasmania but excludes off-shore Territories.
+
+WO_25_2.0 shows water observed for every Landsat-5, Landsat-7 and Landsat-8 image across Australia (excluding External Territories) for the period of 1987 to 2016. The dataset is updated quarterly and is expected to increase in update frequency in the future so that as a satellite acquires data, it will automatically be analysed for the presence of water and added to the WO_25_2.0 product in near real time.
+
+WO_25_2.0 delivers data in a cumulative ''summary'' that combines all water observations from the entire time series into a single gridded dataset. The dataset includes four values for each grid cell, viz: 
+
+-  the total number of clear observations for the cell (pixel);
+
+-  the number of times that surface water is detected for the cell;
+
+-  the recurrence frequency of water as a percentage of the total number of clear observations, and;
+
+-  Confidence Level.
+
+The Confidence Level assigned to each water observation is based on a statistical analysis of factors, including topographic position, elevation and slope, other independent satellite observations of water, topographic maps of water features, and the observation frequency. The confidence layer can be used to filter uncertain observations, for instance when displaying the data. 
+
+In the future, WO_25_2.0 will be updated as new data are added. This is potentially possible because the dataset is produced using the Australian Geoscience Data Cube, containing GA's entire Australian Landsat archive in a supercomputing environment at the National Computational Infrastructure at the Australian National University.
+
+The Water Observations from Space product (WO_25_2.0) is a key component of the National Flood Risk Information Portal (NFRIP), being developed by Geoscience Australia (GA). The objective of Water Observations from Space is to analyse GA's historic archive of satellite imagery to derive water observations, to help understand where flooding may have occurred in the past.
+
+WO_25_2.0 is being developed in parallel with the National Flood Studies Database system which will provide Flood Study documentation and reports to a wide range of users. Both systems will be delivered via the internet through the NFRIP portal.
+
+Satellite imagery has been used to map floods around the world for several years. Organisations such as the Colorado Flood Observatory in the USA and several state-based agencies in Australia regularly provide satellite-based flood extents for major flood events. GA developed a flood mapping methodology in 2008-2009 that was extensively used for the major Australian flood events since 2010, providing emergency service agencies with regional flood extent information.
+
+The Phase 1 outputs from the NFRIP were delivered to the public in November 2012, including a proof of concept of WO_25_2.0. This displayed surface water extents for three study areas, including the original derived extents and the cumulative summary product. Subsequent stakeholder feedback has shown that the most desirable information is the summary product, providing an understanding of the long term dynamics of surface water.
+
+The Phase 2 outputs from the NFRIP (released in April 2014), include this WO_25_2.0 product, which is now accessible to the public as web services, online viewers and the underlying data.
+
+Confidence Level
+
+Reviews of prototype products identified the need to indicate the level of confidence for the surface water observations. The confidence level will help the user to distinguish between unusual but valid water detections (such as flood plains which might only be observed as water once in the 15 year interval) and 'false positives' which can be caused, for instance, by steep shady slopes.
+The confidence level was determined through a multiple logistic regression of water observations against several factors that would either support or contra-indicate the finding of water being present at the site.
+
+The factors comprise:
+
+MrVBF, a multi-resolution valley bottom flatness product (Gallant et al., 2012) derived from the Shuttle Radar Topography Mission (SRTM) as part of the Terrestrial Ecosystems Research Network. Surface water pixels identified in valley bottoms were more likely to be positively detected.
+
+Slope calculated from SRTM Digital Surface Models. Water pixels on a slope were considered less plausible than those on a flat surface.
+
+MODIS Open Water Likelihood (OWL) (Ticehurst et al, 2010) provides a plausibility based an independent water detection algorithm employing the MODIS sensor. If both detection algorithms agree on the presence of a surface water pixel, there is a greater plausibility that the detection is correct.
+
+Australian Hydrological Geospatial Fabric (Geofabric) is a GIS of hydrological features derived from manually interpreted topographic map grids. If known hydrologic features (pixels) from GeoFabric coincide with detected water pixels, the plausibility of detection is greater.
+
+P, the number of observations of water as a fraction of the number of clear observations of the target pixel. P is high for more permanent water bodies.
+
+Built-Up areas indicating areas of dense urban development. In such areas the water detection algorithm struggles to cope with the deep shadows cast by multi-story buildings and the generally noisy spectral response created by structures. The Built-Up layer is derived from the Australian Bureau of Statistics ASGS 2011 dataset, for urban centres of populations of 100 000 and over.
+"
+source: "SR-N_25_2.0"
+institution: "Commonwealth of Australia (Geoscience Australia)"
+keywords: ""
+keywords_vocabulary: ""
+product_version: "2.0.0"
+license: "CC BY Attribution 4.0 International License"
+coverage_content_type: ""
+cdm_data_type: ""
+product_suite: ""
+references: "Geoscience Australia (2013) Australian Reflectance Grid (ARG25) Product Information - Beta Release- External Document TRIM Ref D2013-41317, Geoscience Australia, Canberra.
+
+Gallant, J., Dowling, T., and Austin, J. (2012): Multi-resolution Valley Bottom Flatness (MrVBF, 3&quot; resolution). v2. CSIRO. Data Collection. 10.4225/08/512EF27AC3888 http://dx.doi.org/10.4225/08/512EF27AC3888.
+
+Ticehurst, C J., Bartsch, A., Doubkova M.,and van Dijk, A.I.J.M. (2010) Comparison of ENVISAT ASAR ASAR GM, AMSR-E Passive Microwave, and MODIS Optical Remote Sensing for Flood Monitoring in Australia. Proceedings of the 'Earth Observation and Water Cycle Science', Frascati, Italy, 18-20 November 2009 (ESA SP-674, January 2010).
+
+N. Mueller, A. Lewis, D. Roberts, S. Ring, R. Melrose, J. Sixsmith, L. Lymburner, A. McIntyre, P. Tan, S. Curnow, A. Ip, Water observations from space: Mapping surface water from 25 years of Landsat imagery across Australia, Remote Sensing of Environment, Volume 174, 1 March 2016, Pages 341-352, ISSN 0034-4257, http://dx.doi.org/10.1016/j.rse.2015.11.003. (http://www.sciencedirect.com/science/article/pii/S0034425715301929)"
