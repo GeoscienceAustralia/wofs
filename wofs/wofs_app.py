@@ -29,10 +29,32 @@ from datacube.ui import click as ui
 from datacube.ui.task_app import task_app, task_app_options, check_existing_files
 from datacube.utils import intersect_points, union_points
 
+import datacube
+import pathlib
+import errno 
+import xarray
+import pandas
+import datacube.model.utils
+import yaml
+import click
+import pickle
+import itertools
+from wofs import wofls
 
 _LOG = logging.getLogger('agdc-wofs')
 
+bands = ['blue','green','red','nir','swir1','swir2'] # inputs needed from EO data
+sensor = {'ls8':'LS8_OLI', 'ls7':'LS7_ETM', 'ls5':'LS5_TM'} # { nbar-prefix : filename-prefix } for platforms
+filename_template = '{sensor}_WATER/{tile_index[0]}_{tile_index[1]}/' + \
+                    '{sensor}_WATER_3577_{tile_index[0]}_{tile_index[1]}_{time}.nc'
+                    # note 3577 refers to the CRS (EPSG) of the definition below
 
+def get_product(index, definition, dry_run=False):
+    """Utility to get database-record corresponding to product-definition"""
+    parsed = definition
+    metadata_type = index.metadata_types.get_by_name(parsed['metadata_type'])
+    prototype = datacube.model.DatasetType(metadata_type, parsed)
+    return prototype if dry_run else index.products.add(prototype) # add is idempotent
 
 def make_wofs_config(index, config, dry_run=False, **query):
     """ Refine the configuration
@@ -49,26 +71,16 @@ def make_wofs_config(index, config, dry_run=False, **query):
     DatasetType object as the tasks involve writing metadata to file that
     is specific to the database instance (note, this may change in future).
     """    
-    
-    source_type = index.products.get_by_name(config['source_type'])
-    if not source_type:
-        _LOG.error("Source DatasetType %s does not exist", config['source_type'])
-        return 1
-
-    
-    
-    # Need to create a DatasetType to use for 
-    output_type = DatasetType(source_type.metadata_type, output_type_definition)
 
     if not dry_run:
-        _LOG.info('Created DatasetType %s', output_type.name)
-        output_type = index.products.add(output_type)
+        _LOG.info('Created DatasetType %s', 
+                  config['product_definition']['name']) # true? nyet.
+        
+    config['wofs_dataset_type'] = \
+        get_product(index, config['product_definition'], dry_run)
 
     if not os.access(config['location'], os.W_OK):
         _LOG.warn('Current user appears not have write access output location: %s', config['location'])
-
-    config['nbar_dataset_type'] = source_type
-    config['wofs_dataset_type'] = output_type
 
     return config
 
@@ -79,15 +91,19 @@ def get_filename(config, tile_index, sources):
                                      start_time=to_datetime(sources.time.values[0]).strftime('%Y%m%d%H%M%S%f'),
                                      end_time=to_datetime(sources.time.values[-1]).strftime('%Y%m%d%H%M%S%f'))
 
-def generate_tasks(self, index, time, extent={}):
+def generate_tasks(index, config, time):
     """ Yield loadables (nbar,ps,dsm) and targets, for dispatch to workers.
 
     This function is the equivalent of an SQL join query,
     and is required as a workaround for datacube API abstraction layering.        
     """
-    gw = datacube.api.GridWorkflow(index, product=self.product.name) # GridSpec from product definition
+    extent={} # not configurable
+    product = config['wofs_dataset_type']
+    destination = config['location']
+    
+    gw = datacube.api.GridWorkflow(index, product=product.name) # GridSpec from product definition
 
-    wofls_loadables = gw.list_tiles(product=self.product.name, time=time, **extent)
+    wofls_loadables = gw.list_tiles(product=product.name, time=time, **extent)
 
     for platform in sensor.keys():
         source_loadables = gw.list_tiles(product=platform+'_nbar_albers', time=time, **extent)
@@ -111,9 +127,6 @@ def generate_tasks(self, index, time, extent={}):
 
 
 def make_wofs_tasks(index, config, year=None, **kwargs):
-    input_type = config['nbar_dataset_type']
-    output_type = config['wofs_dataset_type']
-
     # TODO: Filter query to valid options
     query = {}
     if year is not None:
@@ -122,7 +135,7 @@ def make_wofs_tasks(index, config, year=None, **kwargs):
         elif isinstance(year, tuple):
             query['time'] = Range(datetime(year=year[0], month=1, day=1), datetime(year=year[1]+1, month=1, day=1))
 
-    tasks = list(generate_tasks(index, time=query['time']))
+    tasks = list(generate_tasks(index, config, time=query['time']))
 
     _LOG.info('%s tasks discovered', len(tasks))
     return tasks
@@ -141,86 +154,104 @@ def get_app_metadata(config):
     }
     return doc
 
+def box_and_envelope(loadables):
+    """Utility to prepare spatial metadata"""
+    # Tile loadables contain a "sources" DataArray, that is, a time series 
+    # (in this case with unit length) of tuples (lest fusing may be necessary)
+    # of datacube Datasets, which should each have memoised a file path
+    # (extracted from the database) as well as an array extent and a valid 
+    # data extent. (Note both are just named "extent" inconsistently.)
+    # The latter exists as an optimisation to sometimes avoid loading large 
+    # volumes of (exclusively) nodata values. 
+    #assert len(set(x.geobox.extent for x in loadables)) == 1 # identical geoboxes are unequal?
+    bounding_box = loadables[0].geobox.extent # inherit array-boundary from post-load data
+    def valid_data_envelope(loadables=list(loadables), crs=bounding_box.crs):
+        def data_outline(tile):
+            parts = (ds.extent.to_crs(crs).points for ds in tile.sources.values[0])
+            return datacube.utils.union_points(*parts)
+        footprints = [bounding_box.points] + map(data_outline, loadables)
+        overlap = reduce(datacube.utils.intersect_points, footprints)
+        return datacube.model.GeoPolygon(overlap, crs)    
+    return bounding_box, valid_data_envelope()
 
-def calculate_wofs(nbar, nodata, dtype, units):
-    nbar_masked = mask_valid_data(nbar)
-    wofs_array = (nbar_masked.nir - nbar_masked.red) / (nbar_masked.nir + nbar_masked.red)
-    wofs_out = (wofs_array * 10000).fillna(nodata).astype(dtype)
-    wofs_out.attrs = {
-        'crs': nbar.attrs['crs'],
-        'units': units,
-        'nodata': nodata,
-    }
-
-    wofs = xarray.Dataset({'wofs': wofs_out}, attrs=nbar.attrs)
-    return wofs
-
+def docvariable(agdc_dataset, time):
+    """Utility to convert datacube dataset to xarray/NetCDF variable"""
+    array = xarray.DataArray([agdc_dataset], coords=[time])
+    docarray = datacube.model.utils.datasets_to_doc(array)
+    docarray.attrs['units'] = '1' # unitless (convention)
+    return docarray
 
 def do_wofs_task(config, (loadables, file_path)):
-        """ Load data, run WOFS algorithm, attach metadata, and write output.
+    """ Load data, run WOFS algorithm, attach metadata, and write output.
+    
+    Input: 
+        - three-tuple of Tile objects (NBAR, PQ, DSM)
+        - path object (output file destination)
+    Output:
+        - indexable object (referencing output data location)
+    """
+    product = config['wofs_dataset_type']
+    global_attributes = config['global_attributes']
+    app_info = get_app_metadata(config)
+    core = wofls.woffles 
+       
+    
+    if file_path.exists():
+        raise OSError(errno.EEXIST, 'Output file already exists', str(file_path))
         
-        Input: 
-            - three-tuple of Tile objects (NBAR, PQ, DSM)
-            - path object (output file destination)
-        Output:
-            - indexable object (referencing output data location)
-        """        
-        if file_path.exists():
-            raise OSError(errno.EEXIST, 'Output file already exists', str(file_path))
-            
-        # load data
-        protosource, protopq, protodsm = loadables
-        load = datacube.api.GridWorkflow.load
-        source = load(protosource, measurements=bands)
-        pq = load(protopq)
-        dsm = load(protodsm, resampling='cubic')
-        
-        # Core computation
-        result = self.core(*(x.isel(time=0) for x in [source, pq, dsm]))
-        
-        # Convert 2D DataArray to 3D DataSet
-        result = xarray.concat([result], source.time).to_dataset(name='water')
-        
-        # add metadata
-        result.water.attrs['nodata'] = 1 # lest it default to zero (i.e. clear dry)
-        result.water.attrs['units'] = '1' # unitless (convention)
+    # load data
+    protosource, protopq, protodsm = loadables
+    load = datacube.api.GridWorkflow.load
+    source = load(protosource, measurements=bands)
+    pq = load(protopq)
+    dsm = load(protodsm, resampling='cubic')
+    
+    # Core computation
+    result = core(*(x.isel(time=0) for x in [source, pq, dsm]))
+    
+    # Convert 2D DataArray to 3D DataSet
+    result = xarray.concat([result], source.time).to_dataset(name='water')
+    
+    # add metadata
+    result.water.attrs['nodata'] = 1 # lest it default to zero (i.e. clear dry)
+    result.water.attrs['units'] = '1' # unitless (convention)
 
-        # Attach CRS. Note this is poorly represented in NetCDF-CF
-        # (and unrecognised in xarray), likely improved by datacube-API model.
-        result.attrs['crs'] = source.crs
-        
-        # inherit spatial metadata
-        box, envelope = box_and_envelope(loadables)
+    # Attach CRS. Note this is poorly represented in NetCDF-CF
+    # (and unrecognised in xarray), likely improved by datacube-API model.
+    result.attrs['crs'] = source.crs
+    
+    # inherit spatial metadata
+    box, envelope = box_and_envelope(loadables)
 
-        # Provenance tracking
-        allsources = [ds for tile in loadables for ds in tile.sources.values[0]]
+    # Provenance tracking
+    allsources = [ds for tile in loadables for ds in tile.sources.values[0]]
 
-        # Create indexable record
-        new_record = datacube.model.utils.make_dataset(
-                            product=self.product,
-                            sources=allsources,
-                            center_time=result.time.values[0],
-                            uri=file_path.absolute().as_uri(),
-                            extent=box,
-                            valid_data=envelope,
-                            app_info=self.info )   
-                            
-        # inherit optional metadata from EO, for future convenience only
-        def harvest(what, datasets=[ds for time in protosource.sources.values for ds in time]):
-            values = [ds.metadata_doc[what] for ds in datasets]
-            assert all(value==values[0] for value in values)
-            return values[0]
-        new_record.metadata_doc['platform'] = harvest('platform') 
-        new_record.metadata_doc['instrument'] = harvest('instrument') 
-        
-        # copy metadata record into xarray 
-        result['dataset'] = docvariable(new_record, result.time)
+    # Create indexable record
+    new_record = datacube.model.utils.make_dataset(
+                        product=product,
+                        sources=allsources,
+                        center_time=result.time.values[0],
+                        uri=file_path.absolute().as_uri(),
+                        extent=box,
+                        valid_data=envelope,
+                        app_info=app_info )   
+                        
+    # inherit optional metadata from EO, for future convenience only
+    def harvest(what, datasets=[ds for time in protosource.sources.values for ds in time]):
+        values = [ds.metadata_doc[what] for ds in datasets]
+        assert all(value==values[0] for value in values)
+        return values[0]
+    new_record.metadata_doc['platform'] = harvest('platform') 
+    new_record.metadata_doc['instrument'] = harvest('instrument') 
+    
+    # copy metadata record into xarray 
+    result['dataset'] = docvariable(new_record, result.time)
 
-        # write output
-        datacube.storage.storage.write_dataset_to_netcdf(
-            result, file_path, global_attributes=self.global_attributes)
+    # write output
+    datacube.storage.storage.write_dataset_to_netcdf(
+        result, file_path, global_attributes=self.global_attributes)
 
-        return [new_record]
+    return [new_record]
 
 
 def validate_year(ctx, param, value):
