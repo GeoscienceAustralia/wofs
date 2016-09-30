@@ -17,11 +17,11 @@ Issues:
       Also, should quantify whether earth's curvature is significant on tile scale.
     - Yet to profile memory, CPU or IO usage.
 """
-
+from __future__ import absolute_import
 
 import numpy as np
-import classifier_josh as classifier
-import filters
+from wofs import classifier, filters
+
 
 def woffles(source, pq, dsm):
     """Generate a Water Observation Feature Layer from NBAR, PQ and surface elevation inputs."""

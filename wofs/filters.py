@@ -2,10 +2,9 @@
 Set individual bitflags needed for wofls.
 """
 
-import constants
 import numpy as np
-import scipy.ndimage 
-import terrain_greg as terrain
+import scipy.ndimage
+from wofs import terrain, constants
 
 def dilate(array, dilation=3):
     """Blocky dilation e.g. for cloud and cloud/terrain shadow"""

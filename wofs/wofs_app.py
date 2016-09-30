@@ -249,7 +249,7 @@ def do_wofs_task(config, (loadables, file_path)):
 
     # write output
     datacube.storage.storage.write_dataset_to_netcdf(
-        result, file_path, global_attributes=self.global_attributes)
+        result, file_path, global_attributes=global_attributes)
 
     return [new_record]
 
