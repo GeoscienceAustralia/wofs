@@ -25,8 +25,10 @@ measurements:
     dtype: uint8
     nodata: 1
     units: '1'
+    zlib: True
+    fletcher32: True
     flags_definition:
-      type:                 # TODO: change this label..
+      result:
         bits: [0,1,2,3,4,5,6,7]
         values: 
             128: clear_wet

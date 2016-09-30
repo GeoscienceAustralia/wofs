@@ -33,37 +33,31 @@ from datacube.utils import intersect_points, union_points
 _LOG = logging.getLogger('agdc-wofs')
 
 
+
 def make_wofs_config(index, config, dry_run=False, **query):
+    """ Refine the configuration
+
+    The task-app machinery loads a config file, from a path specified on the
+    command line, into a dict. This function is an opportunity, with access to
+    the datacube index, to modify that dict before it is used (being passed on
+    to both the make-tasks and the do-task). If using the save-tasks option, 
+    the modified config is included in the task file.
+    
+    For a dry run, still needs to create a dummy DatasetType for use to 
+    generate tasks (e.g. via the GridSpec), but for a normal run must index
+    it as a product in the database and replace with a fully-fleshed out
+    DatasetType object as the tasks involve writing metadata to file that
+    is specific to the database instance (note, this may change in future).
+    """    
+    
     source_type = index.products.get_by_name(config['source_type'])
     if not source_type:
         _LOG.error("Source DatasetType %s does not exist", config['source_type'])
         return 1
 
-    output_type_definition = deepcopy(source_type.definition)
-    output_type_definition['name'] = config['output_type']
-    output_type_definition['managed'] = True
-    output_type_definition['description'] = config['description']
-    output_type_definition['storage'] = config['storage']
-    output_type_definition['metadata']['format'] = {'name': 'NetCDF'}
-    output_type_definition['metadata']['product_type'] = config.get('product_type', 'wofs')
-
-    var_def_keys = {'name', 'dtype', 'nodata', 'units', 'aliases', 'spectral_definition', 'flags_definition'}
-
-    output_type_definition['measurements'] = [{k: v for k, v in measurement.items() if k in var_def_keys}
-                                              for measurement in config['measurements']]
-
-    chunking = config['storage']['chunking']
-    chunking = [chunking[dim] for dim in config['storage']['dimension_order']]
-
-    var_param_keys = {'zlib', 'complevel', 'shuffle', 'fletcher32', 'contiguous', 'attrs'}
-    variable_params = {}
-    for mapping in config['measurements']:
-        varname = mapping['name']
-        variable_params[varname] = {k: v for k, v in mapping.items() if k in var_param_keys}
-        variable_params[varname]['chunksizes'] = chunking
-
-    config['variable_params'] = variable_params
-
+    
+    
+    # Need to create a DatasetType to use for 
     output_type = DatasetType(source_type.metadata_type, output_type_definition)
 
     if not dry_run:

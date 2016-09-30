@@ -1,4 +1,17 @@
 #!/usr/bin/env python
+#
+# This is the top-level interface to the application and for launching PBS jobs.
+#
+# It is the recommended user interface, and wraps lower level interfaces.
+# 
+# Note the "--config" argument refers to the datacube.conf file
+# that specifies e.g. which database index to connect to.
+#
+# The app_config argument maps to the ".yaml" config used within the
+# python datacube app. (This script will prepend the appropriate
+# subdirectory path. The "list" subcommand is effectively a directory
+# listing.)
+#
 
 from __future__ import print_function
 
