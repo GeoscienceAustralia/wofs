@@ -24,10 +24,10 @@ from datacube.ui.task_app import task_app, task_app_options, check_existing_file
 from datacube.utils import intersect_points, union_points
 
 
-_LOG = logging.getLogger('agdc-ndvi')
+_LOG = logging.getLogger('agdc-wofs')
 
 
-def make_ndvi_config(index, config, dry_run=False, **query):
+def make_wofs_config(index, config, dry_run=False, **query):
     source_type = index.products.get_by_name(config['source_type'])
     if not source_type:
         _LOG.error("Source DatasetType %s does not exist", config['source_type'])
@@ -39,7 +39,7 @@ def make_ndvi_config(index, config, dry_run=False, **query):
     output_type_definition['description'] = config['description']
     output_type_definition['storage'] = config['storage']
     output_type_definition['metadata']['format'] = {'name': 'NetCDF'}
-    output_type_definition['metadata']['product_type'] = config.get('product_type', 'ndvi')
+    output_type_definition['metadata']['product_type'] = config.get('product_type', 'wofs')
 
     var_def_keys = {'name', 'dtype', 'nodata', 'units', 'aliases', 'spectral_definition', 'flags_definition'}
 
@@ -68,7 +68,7 @@ def make_ndvi_config(index, config, dry_run=False, **query):
         _LOG.warn('Current user appears not have write access output location: %s', config['location'])
 
     config['nbar_dataset_type'] = source_type
-    config['ndvi_dataset_type'] = output_type
+    config['wofs_dataset_type'] = output_type
 
     return config
 
@@ -80,9 +80,9 @@ def get_filename(config, tile_index, sources):
                                      end_time=to_datetime(sources.time.values[-1]).strftime('%Y%m%d%H%M%S%f'))
 
 
-def make_ndvi_tasks(index, config, year=None, **kwargs):
+def make_wofs_tasks(index, config, year=None, **kwargs):
     input_type = config['nbar_dataset_type']
-    output_type = config['ndvi_dataset_type']
+    output_type = config['wofs_dataset_type']
 
     workflow = GridWorkflow(index, output_type.grid_spec)
 
@@ -113,9 +113,9 @@ def get_app_metadata(config):
     doc = {
         'lineage': {
             'algorithm': {
-                'name': 'datacube-ndvi',
+                'name': 'datacube-wofs',
                 'version': config.get('version', 'unknown'),
-                'repo_url': 'https://github.com/GeoscienceAustralia/ndvi.git',
+                'repo_url': 'https://github.com/GeoscienceAustralia/wofs.git',
                 'parameters': {'configuration_file': config.get('app_config_file', 'unknown')}
             },
         }
@@ -123,26 +123,26 @@ def get_app_metadata(config):
     return doc
 
 
-def calculate_ndvi(nbar, nodata, dtype, units):
+def calculate_wofs(nbar, nodata, dtype, units):
     nbar_masked = mask_valid_data(nbar)
-    ndvi_array = (nbar_masked.nir - nbar_masked.red) / (nbar_masked.nir + nbar_masked.red)
-    ndvi_out = (ndvi_array * 10000).fillna(nodata).astype(dtype)
-    ndvi_out.attrs = {
+    wofs_array = (nbar_masked.nir - nbar_masked.red) / (nbar_masked.nir + nbar_masked.red)
+    wofs_out = (wofs_array * 10000).fillna(nodata).astype(dtype)
+    wofs_out.attrs = {
         'crs': nbar.attrs['crs'],
         'units': units,
         'nodata': nodata,
     }
 
-    ndvi = xarray.Dataset({'ndvi': ndvi_out}, attrs=nbar.attrs)
-    return ndvi
+    wofs = xarray.Dataset({'wofs': wofs_out}, attrs=nbar.attrs)
+    return wofs
 
 
-def do_ndvi_task(config, task):
+def do_wofs_task(config, task):
     global_attributes = config['global_attributes']
     variable_params = config['variable_params']
     file_path = Path(task['filename'])
-    output_type = config['ndvi_dataset_type']
-    measurement = output_type.measurements['ndvi']
+    output_type = config['wofs_dataset_type']
+    measurement = output_type.measurements['wofs']
     output_dtype = np.dtype(measurement['dtype'])
     nodata_value = np.dtype(output_dtype).type(measurement['nodata'])
 
@@ -154,7 +154,7 @@ def do_ndvi_task(config, task):
     nbar_tile = task['nbar']
     nbar = GridWorkflow.load(nbar_tile, measurements)
 
-    ndvi = calculate_ndvi(nbar, nodata=nodata_value, dtype=output_dtype, units=measurement['units'])
+    wofs = calculate_wofs(nbar, nodata=nodata_value, dtype=output_dtype, units=measurement['units'])
 
     def _make_dataset(labels, sources):
         assert len(sources)
@@ -171,10 +171,10 @@ def do_ndvi_task(config, task):
         return dataset
 
     datasets = xr_apply(nbar_tile.sources, _make_dataset, dtype='O')
-    ndvi['dataset'] = datasets_to_doc(datasets)
+    wofs['dataset'] = datasets_to_doc(datasets)
 
     write_dataset_to_netcdf(
-        dataset=ndvi,
+        dataset=wofs,
         filename=Path(file_path),
         global_attributes=global_attributes,
         variable_params=variable_params,
@@ -195,7 +195,7 @@ def validate_year(ctx, param, value):
                                  'or as an inclusive range (eg 1996-2001)')
 
 
-APP_NAME = 'ndvi'
+APP_NAME = 'wofs'
 
 
 @click.command(name=APP_NAME)
@@ -204,9 +204,9 @@ APP_NAME = 'ndvi'
 @click.option('--year', callback=validate_year, help='Limit the process to a particular year')
 @click.option('--backlog', type=click.IntRange(1, 100000), default=3200, help='Number of tasks to queue at the start')
 @task_app_options
-@task_app(make_config=make_ndvi_config, make_tasks=make_ndvi_tasks)
-def ndvi_app(index, config, tasks, executor, dry_run, backlog, *args, **kwargs):
-    click.echo('Starting NDVI processing...')
+@task_app(make_config=make_wofs_config, make_tasks=make_wofs_tasks)
+def wofs_app(index, config, tasks, executor, dry_run, backlog, *args, **kwargs):
+    click.echo('Starting processing...')
 
     if dry_run:
         check_existing_files((task['filename'] for task in tasks))
@@ -216,7 +216,7 @@ def ndvi_app(index, config, tasks, executor, dry_run, backlog, *args, **kwargs):
     tasks_backlog = itertools.islice(tasks, backlog)
     for task in tasks_backlog:
         _LOG.info('Queuing task: %s', task['tile_index'])
-        results.append(executor.submit(do_ndvi_task, config=config, task=task))
+        results.append(executor.submit(do_wofs_task, config=config, task=task))
     click.echo('Backlog queue filled, waiting for first result...')
 
     successful = failed = 0
@@ -227,7 +227,7 @@ def ndvi_app(index, config, tasks, executor, dry_run, backlog, *args, **kwargs):
         task = next(tasks, None)
         if task:
             _LOG.info('Queuing task: %s', task['tile_index'])
-            results.append(executor.submit(do_ndvi_task, config=config, task=task))
+            results.append(executor.submit(do_wofs_task, config=config, task=task))
 
         # Process the result
         try:
@@ -249,4 +249,4 @@ def ndvi_app(index, config, tasks, executor, dry_run, backlog, *args, **kwargs):
 
 
 if __name__ == '__main__':
-    ndvi_app()
+    wofs_app()
