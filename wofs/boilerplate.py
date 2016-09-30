@@ -23,7 +23,7 @@ bands = ['blue','green','red','nir','swir1','swir2'] # inputs needed from EO dat
 
 sensor = {'ls8':'LS8_OLI', 'ls7':'LS7_ETM', 'ls5':'LS5_TM'} # { nbar-prefix : filename-prefix } for platforms
 
-destination = '/short/v10/datacube/wofs'
+destination = 
 filename_template = '{sensor}_WATER/{tile_index[0]}_{tile_index[1]}/' + \
                     '{sensor}_WATER_3577_{tile_index[0]}_{tile_index[1]}_{time}.nc'
                     # note 3577 refers to the CRS (EPSG) of the definition below

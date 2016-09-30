@@ -1,7 +1,48 @@
-cmi_id: "WO_25_2.0.0"
-cmi_nid: "5"
-title: "Water Observations 25 v. 2.0.0"
-summary: "Water Observations from Space (WO_25_2.0) is a gridded dataset indicating areas where surface water has been observed using the Geoscience Australia (GA) Earth observation satellite data holdings. The current product (Version 1.5) includes observations taken between 1987 and 2016 (inclusive) from the Landsat 5, 7 and 8 satellites. WO_25_2.0 covers all of mainland Australia and Tasmania but excludes off-shore Territories.
+location: '/short/v10/datacube/wofs'
+
+product_definition:
+    name: wofs_albers
+    description: Historic Flood Mapping Water Observations from Space
+    managed: True
+    metadata_type: eo
+    metadata:
+      product_type: wofs
+      format: 
+        name: NetCDF
+    storage:
+        crs: EPSG:3577
+        resolution:
+            x: 25
+            y: -25
+        tile_size:
+            x: 100000.0
+            y: 100000.0
+        driver: NetCDF CF
+        dimension_order: [time, y, x]
+        chunking:
+            x: 200
+            y: 200
+            time: 1   
+    measurements:
+      - name: water
+        dtype: uint8
+        nodata: 1
+        units: '1'
+        zlib: True
+        fletcher32: True
+        flags_definition:
+          result:
+            bits: [0,1,2,3,4,5,6,7]
+            values: 
+                128: clear_wet
+                0: clear_dry
+            description: Classification result with unclear observations masked out
+
+global_attributes:
+    cmi_id: "WO_25_2.0.0"
+    cmi_nid: "5"
+    title: "Water Observations 25 v. 2.0.0"
+    summary: "Water Observations from Space (WO_25_2.0) is a gridded dataset indicating areas where surface water has been observed using the Geoscience Australia (GA) Earth observation satellite data holdings. The current product (Version 1.5) includes observations taken between 1987 and 2016 (inclusive) from the Landsat 5, 7 and 8 satellites. WO_25_2.0 covers all of mainland Australia and Tasmania but excludes off-shore Territories.
 
 WO_25_2.0 shows water observed for every Landsat-5, Landsat-7 and Landsat-8 image across Australia (excluding External Territories) for the period of 1987 to 2016. The dataset is updated quarterly and is expected to increase in update frequency in the future so that as a satellite acquires data, it will automatically be analysed for the presence of water and added to the WO_25_2.0 product in near real time.
 
@@ -48,16 +89,16 @@ P, the number of observations of water as a fraction of the number of clear obse
 
 Built-Up areas indicating areas of dense urban development. In such areas the water detection algorithm struggles to cope with the deep shadows cast by multi-story buildings and the generally noisy spectral response created by structures. The Built-Up layer is derived from the Australian Bureau of Statistics ASGS 2011 dataset, for urban centres of populations of 100 000 and over.
 "
-source: "SR-N_25_2.0"
-institution: "Commonwealth of Australia (Geoscience Australia)"
-keywords: ""
-keywords_vocabulary: ""
-product_version: "2.0.0"
-license: "CC BY Attribution 4.0 International License"
-coverage_content_type: ""
-cdm_data_type: ""
-product_suite: ""
-references: "Geoscience Australia (2013) Australian Reflectance Grid (ARG25) Product Information - Beta Release- External Document TRIM Ref D2013-41317, Geoscience Australia, Canberra.
+    source: "SR-N_25_2.0"
+    institution: "Commonwealth of Australia (Geoscience Australia)"
+    keywords: ""
+    keywords_vocabulary: ""
+    product_version: "2.0.0"
+    license: "CC BY Attribution 4.0 International License"
+    coverage_content_type: ""
+    cdm_data_type: ""
+    product_suite: ""
+    references: "Geoscience Australia (2013) Australian Reflectance Grid (ARG25) Product Information - Beta Release- External Document TRIM Ref D2013-41317, Geoscience Australia, Canberra.
 
 Gallant, J., Dowling, T., and Austin, J. (2012): Multi-resolution Valley Bottom Flatness (MrVBF, 3&quot; resolution). v2. CSIRO. Data Collection. 10.4225/08/512EF27AC3888 http://dx.doi.org/10.4225/08/512EF27AC3888.
 
