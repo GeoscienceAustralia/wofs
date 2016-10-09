@@ -3,38 +3,38 @@
 import numpy
 import logging
 import gc
-#import argparse
-#from osgeo import gdal
+
+
+# import argparse
+# from osgeo import gdal
 
 def classify(images, float64=False):
     """
     Produce a water classification image from the supplied images (6 bands of an NBAR, multiband Landsat image)
     This method evaluates N.Mueller's decision tree as follows:
 
-
-                        -----------------------------N1---------------------------------
-                        |                                                              |
-                        |                                                              |
-                     ---N2-----                                           -------------N21---------------------
-                     |        |                                           |                                   |
-                     |        |                                           |                                   |
-           ----------N4----   N3                                    ------N22---                           ---N35-------
-           |              |                                         |          |                           |           |
-           |              |                                         |          |                           |           |
-        ---N5---       ---N8--------------                       ---N24----    N23                      ---N37------   N36
-        |      |       |                 |                       |        |                             |          |
-        |      |       |                 |                       |        |                             |          |
-        N6     N7   ---N12------------   N9             ---------N26---   N25                        ---N39-----   N38
-                    |                |                  |             |                              |         |
-                    |                |                  |             |                              |         |
-                 ---N16---        ---N13---             N27   --------N28---                   ------N41---    N40
-                 |       |        |       |                   |            |                   |          |
-                 |       |        |       |                   |            |                   |          |
-                 N17  ---N18---   N14     N15              ---N29---    ---N30---           ---N43---     N42
-                      |       |                            |       |    |       |           |       |
-                      |       |                            |       |    |       |           |       |
-                      N19     N20                          N31     N32  N33     N34         N44     N45
-
+                    -----------------------------N1---------------------------------
+                    |                                                              |
+                    |                                                              |
+                 ---N2-----                                           -------------N21---------------------
+                 |        |                                           |                                   |
+                 |        |                                           |                                   |
+       ----------N4----   N3                                    ------N22---                           ---N35-------
+       |              |                                         |          |                           |           |
+       |              |                                         |          |                           |           |
+    ---N5---       ---N8--------------                       ---N24----    N23                      ---N37------   N36
+    |      |       |                 |                       |        |                             |          |
+    |      |       |                 |                       |        |                             |          |
+    N6     N7   ---N12------------   N9             ---------N26---   N25                        ---N39-----   N38
+                |                |                  |             |                              |         |
+                |                |                  |             |                              |         |
+             ---N16---        ---N13---             N27   --------N28---                   ------N41---    N40
+             |       |        |       |                   |            |                   |          |
+             |       |        |       |                   |            |                   |          |
+             N17  ---N18---   N14     N15              ---N29---    ---N30---           ---N43---     N42
+                  |       |                            |       |    |       |           |       |
+                  |       |                            |       |    |       |           |       |
+                  N19     N20                          N31     N32  N33     N34         N44     N45
 
     :param images:
         A 3D numpy array ordered in (bands,rows,columns), containing the spectral data.
@@ -57,10 +57,10 @@ def classify(images, float64=False):
 
     """
 
-    logger = logging.getLogger("WaterClasserfier") # !? typo..
+    logger = logging.getLogger("WaterClasserfier")  # !? typo..
     logger.debug("Started")
 
-    def band_ratio(a,b):
+    def band_ratio(a, b):
         """
         Calculates a normalised ratio index.
         """
@@ -70,8 +70,8 @@ def classify(images, float64=False):
     dims = images.shape
     if len(dims) == 3:
         bands = dims[0]
-        rows  = dims[1]
-        cols  = dims[2]
+        rows = dims[1]
+        cols = dims[2]
     else:
         rows = dims[0]
         cols = dims[1]
@@ -81,20 +81,20 @@ def classify(images, float64=False):
     # Check whether to enforce float64 calcs, unless the datatype is already float64
     # Otherwise force float32
     if float64:
-        if (dtype != 'float64'):
+        if dtype != 'float64':
             images = images.astype('float64')
     else:
-        if (dtype == 'float64'):
+        if dtype == 'float64':
             # Do nothing, leave as float64
             images = images
-        elif (dtype != 'float32'):
+        elif dtype != 'float32':
             images = images.astype('float32')
 
-    classified = numpy.ones((rows,cols), dtype='uint8')
+    classified = numpy.ones((rows, cols), dtype='uint8')
 
-    NDI_52 = band_ratio(images[4], images[1])
-    NDI_43 = band_ratio(images[3], images[2])
-    NDI_72 = band_ratio(images[5], images[1])
+    ndi_52 = band_ratio(images[4], images[1])
+    ndi_43 = band_ratio(images[3], images[2])
+    ndi_72 = band_ratio(images[5], images[1])
 
     b1 = images[0]
     b2 = images[1]
@@ -107,44 +107,44 @@ def classify(images, float64=False):
     # Lots of result arrays eg r1, r2 etc of type bool are created
     # These could be recycled to save memory, but at the moment they serve to show the tree structure
     # Temporary arrays of type bool (_tmp, _tmp2) are used to combine the boolean decisions
-    r1 = NDI_52 <= -0.01
+    r1 = ndi_52 <= -0.01
 
     r2 = b1 <= 2083.5
-    classified[r1 & ~r2] = 0 # Node 3
+    classified[r1 & ~r2] = 0  # Node 3
 
     r3 = b7 <= 323.5
     _tmp = r1 & r2
     _tmp2 = _tmp & r3
     _tmp &= ~r3
 
-    r4 = NDI_43 <= 0.61
-    classified[_tmp2 & r4]  = 128 # Node 6
-    classified[_tmp2 & ~r4] = 0 # Node 7
+    r4 = ndi_43 <= 0.61
+    classified[_tmp2 & r4] = 128  # Node 6
+    classified[_tmp2 & ~r4] = 0  # Node 7
 
     r5 = b1 <= 1400.5
     _tmp2 = _tmp & ~r5
-    r6 = NDI_43 <= -0.01
-    classified[_tmp2 & r6]  = 128 # Node 10
-    classified[_tmp2 & ~r6] = 0 # Node 11
+    r6 = ndi_43 <= -0.01
+    classified[_tmp2 & r6] = 128  # Node 10
+    classified[_tmp2 & ~r6] = 0  # Node 11
 
     _tmp &= r5
 
-    r7 = NDI_72 <= -0.23
+    r7 = ndi_72 <= -0.23
     _tmp2 = _tmp & ~r7
     r8 = b1 <= 379
-    classified[_tmp2 & r8]  = 128 # Node 14
-    classified[_tmp2 & ~r8] = 0 # Node 15
+    classified[_tmp2 & r8] = 128  # Node 14
+    classified[_tmp2 & ~r8] = 0  # Node 15
 
     _tmp &= r7
 
-    r9 = NDI_43 <= 0.22
-    classified[_tmp & r9] = 128 # Node 17
+    r9 = ndi_43 <= 0.22
+    classified[_tmp & r9] = 128  # Node 17
 
     _tmp &= ~r9
 
     r10 = b1 <= 473
-    classified[_tmp & r10]  = 128 # Node 19
-    classified[_tmp & ~r10] = 0 # Node 20
+    classified[_tmp & r10] = 128  # Node 19
+    classified[_tmp & ~r10] = 0  # Node 20
 
     # Left branch is completed; cleanup
     logger.debug("B4 cleanup 1")
@@ -155,24 +155,24 @@ def classify(images, float64=False):
     # Right branch of the tree
     r1 = ~r1
 
-    r11 = NDI_52 <= 0.23
+    r11 = ndi_52 <= 0.23
     _tmp = r1 & r11
 
     r12 = b1 <= 334.5
     _tmp2 = _tmp & ~r12
-    classified[_tmp2] = 0 # Node 23
+    classified[_tmp2] = 0  # Node 23
 
     _tmp &= r12
 
-    r13 = NDI_43 <= 0.54
+    r13 = ndi_43 <= 0.54
     _tmp2 = _tmp & ~r13
-    classified[_tmp2] = 0 # Node 25
+    classified[_tmp2] = 0  # Node 25
 
     _tmp &= r13
 
-    r14 = NDI_52 <= 0.12
+    r14 = ndi_52 <= 0.12
     _tmp2 = _tmp & r14
-    classified[_tmp2] = 128 # Node 27
+    classified[_tmp2] = 128  # Node 27
 
     _tmp &= ~r14
 
@@ -180,38 +180,38 @@ def classify(images, float64=False):
     _tmp2 = _tmp & r15
 
     r16 = b1 <= 129.5
-    classified[_tmp2 & r16]  = 128 # Node 31
-    classified[_tmp2 & ~r16] = 0 # Node 32
+    classified[_tmp2 & r16] = 128  # Node 31
+    classified[_tmp2 & ~r16] = 0  # Node 32
 
     _tmp &= ~r15
 
     r17 = b1 <= 300.5
     _tmp2 = _tmp & ~r17
     _tmp &= r17
-    classified[_tmp]  = 128 # Node 33
-    classified[_tmp2] = 0 # Node 34
+    classified[_tmp] = 128  # Node 33
+    classified[_tmp2] = 0  # Node 34
 
     _tmp = r1 & ~r11
 
-    r18 = NDI_52 <= 0.34
-    classified[_tmp & ~r18] = 0 # Node 36
+    r18 = ndi_52 <= 0.34
+    classified[_tmp & ~r18] = 0  # Node 36
     _tmp &= r18
 
     r19 = b1 <= 249.5
-    classified[_tmp & ~r19] = 0 # Node 38
+    classified[_tmp & ~r19] = 0  # Node 38
     _tmp &= r19
 
-    r20 = NDI_43 <= 0.45
-    classified[_tmp & ~r20] = 0 # Node 40
+    r20 = ndi_43 <= 0.45
+    classified[_tmp & ~r20] = 0  # Node 40
     _tmp &= r20
 
     r21 = b3 <= 364.5
-    classified[_tmp & ~r21] = 0 # Node 42
+    classified[_tmp & ~r21] = 0  # Node 42
     _tmp &= r21
 
     r22 = b1 <= 129.5
-    classified[_tmp & r22]  = 128 # Node 44
-    classified[_tmp & ~r22] = 0 # Node 45
+    classified[_tmp & r22] = 128  # Node 44
+    classified[_tmp & ~r22] = 0  # Node 45
 
     logger.debug("completed")
 

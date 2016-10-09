@@ -2,7 +2,7 @@
 Produce water observation feature layers (i.e. water extent foliation).
 
 These are the WOfS product with temporal extent (i.e. multiple time values).
-Consists of wet/dry estimates and filtering flags, 
+Consists of wet/dry estimates and filtering flags,
 with one-to-one correspondence to earth observation layers.
 
 Not to be confused with the wofs summary products,

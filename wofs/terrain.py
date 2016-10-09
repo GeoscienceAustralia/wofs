@@ -11,29 +11,30 @@ LIT = 255
 SHADED = 0
 
 
-def _shadeRow(shade_mask, elev_M, sun_alt_deg, pixel_scale_M, no_data, fuzz=0.0):
+def _shade_row(shade_mask, elev_m, sun_alt_deg, pixel_scale_m, no_data, fuzz=0.0):
     """
     shade the supplied row of the elevation model
     """
 
     # threshold is TAN of sun's altitude
-    tanSunAlt = math.tan(sun_alt_deg)
+    tan_sun_alt = math.tan(sun_alt_deg)
 
     # pure terrain angle shadow
     shade_mask[0] = LIT
-    shade_mask[1:] = numpy.where((elev_M[:-1]-elev_M[1:])/pixel_scale_M < tanSunAlt, LIT, SHADED)
+    shade_mask[1:] = numpy.where((elev_m[:-1] - elev_m[1:]) / pixel_scale_m < tan_sun_alt, LIT, SHADED)
 
     # project shadows from tips (light->shadow transition)
     switch = numpy.where(shade_mask[:-1] != shade_mask[1:])
     for i in switch[0]: # note: could use flatnonzero instead of where; or else switch,=; to avoid [0]. --BL
         if shade_mask[i] == LIT:
             # TODO: horizontal fuzz?
-            shadow_level = (elev_M[i] + fuzz) - numpy.arange(shade_mask.size-i)*(tanSunAlt*pixel_scale_M)
-            shade_mask[i:][shadow_level > elev_M[i:]] = SHADED
+            shadow_level = (elev_m[i] + fuzz) - numpy.arange(shade_mask.size - i) * (tan_sun_alt * pixel_scale_m)
+            shade_mask[i:][shadow_level > elev_m[i:]] = SHADED
 
-    shade_mask[elev_M == no_data] = UNKNOWN
+    shade_mask[elev_m == no_data] = UNKNOWN
 
     return shade_mask
+
 
 def solar_vector(p, time, crs):
     poly = GeoPolygon([p, (p[0], p[1] + 100)], crs).to_crs(CRS('EPSG:4326'))
@@ -69,12 +70,12 @@ def shadows_and_slope(tile, time):
     and assuming the input projection is Mercator-like i.e. preserves bearings).
     For each row, finds each threshold pixel (where the slope just turns away from the sun) and raytraces
     (i.e. using a ramp, masks the other pixels shaded by the pillar of that pixel).
-    Reprojects shadow mask (and undoes border enlargement associated with the rotation).     
+    Reprojects shadow mask (and undoes border enlargement associated with the rotation).
 
     TODO (BL) -- profile, and explore numpy.minimum.accumulate (make-monotonic) style alternative
                  and maybe fewer resamplings (or come up with something better still).
     """
-    
+
     y_size, x_size = tile.elevation.shape
 
     xgrad = ndimage.sobel(tile.elevation, axis=1) / abs(8*tile.affine.a)
@@ -88,7 +89,7 @@ def shadows_and_slope(tile, time):
 
     slope = numpy.degrees(numpy.arccos(1.0/norm_len))
 
-    x,y = tile.dims.keys()
+    x, y = tile.dims.keys()
     tile_center = (tile[x].values[x_size/2], tile[y].values[y_size/2])
     solar_vec = solar_vector(tile_center, to_datetime(time), tile.crs)
     sia = (solar_vec[2] - xgrad*solar_vec[0] - ygrad*solar_vec[1])/norm_len
@@ -98,7 +99,7 @@ def shadows_and_slope(tile, time):
     rot_degrees = 90.0 + math.degrees(solar_vec[3])
     sun_alt_deg = math.degrees(solar_vec[4])
     # print solar_vec, rot_degrees, sun_alt_deg
-    pixel_scale_M = 25.0 #TODO: proper res
+    pixel_scale_m = 25.0  # TODO: proper res
     no_data = -1000
 
     rotated_elv_array = ndimage.interpolation.rotate(tile.elevation.values,
@@ -111,12 +112,12 @@ def shadows_and_slope(tile, time):
     # create the shadow mask by ray-tracying along each row
     shadows = numpy.zeros_like(rotated_elv_array)
     for row in range(0, rotated_elv_array.shape[0]):
-        _shadeRow(shadows[row], rotated_elv_array[row], solar_vec[4], pixel_scale_M, no_data, fuzz=10.0)
+        _shade_row(shadows[row], rotated_elv_array[row], solar_vec[4], pixel_scale_m, no_data, fuzz=10.0)
 
     del rotated_elv_array
 
     shadows = ndimage.interpolation.rotate(shadows, -rot_degrees, reshape=False, output=numpy.float32, cval=no_data,
-                                          prefilter=False)
+                                           prefilter=False)
 
     dr = (shadows.shape[0] - y_size) / 2
     dc = (shadows.shape[1] - x_size) / 2
