@@ -31,8 +31,6 @@ product_definition:
         dtype: uint8
         nodata: 1
         units: '1'
-        zlib: True
-        fletcher32: True
         flags_definition:
           result:
             bits: [0,1,2,3,4,5,6,7]
@@ -40,6 +38,15 @@ product_definition:
                 128: clear_wet
                 0: clear_dry
             description: Classification result with unclear observations masked out
+
+variable_params:
+    water:
+        zlib: True
+        fletcher32: True
+        chunking:
+            x: 200
+            y: 200
+            time: 1
 
 global_attributes:
     cmi_id: "WO_25_2.0.0"
