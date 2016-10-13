@@ -1,7 +1,7 @@
 version: ${version}
 
-location: '/g/data/fk4/datacube/wofs'
-file_path_template: '{sensor}_WATER/{tile_index[0]}_{tile_index[1]}/{sensor}_WATER_3577_{tile_index[0]}_{tile_index[1]}_{time}.nc'
+location: '/g/data/fk4/datacube/002/'
+file_path_template: '{platform}_{sensor}_WATER/{tile_index[0]}_{tile_index[1]}/{sensor}_WATER_3577_{tile_index[0]}_{tile_index[1]}_{time}.nc'
 
 product_definition:
     name: wofs_albers
@@ -31,6 +31,9 @@ product_definition:
         dtype: uint8
         nodata: 1
         units: '1'
+        attrs:
+          long_name: Water observation feature layer
+          coverage_content_type: "thematicClassification"
         flags_definition:
           result:
             bits: [0,1,2,3,4,5,6,7]
@@ -65,12 +68,14 @@ global_attributes:
 
     source: "SR-N_25_2.0"
     institution: "Commonwealth of Australia (Geoscience Australia)"
-    keywords: ""
-    keywords_vocabulary: ""
+    keywords: "AU/GA,NASA/GSFC/SED/ESD/LANDSAT,ETM+,TM,OLI,EARTH SCIENCE,SURFACE WATER,FLOOD"
+    keywords_vocabulary: "GCMD"
     product_version: "2.1.5"
+    publisher_email: earth.observation@ga.gov.au
+    publisher_name: Section Leader, Operations Section, NEMO, Geoscience Australia
+    publisher_url: http://www.ga.gov.au
     license: "CC BY Attribution 4.0 International License"
-    coverage_content_type: ""
-    cdm_data_type: ""
+    cdm_data_type: "Grid"
     product_suite: ""
     references: |
       Geoscience Australia (2013) Australian Reflectance Grid (ARG25) Product Information - Beta Release- External Document TRIM Ref D2013-41317, Geoscience Australia, Canberra.
