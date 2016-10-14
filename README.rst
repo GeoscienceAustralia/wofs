@@ -8,7 +8,7 @@ Water Observation from Space (WOfS)
     The Apache 2.0 license applies to this open source code.
 
 
-This version applies the original published WOfS decision-tree algorithm, 
+This WOfS version applies the original published WOfS decision-tree algorithm, 
 but is updated to use the AGDCv2 infrastructure.
 
 Specifically, this version also decouples the production of water extent tiles
@@ -63,6 +63,24 @@ Results (below) indicate that memory is already within the 2GB/core available, t
 - 20% potential speedup by storing DSM in the same projection as EO, or by orchestrating execution to avoid reloading DSM redundantly.
 - Most of the time is spent on terrain, but only 5-10% speedup plausible by better implementation.
 - Most limiting factor is rotating the DSM (to approximately align with sunlight) but nontrivial to improve or mitigate this. (May or may not be amenable to cheaper interpolation methods or an algorithm that traverses the array differently.)
+
+
+Overlaps
+--------
+The Landsats collect a swath of data as they pass over the continent. 
+Traditionally, each pass is segmented into overlapping scenes for processing
+separately. This necessitates measures to avoid double-counting duplicate
+observations. Potential alternate measures would include:
+
+- Whole pass based processing. (Upstream software not yet available.)
+- EO archive of reconstituted seamless passes,
+  e.g., fusing scene-overlaps during ingestion.
+  (Renounced in current datacube iteration.)
+- Duplicate-free water extents, e.g., fusing the inputs to wofl generation.
+  (Would interfere with any use of scene center pixel timestamp as a primary
+  key for matching EO scenes to wofls.)
+- Downstream fusing of wofls by each user/application. 
+  (Beyond capability of the generic API.)
 
 
 Classifier
