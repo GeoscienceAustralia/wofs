@@ -105,8 +105,6 @@ and run the launcher specifying the app config, year (``1993`` or a range ``1993
 
     $ cd /g/data/v10/log/wofs
     $ datacube-wofs-launcher qsub wofs_albers.yaml 1993-1996 -q normal -P v10 -n 25 -t 1
-    
-We have found for best throughput *25 nodes* can produce about 11.5 tiles per minute per node, with a CPU efficiency of about 96%.
 
 It will check to make sure it can access the database::
 
