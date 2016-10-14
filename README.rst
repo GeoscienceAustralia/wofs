@@ -1,193 +1,90 @@
 Water Observation from Space (WOfS)
-===================================
+====================================
 
-Water Observations from Space (WO_25_2.0) is a gridded dataset indicating areas where surface water has been observed using the Geoscience Australia (GA) Earth observation satellite data holdings. The product includes observations taken from the Landsat 5, 7 and 8 satellites.
+:Disclaimer:
+    This repository is *in development*, use at your own risk.
 
-The Water Observations from Space product is a key component of the National Flood Risk Information Portal (NFRIP), developed by Geoscience Australia (GA). The objective of Water Observations from Space is to analyse GA's historic archive of satellite imagery to derive water observations, to help understand where flooding may have occurred in the past.
+:License:
+    The Apache 2.0 license applies to this open source code.
 
-.. contents::
 
-Installation
-------------
+This version applies the original published WOfS decision-tree algorithm, 
+but is updated to use the AGDCv2 infrastructure.
 
-To install the module on raijin:
+Specifically, this version also decouples the production of water extent tiles
+from the production of the statistical summary mosaics, and is intended to
+improve consistency with other datacube applications (e.g., parallelisation
+of the workflow employs *distributed* rather than *luigi*).
 
-Update Collection Management Interface system
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Go to http://52.62.11.43/validate/5
+Codebase outline
+----------------
 
-Ensure that the global attributes from CMI match the global attributes
-in the config files, and update appropriately.
+The water-specific code (as distinct from packaging boilerplate) is located 
+in the "wofs" directory, other than metadata that may be located in the the 
+config yaml. 
 
-Download from GitHub
-~~~~~~~~~~~~~~~~~~~~
 
-Checkout the tagged branch you wish to install to temp directory::
+Algorithm
+=========
 
-    git clone git@github.com:GeoscienceAustralia/wofs.git
-    cd wofs
-    git checkout tags/2.1.5
-    git describe --tags --always
+Wofls
+-----
 
-The tagged version should be printed.
+Water Observation Feature Layers are the temporal foliation of water extents. 
+These consist of an 8-bit integer raster band.
 
-Then to install::
+- **Decision tree:** The standard classifier is *band maths* performed on 6 EO source bands (TM 1-5, 7). A published tree with 21 nodes, producing boolean output, comprising of thresholds applied to three raw bands (TM 1, 3, 7) and three band-pair ratio-indices (NDI 52, 43, 72).
+- **Filter masks:** various flags are accumulated onto the output band. Inputs are the landsat image, the pixel quality product, and the elevation model. (The difficulty is generating some of the flags, e.g. terrain shadow.)
 
-    $ module use /g/data/v10/public/modules/modulefiles/
-    $ ./package-module.sh 
 
-You will be promted to check the package location and version. If it is
-correct, type **``y``** and press enter
-
-::
-
-    # Packaging agdc-wofs v 2.1.5 to /g/data/v10/public/modules/agdc-wofs/2.1.5 #
-    Continue? 
-
-Setup on VDI
-~~~~~~~~~~~~
-
-The first time you try to use raijin PBS commands from VDI, you will need
-to run::
-
-    $ remote-hpc-cmd init
-
-See http://vdi.nci.org.au/help#heading=h.u1kl1j7vdt16 for more details.
-
-You will also need to setup datacube to work from VDI and rajin.
-
-::
-
-    $ ssh raijin "cat .pgpass" >> ~/.pgpass
-    $ chmod 0600 ~/.pgpass
-
-See http://agdc-v2.readthedocs.io/en/stable/user/nci\_usage.html for
-full details.
-
-Running
+Summary
 -------
 
-The WOfS application works in 3 parts:
+The summary product has multiple parts: 
 
-    #. Creating the task list
-    #. Check for unexpected existing files - these were most likely created during an run that did not successfully finish.
-    #. Submit the job to raijin.
-
-To run WOfS::
-
-    $ module use /g/data/v10/public/modules/modulefiles/
-    $ module load agdc-wofs
-    $ datacube-wofs-launcher list
-
-This will list the availiable app configs::
-
-    wofs_albers.yaml
-
-To submit the job to `raijin`, the launcher has a the ``qsub`` command:
-
-Usage: ``datacube-wofs-launcher qsub [OPTIONS] APP_CONFIG YEAR``
-
-Options:
-
-* ``-q, --queue normal``            The queue to use, either ``normal`` or ``express``
-* ``-P, --project v10``             The project to use
-* ``-n, --nodes INTEGER RANGE``     Number of *nodes* to request  [required]
-* ``-t, --walltime 4``              Number of *hours* to request
-* ``--name TEXT``                   Job name to use
-* ``--config PATH``                 Datacube config file (be default uses the currently loaded AGDC module)
-* ``--env PATH``                    Node environment setup script (by default uses the installed production environment)
-* ``--help``                        Show help message.
-
-Change your working directory to a location that can hold the task file, 
-and run the launcher specifying the app config, year (``1993`` or a range ``1993-1996``), and PBS properties:
-::
-
-    $ cd /g/data/v10/log/wofs
-    $ datacube-wofs-launcher qsub wofs_albers.yaml 1993-1996 -q normal -P v10 -n 25 -t 1
-
-It will check to make sure it can access the database::
-
-    Version: 1.1.9
-    Read configurations files from: ['/g/data/v10/public/modules/agdc-py2-prod/1.1.9/datacube.conf']
-    Host: 130.56.244.227:6432
-    Database: datacube
-    User: adh547
+- a mean mosaic of the wofls (i.e. fraction of clear observations that are wet);
+- a confidence estimate. This is a logistic function wrapping a linear combination (with published weights) of several inputs: 0. mean mosaic of the wofls, 1. multi-res valley bottom flatness, 2. MODIS open water likelihood, hydrological geofabric, 3. slope, 4-12. hydrological geofabric (boolean vectors), 13. Aus Stat Geog Standard (urban boolean).
+- Filtered summary, i.e., mean mosaic clipped to always-dry where confidence is below a threshold. (Would also be interesting to see confidence applied as an opacity alpha channel to the mean mosaic?)
 
 
-    Attempting connect
-    Success.
+Notes and ideas
+===============
 
-Then it will create the task file in the current working directory, and create the output product
-definition in the database (if it doesn't already exist)::
+Profiling
+---------
 
-    datacube-wofs -v --app-config "/g/data/v10/public/modules/agdc-wofs/2.1.5/config/wofs_albers.yaml" --year 1993-1996 --save-tasks "/g/data/v10/log/wofs/wofs_albers_1993-1996.bin"
-    RUN? [Y/n]:
+Implementation of potential optimisations was deliberately deferred, until memory, CPU and IO profiling could take place.
 
-    2016-07-13 18:38:56,308 INFO Created DatasetType wofs_albers
-    2016-07-13 18:39:01,997 INFO 291 tasks discovered
-    2016-07-13 18:39:01,998 INFO 291 tasks discovered
-    2016-07-13 18:39:02,127 INFO Saved config and tasks to /g/data/v10/log/wofs/wofs_albers_1993-1996.bin
+Results (below) indicate that memory is already within the 2GB/core available, that IO is not a significant bottleneck (before scaling), and that speed is unlikely to improve dramatically (since limited by intrinsically demanding aspects of the current terrain-shadow algorithm); therefore significant optimisation effort may not be warranted. 
 
-It can then list every output file to be created and check that it does not yet exist::
+19/9/02016: Querying test cube and writing 4 tiles (16MB each). /usr/bin/time showed 1min30sec walltime, ~135% CPU usage, ~10% system (rather than user time), ~1.5GB max resident. cProfile time graph indicated 2.4% spent on imports, 4% on database queries, 26% on grid workflow (including >5% on rasterio read and 19% on rasterio reproject) and 65% on the core algorithm. The latter is dominated by the terrain filtering (56%, alongside 4.4% decision tree, 3.3% PQ, 1.1% EO filter). It includes 1.9% on the Sobel operation, 9.5% row shading (of which 8% is python code, as is 5.8% of shadows and slope), and 37% rotating the image (scipy). Dilation also totals 4%. Summary:
 
-    datacube-wofs -v --load-tasks "/g/data/v10/log/wofs/wofs_albers_1993-1996.bin" --dry-run
-    RUN? [y/N]:
-
-    Starting WOfS processing...
-    Files to be created:
-    /g/data/fk4/datacube/002/LS5_TM_WATER/15_-39/LS5_TM_WATER_3577_15_-39_19930513231246500000.nc
-    /g/data/fk4/datacube/002/LS5_TM_WATER/15_-40/LS5_TM_WATER_3577_15_-40_19930513231246500000.nc
-    ...
-    144 tasks files to be created (144 valid files, 0 existing paths)
-    
-If any output files already exist, you will be asked if they should be deleted.
-
-Then it will ask to confirm the job should be submitted to PBS::
-
-    qsub -q normal -P v10 -l ncpus=16,mem=31gb,walltime=1:00:00 -- /bin/bash "/g/data/v10/public/modules/agdc-wofs/2.1.5/scripts/distributed.sh" --ppn 16 datacube-wofs -v --load-tasks "/g/data/v10/log/wofs/wofs_albers_1993-1996.bin" --executor distributed DSCHEDULER
-    RUN? [Y/n]:
-
-It should then return a job id, such as ``7517348.r-man2``
-
-If you say `no` to the last step, the task file you created can be submitted to qsub later by calling::
-
-    datacube-wofs-launcher qsub -q normal -P v10 -n 1 --taskfile "/g/data/v10/log/wofs/wofs_albers_1993-1996.bin" wofs_albers.yaml
+- 20% potential speedup by storing DSM in the same projection as EO, or by orchestrating execution to avoid reloading DSM redundantly.
+- Most of the time is spent on terrain, but only 5-10% speedup plausible by better implementation.
+- Most limiting factor is rotating the DSM (to approximately align with sunlight) but nontrivial to improve or mitigate this. (May or may not be amenable to cheaper interpolation methods or an algorithm that traverses the array differently.)
 
 
-Tracking progress
------------------
+Classifier
+----------
 
-::
+It may improve performance and readability to represent the decision tree as a numexpr statement (nested across multiple lines). This could additionally include some of the mask logic.
 
-    $ qstat -u $USER
+Ideally the PQ product might be a band in the EO product (and include terrain related bitflags). 
 
-    $ qcat 7517348.r-man2 | head
-
-    $ qcat 7517348.r-man2 | tail
-
-    $ qps 7517348.r-man2
-
-(TODO: Add instructions to connect to ``distributed`` web interface...)
+Alternative algorithms are under development elsewhere.
 
 
-File locations
---------------
+Terrain
+-------
 
-The config file (eg. wofs_albers.yaml) specifies the app settings, and is found in the module.
+Terrain algorithms usually begin with finding the gradient component along each of the two axes, typically by operating with a 3x3 kernel. One example is the Rook's case (simply using nearest neighbours on either side of the pixel, which turns out to be a 2nd order finite difference method). Another is the Sobel operator, which additionally applies smoothing along the orthogonal axis. Tang and Pilesjo 2011 showed these belong to a variety of methods which produce statistically similar results (different from a more naive and unbalanced method of differencing the central cell with one neighbour along each axis). Jones 1998 found the Rook's case to give the best accuracy (narrowly followed by Sobel), but the methodology (e.g. noise-free synthetic) may have been biased (to favour balanced methods with more compact footprints). Zhou and Liu 2004 added noise to a synthetic, confirming the Rook's case to be optimal in absence of noise but the Sobel operator was more robust to the noise. 
 
-You will need to check the folder of the latest ``agdc-wofs`` module::
 
-    ls /g/data/v10/public/modules/agdc-wofs/
+Clouds
+------
 
-To view the app config file, replace ``2.1.5`` with the latest version from above. 
-::
+Currently, cloud and cloud shadow are detected per scene, which is suboptimal at contiguous boundaries.
 
-    head /g/data/v10/public/modules/agdc-wofs/2.1.5/config/wofs_albers.yaml
-    
-The config file lists the output `location` and file_path_template``, as shown in this snippet::
+Improved masking algorithms are anticipated, e.g. as median mosaics become available, or possibly incorporating weather data.
 
-    location: '/g/data/fk4/datacube/002/'
-    file_path_template: '{platform}_{sensor}_WATER/{tile_index[0]}_{tile_index[1]}/{sensor}_WATER_3577_{tile_index[0]}_{tile_index[1]}_{time}.nc'
-
-So here the output files are saved to ``/g/data/fk4/datacube/002/LS5_TM_WATER/<tile_index>/*.nc``
