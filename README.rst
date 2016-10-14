@@ -103,7 +103,7 @@ Change your working directory to a location that can hold the task file,
 and run the launcher specifying the app config, year (``1993`` or a range ``1993-1996``), and PBS properties:
 ::
 
-    $ cd /g/data/v10/tmp
+    $ cd /g/data/v10/log/wofs
     $ datacube-wofs-launcher qsub wofs_albers.yaml 1993-1996 -q normal -P v10 -n 25 -t 1
     
 We have found for best throughput *25 nodes* can produce about 11.5 tiles per minute per node, with a CPU efficiency of about 96%.
@@ -123,17 +123,17 @@ It will check to make sure it can access the database::
 Then it will create the task file in the current working directory, and create the output product
 definition in the database (if it doesn't already exist)::
 
-    datacube-wofs -v --app-config "/g/data/v10/public/modules/agdc-wofs/2.1.5/config/wofs_albers.yaml" --year 1993-1996 --save-tasks "/g/data/v10/tmp/wofs_albers_test_1993-1996.bin"
+    datacube-wofs -v --app-config "/g/data/v10/public/modules/agdc-wofs/2.1.5/config/wofs_albers.yaml" --year 1993-1996 --save-tasks "/g/data/v10/log/wofs/wofs_albers_1993-1996.bin"
     RUN? [Y/n]:
 
     2016-07-13 18:38:56,308 INFO Created DatasetType wofs_albers
     2016-07-13 18:39:01,997 INFO 291 tasks discovered
     2016-07-13 18:39:01,998 INFO 291 tasks discovered
-    2016-07-13 18:39:02,127 INFO Saved config and tasks to /g/data/v10/tmp/wofs_albers_test_1993-1996.bin
+    2016-07-13 18:39:02,127 INFO Saved config and tasks to /g/data/v10/log/wofs/wofs_albers_1993-1996.bin
 
 It can then list every output file to be created and check that it does not yet exist::
 
-    datacube-wofs -v --load-tasks "/g/data/v10/tmp/wofs_albers_1993-1996.bin" --dry-run
+    datacube-wofs -v --load-tasks "/g/data/v10/log/wofs/wofs_albers_1993-1996.bin" --dry-run
     RUN? [y/N]:
 
     Starting WOfS processing...
@@ -147,14 +147,14 @@ If any output files already exist, you will be asked if they should be deleted.
 
 Then it will ask to confirm the job should be submitted to PBS::
 
-    qsub -q normal -P v10 -l ncpus=16,mem=31gb,walltime=1:00:00 -- /bin/bash "/g/data/v10/public/modules/agdc-wofs/2.1.5/scripts/distributed.sh" --ppn 16 datacube-wofs -v --load-tasks "/g/data/v10/tmp/wofs_albers_1993-1996.bin" --executor distributed DSCHEDULER
+    qsub -q normal -P v10 -l ncpus=16,mem=31gb,walltime=1:00:00 -- /bin/bash "/g/data/v10/public/modules/agdc-wofs/2.1.5/scripts/distributed.sh" --ppn 16 datacube-wofs -v --load-tasks "/g/data/v10/log/wofs/wofs_albers_1993-1996.bin" --executor distributed DSCHEDULER
     RUN? [Y/n]:
 
 It should then return a job id, such as ``7517348.r-man2``
 
 If you say `no` to the last step, the task file you created can be submitted to qsub later by calling::
 
-    datacube-wofs-launcher qsub -q normal -P v10 -n 1 --taskfile "/g/data/v10/tmp/wofs_albers_1993-1996.bin" wofs_albers.yaml
+    datacube-wofs-launcher qsub -q normal -P v10 -n 1 --taskfile "/g/data/v10/log/wofs/wofs_albers_1993-1996.bin" wofs_albers.yaml
 
 
 Tracking progress
