@@ -76,7 +76,7 @@ global_attributes:
     publisher_url: http://www.ga.gov.au
     license: "CC BY Attribution 4.0 International License"
     cdm_data_type: "Grid"
-    product_suite: ""
+    product_suite: "Water Observations from Space 25m"
     references: |
       Geoscience Australia (2013) Australian Reflectance Grid (ARG25) Product Information - Beta Release- External Document TRIM Ref D2013-41317, Geoscience Australia, Canberra.
 
