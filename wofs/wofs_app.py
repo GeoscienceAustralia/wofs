@@ -275,7 +275,7 @@ def wofs_app(index, config, tasks, executor, dry_run, queue_size, *args, **kwarg
     click.echo('Starting processing...')
 
     if dry_run:
-        check_existing_files((task['filename'] for task in tasks))
+        check_existing_files((task['file_path'] for task in tasks))
         return 0
 
     results = []

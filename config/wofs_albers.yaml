@@ -31,9 +31,6 @@ product_definition:
         dtype: uint8
         nodata: 1
         units: '1'
-        attrs:
-          long_name: Water observation feature layer
-          coverage_content_type: "thematicClassification"
         flags_definition:
           result:
             bits: [0,1,2,3,4,5,6,7]
@@ -50,6 +47,9 @@ variable_params:
             x: 200
             y: 200
             time: 1
+        attrs:
+          long_name: Water observation feature layer
+          coverage_content_type: "thematicClassification"
 
 global_attributes:
     cmi_id: "WO_25_2.1.5"
