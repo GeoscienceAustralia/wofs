@@ -5,6 +5,7 @@ producing a datacube application with full compatibility.
 
 from __future__ import absolute_import, print_function
 
+import copy
 import errno
 import itertools
 import logging
@@ -229,7 +230,7 @@ def do_wofs_task(config, source_tile, pq_tile, dsm_tile, file_path, tile_index, 
         datasets = [ds for source_datasets in tile.sources.values for ds in source_datasets]
         values = [dataset.metadata_doc[what] for dataset in datasets]
         assert all(value == values[0] for value in values)
-        return values[0]
+        return copy.deepcopy(values[0])
 
     new_record.metadata_doc['platform'] = harvest('platform', source_tile)
     new_record.metadata_doc['instrument'] = harvest('instrument', source_tile)
