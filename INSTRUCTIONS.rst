@@ -27,7 +27,7 @@ Checkout the tagged branch you wish to install to temp directory::
 
     git clone git@github.com:GeoscienceAustralia/wofs.git
     cd wofs
-    git checkout tags/2.1.5
+    git checkout tags/1.0.2
     git describe --tags --always
 
 The tagged version should be printed.
@@ -35,14 +35,14 @@ The tagged version should be printed.
 Then to install::
 
     $ module use /g/data/v10/public/modules/modulefiles/
-    $ ./package-module.sh 
+    $ sh ./package-module.sh 
 
 You will be promted to check the package location and version. If it is
 correct, type **``y``** and press enter
 
 ::
 
-    # Packaging agdc-wofs v 2.1.5 to /g/data/v10/public/modules/agdc-wofs/2.1.5 #
+    # Packaging agdc-wofs v 2.1.5 to /g/data/v10/public/modules/agdc-wofs/1.0.2 #
     Continue? 
 
 Setup on VDI
@@ -97,7 +97,10 @@ Options:
 * ``--name TEXT``                   Job name to use
 * ``--config PATH``                 Datacube config file (be default uses the currently loaded AGDC module)
 * ``--env PATH``                    Node environment setup script (by default uses the installed production environment)
-* ``--help``                        Show help message.
+* ``--taskfile PATH``               Task file
+* ``--no-confirm``                  Don't ask for confirmation or perform file check
+* ``--web-ui``                      Launch the bokeh web interface
+* ``--help``                        Show help message
 
 Change your working directory to a location that can hold the task file, 
 and run the launcher specifying the app config, year (``1993`` or a range ``1993-1996``), and PBS properties:
@@ -145,7 +148,7 @@ If any output files already exist, you will be asked if they should be deleted.
 
 Then it will ask to confirm the job should be submitted to PBS::
 
-    qsub -q normal -P v10 -l ncpus=16,mem=31gb,walltime=1:00:00 -- /bin/bash "/g/data/v10/public/modules/agdc-wofs/2.1.5/scripts/distributed.sh" --ppn 16 datacube-wofs -v --load-tasks "/g/data/v10/log/wofs/wofs_albers_1993-1996.bin" --executor distributed DSCHEDULER
+    qsub -q normal -P v10 -l ncpus=16,mem=31gb,walltime=1:00:00 -- /bin/bash "/g/data/v10/public/modules/agdc-wofs/1.0.2/scripts/distributed.sh" --ppn 16 datacube-wofs -v --load-tasks "/g/data/v10/log/wofs/wofs_albers_1993-1996.bin" --executor distributed DSCHEDULER
     RUN? [Y/n]:
 
 It should then return a job id, such as ``7517348.r-man2``
@@ -180,10 +183,10 @@ You will need to check the folder of the latest ``agdc-wofs`` module::
 
     ls /g/data/v10/public/modules/agdc-wofs/
 
-To view the app config file, replace ``2.1.5`` with the latest version from above. 
+To view the app config file, replace ``1.0.2`` with the latest version from above. 
 ::
 
-    head /g/data/v10/public/modules/agdc-wofs/2.1.5/config/wofs_albers.yaml
+    head /g/data/v10/public/modules/agdc-wofs/1.0.2/config/wofs_albers.yaml
     
 The config file lists the output `location` and file_path_template``, as shown in this snippet::
 
