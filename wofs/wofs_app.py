@@ -15,6 +15,7 @@ from collections import defaultdict
 import functools
 
 import click
+from future.utils import iteritems
 from pandas import to_datetime
 from pathlib import Path
 import xarray
@@ -113,11 +114,11 @@ def generate_tasks(index, config, time):
         tile_index_set = (set(source_loadables) & set(pq_loadables)) - set(wofls_loadables)
         key_map = group_tiles_by_cells(tile_index_set, dsm_loadables)
 
-        for dsm_key, keys in key_map.items():
+        for (dsm_key, keys) in iteritems(key_map):
             dsm_tile = gw.update_tile_lineage(dsm_loadables[dsm_key])
             for tile_index in keys:
-                source_tile = gw.update_tile_lineage(source_loadables[tile_index])
-                pq_tile = gw.update_tile_lineage(pq_loadables[tile_index])
+                source_tile = gw.update_tile_lineage(source_loadables.pop(tile_index))
+                pq_tile = gw.update_tile_lineage(pq_loadables.pop(tile_index))
                 yield dict(source_tile=source_tile,
                            pq_tile=pq_tile,
                            dsm_tile=dsm_tile,
