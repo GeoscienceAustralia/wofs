@@ -42,12 +42,13 @@ def pq_filter(pq):
         - dilates the cloud and cloud shadow. (Previous implementation eroded the negation.)
         - input must be numpy not xarray.DataArray (due to depreciated boolean fancy indexing behaviour)
     """
-
-    masking = np.zeros(pq.shape, dtype=np.uint8)
-    masking[np.logical_not(pq & (PQA_SATURATION_BITS | 0))] = constants.MASKED_NO_CONTIGUITY
-    masking[np.logical_not(pq & PQA_SEA_WATER_BIT)] += constants.MASKED_SEA_WATER
-    masking[dilate(np.logical_not(pq & PQA_CLOUD_BITS))] += constants.MASKED_CLOUD
-    masking[dilate(np.logical_not(pq & PQA_CLOUD_SHADOW_BITS))] += constants.MASKED_CLOUD_SHADOW
+    ipq = ~pq # bitwise-not, e.g. flag cloudiness rather than cloudfree
+    
+    masking = np.zeros(ipq.shape, dtype=np.uint8)
+    masking[(ipq & (PQA_SATURATION_BITS)).astype(np.bool)] = constants.MASKED_NO_CONTIGUITY
+    masking[(ipq & PQA_SEA_WATER_BIT).astype(np.bool)] += constants.MASKED_SEA_WATER
+    masking[dilate(ipq & PQA_CLOUD_BITS)] += constants.MASKED_CLOUD
+    masking[dilate(ipq & PQA_CLOUD_SHADOW_BITS)] += constants.MASKED_CLOUD_SHADOW
     return masking
 
 
