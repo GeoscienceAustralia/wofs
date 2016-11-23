@@ -69,7 +69,7 @@ Overlaps
 --------
 The Landsats collect a swath of data as they pass over the continent. 
 Traditionally, each pass is segmented into overlapping scenes for processing
-separately. This necessitates measures to avoid double-counting duplicate
+separately. This necessitates measures to avoid double-counting duplicated
 observations. Potential alternate measures would include:
 
 - Whole pass based processing. (Upstream software not yet available.)
@@ -77,10 +77,13 @@ observations. Potential alternate measures would include:
   e.g., fusing scene-overlaps during ingestion.
   (Renounced in current datacube iteration.)
 - Duplicate-free water extents, e.g., fusing the inputs to wofl generation.
-  (Would interfere with any use of scene center pixel timestamp as a primary
+  (Interferes with potential use of scene middle pixel timestamp as a primary
   key for matching EO scenes to wofls.)
-- Downstream fusing of wofls by each user/application. 
-  (Beyond capability of the generic API.)
+- Downstream each user/application perform wofl fusing.
+  (Beyond capability of the generic API; requires sharing wofs-specific code.)
+
+The usefulness of preserving observation-duplicates (e.g. for investigation of 
+sensitivity to uncontrolled upstream processing parameters) is narrow.
 
 
 Classifier
