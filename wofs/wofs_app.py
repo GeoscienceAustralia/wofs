@@ -5,6 +5,7 @@ producing a datacube application with full compatibility.
 
 from __future__ import absolute_import, print_function
 
+import copy
 import errno
 import itertools
 import logging
@@ -14,6 +15,7 @@ from collections import defaultdict
 import functools
 
 import click
+from future.utils import iteritems
 from pandas import to_datetime
 from pathlib import Path
 import xarray
@@ -31,7 +33,9 @@ from . import wofls
 
 _LOG = logging.getLogger('agdc-wofs')
 
-SENSORS = {'ls8': 'LS8_OLI', 'ls7': 'LS7_ETM', 'ls5': 'LS5_TM'}  # { nbar-prefix : filename-prefix } for platforms
+SENSORS = {'ls8': 'OLI', 'ls7': 'ETM', 'ls5': 'TM'}  # { nbar-prefix : filename-prefix } for platforms
+PLATFORM_VOCAB = {'ls8': 'LANDSAT-8', 'ls7': 'LANDSAT-7', 'ls5': 'LANDSAT-5'}
+# http://gcmdservices.gsfc.nasa.gov/static/kms/platforms/platforms.csv
 
 
 def get_product(index, definition, dry_run=False):
@@ -69,11 +73,12 @@ def make_wofs_config(index, config, dry_run=False, **query):
     return config
 
 
-def get_filename(config, sensor, x, y, t):
+def get_filename(config, platform, sensor, x, y, t):
     destination = config['location']
     filename_template = config['file_path_template']
 
-    filename = filename_template.format(sensor=sensor,
+    filename = filename_template.format(platform=platform.upper(),
+                                        sensor=sensor,
                                         tile_index=(x, y),
                                         time=to_datetime(t).strftime('%Y%m%d%H%M%S%f'))
     return Path(destination, filename)
@@ -109,12 +114,17 @@ def generate_tasks(index, config, time):
         tile_index_set = (set(source_loadables) & set(pq_loadables)) - set(wofls_loadables)
         key_map = group_tiles_by_cells(tile_index_set, dsm_loadables)
 
-        for dsm_key, keys in key_map.items():
+        for (dsm_key, keys) in iteritems(key_map):
             dsm_tile = gw.update_tile_lineage(dsm_loadables[dsm_key])
             for tile_index in keys:
-                source_tile = gw.update_tile_lineage(source_loadables[tile_index])
-                pq_tile = gw.update_tile_lineage(pq_loadables[tile_index])
-                yield ((source_tile, pq_tile, dsm_tile), get_filename(config, sensor, *tile_index))
+                source_tile = gw.update_tile_lineage(source_loadables.pop(tile_index))
+                pq_tile = gw.update_tile_lineage(pq_loadables.pop(tile_index))
+                yield dict(source_tile=source_tile,
+                           pq_tile=pq_tile,
+                           dsm_tile=dsm_tile,
+                           file_path=get_filename(config, platform, sensor, *tile_index),
+                           tile_index=tile_index,
+                           extra_global_attributes=dict(platform=PLATFORM_VOCAB[platform], instrument=sensor))
 
 
 def make_wofs_tasks(index, config, year=None, **kwargs):
@@ -145,8 +155,9 @@ def get_app_metadata(config):
 
 
 def find_valid_data_region(geobox, *sources_list):
-    footprints = [datacube.utils.union_points(*[source.extent.to_crs(geobox.crs).points for source in sources])
-                  for sources in sources_list]
+    footprints = [datacube.utils.union_points(*[dataset.extent.to_crs(geobox.crs).points
+                                                for dataset in tile.sources.item()])
+                  for tile in sources_list]
     # TODO: Remove reduce when intersect_points that supports multiple args becomes availible
     valid_data = functools.reduce(datacube.utils.intersect_points, [geobox.extent.points] + footprints)
 
@@ -161,14 +172,18 @@ def docvariable(agdc_dataset, time):
     return docarray
 
 
-def do_wofs_task(config, (loadables, file_path)):
+def do_wofs_task(config, source_tile, pq_tile, dsm_tile, file_path, tile_index, extra_global_attributes):
     """ Load data, run WOFS algorithm, attach metadata, and write output.
 
-    Input:
-        - three-tuple of Tile objects (NBAR, PQ, DSM)
-        - path object (output file destination)
-    Output:
-        - indexable object (referencing output data location)
+    :param dict config: Config object
+    :param datacube.api.Tile source_tile: NBAR Tile
+    :param datacube.api.Tile pq_tile: Pixel quality Tile
+    :param datacube.api.Tile dsm_tile: Digital Surface Model Tile
+    :param Path file_path: output file destination
+    :param tuple tile_index: Index of the tile
+
+    :return: Dataset objects representing the generated data that can be added to the index
+    :rtype: list(datacube.model.Dataset)
     """
     product = config['wofs_dataset_type']
     app_info = get_app_metadata(config)
@@ -177,7 +192,6 @@ def do_wofs_task(config, (loadables, file_path)):
         raise OSError(errno.EEXIST, 'Output file already exists', str(file_path))
 
     # load data
-    source_tile, pq_tile, dsm_tile = loadables
     bands = ['blue', 'green', 'red', 'nir', 'swir1', 'swir2']  # inputs needed from EO data)
     source = datacube.api.GridWorkflow.load(source_tile, measurements=bands)
     pq = datacube.api.GridWorkflow.load(pq_tile)
@@ -192,13 +206,14 @@ def do_wofs_task(config, (loadables, file_path)):
     # add metadata
     result.water.attrs['nodata'] = 1  # lest it default to zero (i.e. clear dry)
     result.water.attrs['units'] = '1'  # unitless (convention)
+    result.water.attrs['crs'] = source.crs
 
     # Attach CRS. Note this is poorly represented in NetCDF-CF
     # (and unrecognised in xarray), likely improved by datacube-API model.
     result.attrs['crs'] = source.crs
 
     # Provenance tracking
-    parent_sources = [ds for tile in loadables for ds in tile.sources.values[0]]
+    parent_sources = [ds for tile in [source_tile, pq_tile, dsm_tile] for ds in tile.sources.values[0]]
 
     # Create indexable record
     new_record = datacube.model.utils.make_dataset(
@@ -216,7 +231,7 @@ def do_wofs_task(config, (loadables, file_path)):
         datasets = [ds for source_datasets in tile.sources.values for ds in source_datasets]
         values = [dataset.metadata_doc[what] for dataset in datasets]
         assert all(value == values[0] for value in values)
-        return values[0]
+        return copy.deepcopy(values[0])
 
     new_record.metadata_doc['platform'] = harvest('platform', source_tile)
     new_record.metadata_doc['instrument'] = harvest('instrument', source_tile)
@@ -224,11 +239,13 @@ def do_wofs_task(config, (loadables, file_path)):
     # copy metadata record into xarray
     result['dataset'] = docvariable(new_record, result.time)
 
+    global_attributes = config['global_attributes'].copy()
+    global_attributes.update(extra_global_attributes)
+
     # write output
     datacube.storage.storage.write_dataset_to_netcdf(result, file_path,
-                                                     global_attributes=config['global_attributes'],
+                                                     global_attributes=global_attributes,
                                                      variable_params=config['variable_params'])
-
     return [new_record]
 
 
@@ -252,7 +269,7 @@ APP_NAME = 'wofs'
 @ui.pass_index(app_name=APP_NAME)
 @click.option('--dry-run', is_flag=True, default=False, help='Check if output files already exist')
 @click.option('--year', callback=validate_year, help='Limit the process to a particular year')
-@click.option('--queue-size', '--backlog', type=click.IntRange(1, 100000), default=3200,
+@click.option('--queue-size', type=click.IntRange(1, 100000), default=3200,
               help='Number of tasks to queue at the start')
 @task_app_options
 @task_app(make_config=make_wofs_config, make_tasks=make_wofs_tasks)
@@ -260,14 +277,14 @@ def wofs_app(index, config, tasks, executor, dry_run, queue_size, *args, **kwarg
     click.echo('Starting processing...')
 
     if dry_run:
-        check_existing_files((task['filename'] for task in tasks))
+        check_existing_files((task['file_path'] for task in tasks))
         return 0
 
     results = []
 
     def submit_task(task):
         _LOG.info('Queuing task: %s', task['tile_index'])
-        results.append(executor.submit(do_wofs_task, config=config, task=task))
+        results.append(executor.submit(do_wofs_task, config=config, **task))
 
     task_queue = itertools.islice(tasks, queue_size)
     for task in task_queue:
@@ -286,7 +303,7 @@ def wofs_app(index, config, tasks, executor, dry_run, queue_size, *args, **kwarg
         # Process the result
         try:
             datasets = executor.result(result)
-            for dataset in datasets.values:
+            for dataset in datasets:
                 index.datasets.add(dataset, skip_sources=True)
                 _LOG.info('Dataset added')
             successful += 1

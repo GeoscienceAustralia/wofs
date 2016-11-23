@@ -3,6 +3,7 @@
 env_script=${module_dest}/scripts/environment.sh
 ppn=1
 tpp=1
+bokeh_opt="--no-bokeh"
 umask=0002
 
 while [[ $# > 0 ]]
@@ -10,7 +11,7 @@ do
     key="$1"
     case $key in
     --help)
-        echo Usage: $0 --env ${env_script} --umask ${umask} --ppn ${ppn} --tpp ${tpp} script args
+        echo Usage: $0 --env ${env_script} --umask ${umask} --ppn ${ppn} --tpp ${tpp} --bokeh script args
         exit 0
         ;;
     --env)
@@ -27,6 +28,10 @@ do
         ;;
     --tpp)
         tpp="$2"
+        shift
+        ;;
+    --bokeh)
+        bokeh_opt="--bokeh"
         shift
         ;;
     *)
@@ -50,7 +55,7 @@ SCHEDULER_ADDR=$SCHEDULER_NODE:$SCHEDULER_PORT
 n0ppn=$(( $ppn < $NCPUS-2 ? $ppn : $NCPUS-2 ))
 n0ppn=$(( $n0ppn > 0 ? $n0ppn : 1 ))
 
-pbsdsh -n 0 -- /bin/bash -c "${init_env}; dask-scheduler --port $SCHEDULER_PORT"&
+pbsdsh -n 0 -- /bin/bash -c "${init_env}; dask-scheduler --port $SCHEDULER_PORT ${bokeh_opt}"&
 sleep 5s
 
 pbsdsh -n 0 -- /bin/bash -c "${init_env}; dask-worker $SCHEDULER_ADDR --nprocs ${n0ppn} --nthreads ${tpp}"&

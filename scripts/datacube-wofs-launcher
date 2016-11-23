@@ -56,9 +56,14 @@ def list():
               type=click.Path(exists=True, dir_okay=False))
 @click.option('--taskfile', required=False, help='Task file',
               type=click.Path(exists=True, dir_okay=False))
+@click.option('--no-confirm', required=False, help="Don't ask for confirmation or perform file check",
+              is_flag=True)
+@click.option('--web-ui', help='Launch the bokeh web interface',
+              is_flag=True)
 @click.argument('app_config')
 @click.argument('year', required=False, default=None)
-def qsub(app_config, year, queue, project, nodes, walltime, name, config=None, env=None, taskfile=None):
+def qsub(app_config, year, queue, project, nodes, walltime, name, no_confirm, web_ui, config=None, env=None, taskfile=None):
+    confirm = not no_confirm
     app_config = CONFIG_DIR / app_config
 
     config_arg = '-C "%(config)s"' % dict(config=config) if config else ''
@@ -70,12 +75,14 @@ def qsub(app_config, year, queue, project, nodes, walltime, name, config=None, e
             return 1
 
         do_system_check(config_arg)
-        taskfile = make_taskfile(year, app_config, config_arg)
-        do_file_check(taskfile, config_arg)
+        taskfile = make_taskfile(year, app_config, config_arg, confirm)
+        if confirm:
+            # skip the file check if the user isn't paying attention
+            do_file_check(taskfile, config_arg)
     else:
         taskfile = Path(taskfile).absolute()
 
-    do_qsub(taskfile, name, nodes, walltime, queue, project, config_arg, env_arg)
+    do_qsub(taskfile, name, nodes, walltime, queue, project, config_arg, env_arg, confirm, web_ui)
 
 
 def do_system_check(config_arg):
@@ -112,18 +119,23 @@ def do_file_check(taskfile, config_arg, confirm=True):
         subprocess.check_call(cmd, shell=True)
 
 
-def do_qsub(taskfile, name, nodes, walltime, queue, project, config_arg, env_arg, confirm=True):
+def do_qsub(taskfile, name, nodes, walltime, queue, project, config_arg, env_arg, confirm=True, web_ui=False):
     """Submits the job to qsub"""
     name = name or taskfile.stem
     app_cmd = ('datacube-wofs -v {config_arg} '
                '--load-tasks "{taskfile}" '
-               '--backlog 500 '
-               '--executor distributed DSCHEDULER'.format(config_arg=config_arg, taskfile=taskfile))
+               '--queue-size {queue_size} '
+               '--executor distributed DSCHEDULER'.format(
+        config_arg=config_arg,
+        taskfile=taskfile,
+        queue_size=nodes * 16 * 2,
+    ))
 
-    distr_cmd = '"%(distr)s" %(env_arg)s --ppn 16 %(app_cmd)s' % dict(
+    distr_cmd = '"%(distr)s" %(env_arg)s --ppn 16 %(app_cmd)s %(bokeh)s' % dict(
         distr=SCRIPT_DIR / 'distributed.sh',
         env_arg=env_arg,
         app_cmd=app_cmd,
+        bokeh='--bokeh' if web_ui else ''
     )
 
     l_args = 'ncpus=%(ncpus)d,mem=%(mem)dgb,walltime=%(walltime)d:00:00,other=%(other)s' % dict(

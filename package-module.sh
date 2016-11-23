@@ -66,7 +66,7 @@ mkdir -v -p "${module_dest}"
 
 export PYTHONPATH="${PYTHONPATH}:${python_dest}"
 echo "Installing:"
-pip install . --prefix "${module_dest}" --no-deps
+pip install . --prefix "${module_dest}" --no-deps --global-option=build --global-option='--executable=/usr/bin/env python'
 
 # Copy the scripts into the module dir
 cp -v -r scripts "${module_dest}/"
