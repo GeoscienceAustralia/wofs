@@ -35,12 +35,30 @@ def _shade_row(shade_mask, elev_m, sun_alt_deg, pixel_scale_m, no_data, fuzz=0.0
 
     return shade_mask
 
-
+def vector_to_crs(point, vector, original_crs, destination_crs):
+    """
+    Transform a vector (in the tangent space of a particular point) to a new CRS 
+    
+    Expects point and vector to each be a 2-tuple in the original CRS.
+    Returns a pair of 2-tuples (transformed point and vector).
+    Order of coordinates is specified by the CRS (or the OGR library)."""
+    
+    import osr
+    transform = osr.CoordinateTransformation(original_crs._crs, destination_crs._crs)
+    # theoretically should use infinitesimal displacement
+    # i.e. jacobian of the transformation
+    # but here just use a finite displatement (for convenience of implementation)
+    original_line = [point, tuple(map(sum,zip(point,vector)))]
+    transformed_line = [p[:2] for p in transform.TransformPoints(original_line)] # disregard elevation    
+    transformed_point = transformed_line[0]
+    transformed_vector = tuple(map(lambda x: x[1]-x[0], zip(*transformed_line))) # take difference (i.e. remove origin offset)
+    return transformed_point, transformed_vector
+    
 def solar_vector(p, time, crs):
-    poly = GeoPolygon([p, (p[0], p[1] + 100)], crs).to_crs(CRS('EPSG:4326'))
-    lon, lat = poly.points[0]
-    dlon = poly.points[1][0] - lon
-    dlat = poly.points[1][1] - lat
+    (lon,lat), (dlon,dlat) = vector_to_crs(p, (0,100), 
+                                           original_crs=crs, 
+                                           destination_crs=CRS('EPSG:4326'))
+    
     # azimuth north to east of the vertical direction of the crs
     vert_az = math.atan2(dlon*math.cos(math.radians(lat)), dlat)
 
@@ -90,7 +108,7 @@ def shadows_and_slope(tile, time):
     slope = numpy.degrees(numpy.arccos(1.0/norm_len))
 
     x, y = tile.dims.keys()
-    tile_center = (tile[x].values[x_size/2], tile[y].values[y_size/2])
+    tile_center = (tile[x].values[x_size//2], tile[y].values[y_size//2])
     solar_vec = solar_vector(tile_center, to_datetime(time), tile.crs)
     sia = (solar_vec[2] - xgrad*solar_vec[0] - ygrad*solar_vec[1])/norm_len
     sia = 90-numpy.degrees(numpy.arccos(sia))
@@ -119,8 +137,8 @@ def shadows_and_slope(tile, time):
     shadows = ndimage.interpolation.rotate(shadows, -rot_degrees, reshape=False, output=numpy.float32, cval=no_data,
                                            prefilter=False)
 
-    dr = (shadows.shape[0] - y_size) / 2
-    dc = (shadows.shape[1] - x_size) / 2
+    dr = (shadows.shape[0] - y_size) // 2
+    dc = (shadows.shape[1] - x_size) // 2
 
     shadows = shadows[dr:dr + y_size, dc:dc + x_size]
     shadows = xarray.DataArray(shadows.reshape(tile.elevation.shape), coords=tile.elevation.coords)
