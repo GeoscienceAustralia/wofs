@@ -4,8 +4,8 @@ Set individual bitflags needed for wofls.
 
 import numpy as np
 import scipy.ndimage
-from wofs import terrain, constants
-
+from wofs import terrain, constants, boilerplate
+import xarray
 
 def dilate(array):
     """Dilation e.g. for cloud and cloud/terrain shadow"""
@@ -21,7 +21,7 @@ PQA_CLOUD_BITS = 0x0C00
 PQA_CLOUD_SHADOW_BITS = 0x3000
 PQA_SEA_WATER_BIT = 0x0200
 
-
+@boilerplate.simple_numpify
 def pq_filter(pq):
     """
     Propagate flags from the pixel quality product.
@@ -54,7 +54,6 @@ def pq_filter(pq):
     masking[dilate(ipq & PQA_CLOUD_SHADOW_BITS)] += constants.MASKED_CLOUD_SHADOW
     return masking
 
-
 def terrain_filter(dsm, nbar):
     """
     Terrain shadow masking, slope masking, solar incidence angle masking.
@@ -68,7 +67,9 @@ def terrain_filter(dsm, nbar):
 
     steep = (slope > constants.SLOPE_THRESHOLD_DEGREES)
 
-    return np.uint8(constants.MASKED_TERRAIN_SHADOW) * shadowy | np.uint8(constants.MASKED_HIGH_SLOPE) * steep
+    result = np.uint8(constants.MASKED_TERRAIN_SHADOW) * shadowy | np.uint8(constants.MASKED_HIGH_SLOPE) * steep
+    
+    return xarray.DataArray(result, coords=[dsm.y,dsm.x]) # note, assumes (y,x) axis ordering
 
 
 def eo_filter(source):

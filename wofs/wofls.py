@@ -26,9 +26,9 @@ from wofs import classifier, filters
 def woffles(source, pq, dsm):
     """Generate a Water Observation Feature Layer from NBAR, PQ and surface elevation inputs."""
 
-    water = classifier.classify(source.to_array(dim='band').data) \
+    water = classifier.classify(source.to_array(dim='band')) \
             | filters.eo_filter(source) \
-            | filters.pq_filter(pq.pixelquality.data) \
+            | filters.pq_filter(pq.pixelquality) \
             | filters.terrain_filter(dsm, source)
 
     assert water.dtype == np.uint8

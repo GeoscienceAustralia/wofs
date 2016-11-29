@@ -3,11 +3,12 @@
 import numpy
 import logging
 import gc
-
+from wofs import boilerplate
 
 # import argparse
 # from osgeo import gdal
 
+@boilerplate.simple_numpify
 def classify(images, float64=False):
     """
     Produce a water classification image from the supplied images (6 bands of an NBAR, multiband Landsat image)
