@@ -101,14 +101,22 @@ def generate_tasks(index, config, time):
     extent = {}  # not configurable
     product = config['wofs_dataset_type']
 
+    assert product.grid_spec.crs == datacube.model.CRS('EPSG:3577')
+    assert all((abs(r)==25) for r in product.grid_spec.resolution) # ensure approx. 25 metre raster
+    pq_padding = [3*25]*2 # for 3 pixel cloud dilation
+    terrain_padding = [6850]*2
+    # Worst case shadow: max prominence (Kosciuszko) at lowest solar declination (min incidence minus slope threshold)
+    # with snapping to pixel edges to avoid API questions
+    # e.g. 2230 metres / math.tan(math.radians(30-12)) // 25 * 25 == 6850
+
     gw = datacube.api.GridWorkflow(index, grid_spec=product.grid_spec)  # GridSpec from product definition
 
     wofls_loadables = gw.list_tiles(product=product.name, time=time, **extent)
-    dsm_loadables = gw.list_cells(product='dsm1sv10', **extent)
-
+    dsm_loadables = gw.list_cells(product='dsm1sv10', tile_buffer=terrain_padding, **extent)
+    
     for platform, sensor in SENSORS.items():
         source_loadables = gw.list_tiles(product=platform+'_nbar_albers', time=time, **extent)
-        pq_loadables = gw.list_tiles(product=platform+'_pq_albers', time=time, **extent)
+        pq_loadables = gw.list_tiles(product=platform+'_pq_albers', time=time, tile_buffer=pq_padding, **extent)
 
         # only valid where EO, PQ and DSM are *all* available (and WOFL isn't yet)
         tile_index_set = (set(source_loadables) & set(pq_loadables)) - set(wofls_loadables)
