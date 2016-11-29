@@ -7,9 +7,12 @@ import scipy.ndimage
 from wofs import terrain, constants
 
 
-def dilate(array, dilation=3):
-    """Blocky dilation e.g. for cloud and cloud/terrain shadow"""
-    return scipy.ndimage.binary_dilation(array, iterations=dilation, structure=[[1] * 3] * 3)
+def dilate(array):
+    """Dilation e.g. for cloud and cloud/terrain shadow"""
+    #kernel = [[1] * 7] * 7 # blocky 3-pixel dilation
+    y,x = np.ogrid[-3:4,-3:4]
+    kernel = x*x + y*y <= 3.5**2 # disk-like 3-pixel radial dilation
+    return scipy.ndimage.binary_dilation(array, structure=kernel)
 
 
 PQA_SATURATION_BITS = sum(2 ** n for n in [0, 1, 2, 3, 4, 7])  # exclude thermal
