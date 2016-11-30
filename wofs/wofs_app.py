@@ -123,16 +123,20 @@ def generate_tasks(index, config, time):
         key_map = group_tiles_by_cells(tile_index_set, dsm_loadables)
 
         for (dsm_key, keys) in iteritems(key_map):
+            geobox = gw.grid_spec.tile_geobox(dsm_key)
             dsm_tile = gw.update_tile_lineage(dsm_loadables[dsm_key])
             for tile_index in keys:
                 source_tile = gw.update_tile_lineage(source_loadables.pop(tile_index))
                 pq_tile = gw.update_tile_lineage(pq_loadables.pop(tile_index))
-                yield dict(source_tile=source_tile,
-                           pq_tile=pq_tile,
-                           dsm_tile=dsm_tile,
-                           file_path=get_filename(config, platform, sensor, *tile_index),
-                           tile_index=tile_index,
-                           extra_global_attributes=dict(platform=PLATFORM_VOCAB[platform], instrument=sensor))
+                valid_region = find_valid_data_region(geobox, source_tile, pq_tile, dsm_tile)
+                if valid_region is not None:
+                    yield dict(source_tile=source_tile,
+                               pq_tile=pq_tile,
+                               dsm_tile=dsm_tile,
+                               file_path=get_filename(config, platform, sensor, *tile_index),
+                               tile_index=tile_index,
+                               extra_global_attributes=dict(platform=PLATFORM_VOCAB[platform], instrument=sensor),
+                               valid_region=valid_region)
 
 
 def make_wofs_tasks(index, config, year=None, **kwargs):
@@ -163,12 +167,15 @@ def get_app_metadata(config):
 
 
 def find_valid_data_region(geobox, *sources_list):
-    footprints = [datacube.utils.union_points(*[dataset.extent.to_crs(geobox.crs).points
+    try:
+        footprints = [datacube.utils.union_points(*[dataset.extent.to_crs(geobox.crs).points
                                                 for dataset in tile.sources.item()])
-                  for tile in sources_list]
-    # TODO: Remove reduce when intersect_points that supports multiple args becomes availible
-    valid_data = functools.reduce(datacube.utils.intersect_points, [geobox.extent.points] + footprints)
-
+                      for tile in sources_list]
+        valid_data = functools.reduce(datacube.utils.intersect_points, [geobox.extent.points] + footprints)
+    except RuntimeError as err:
+        if err.args[0] == 'unsupported geometry type': # intersect_points may fail thusly
+            return None
+        raise err
     return GeoPolygon(valid_data, geobox.crs)
 
 
@@ -180,7 +187,7 @@ def docvariable(agdc_dataset, time):
     return docarray
 
 
-def do_wofs_task(config, source_tile, pq_tile, dsm_tile, file_path, tile_index, extra_global_attributes):
+def do_wofs_task(config, source_tile, pq_tile, dsm_tile, file_path, tile_index, extra_global_attributes, valid_region):
     """ Load data, run WOFS algorithm, attach metadata, and write output.
 
     :param dict config: Config object
@@ -230,7 +237,7 @@ def do_wofs_task(config, source_tile, pq_tile, dsm_tile, file_path, tile_index, 
         center_time=result.time.values[0],
         uri=file_path.absolute().as_uri(),
         extent=source_tile.geobox.extent,
-        valid_data=find_valid_data_region(result.water.geobox, source_tile, pq_tile, dsm_tile),
+        valid_data=valid_region,
         app_info=app_info
     )
 
