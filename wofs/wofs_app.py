@@ -20,11 +20,12 @@ from pandas import to_datetime
 from pathlib import Path
 import xarray
 
+from datacube.utils.geometry import unary_union, unary_intersection
+
 import datacube
 from datacube.compat import integer_types
-from datacube.model import DatasetType, GeoPolygon, Range
+from datacube.model import Range
 import datacube.model.utils
-from datacube.storage.storage import write_dataset_to_netcdf
 from datacube.ui import click as ui
 from datacube.ui.task_app import task_app, task_app_options, check_existing_files
 
@@ -113,7 +114,7 @@ def generate_tasks(index, config, time):
 
     wofls_loadables = gw.list_tiles(product=product.name, time=time, **extent)
     dsm_loadables = gw.list_cells(product='dsm1sv10', tile_buffer=terrain_padding, **extent)
-    
+
     for platform, sensor in SENSORS.items():
         source_loadables = gw.list_tiles(product=platform+'_nbar_albers', time=time, **extent)
         pq_loadables = gw.list_tiles(product=platform+'_pq_albers', time=time, tile_buffer=pq_padding, **extent)
@@ -129,7 +130,7 @@ def generate_tasks(index, config, time):
                 source_tile = gw.update_tile_lineage(source_loadables.pop(tile_index))
                 pq_tile = gw.update_tile_lineage(pq_loadables.pop(tile_index))
                 valid_region = find_valid_data_region(geobox, source_tile, pq_tile, dsm_tile)
-                if valid_region is not None:
+                if not valid_region.is_empty:
                     yield dict(source_tile=source_tile,
                                pq_tile=pq_tile,
                                dsm_tile=dsm_tile,
@@ -167,16 +168,14 @@ def get_app_metadata(config):
 
 
 def find_valid_data_region(geobox, *sources_list):
-    try:
-        footprints = [datacube.utils.union_points(*[dataset.extent.to_crs(geobox.crs).points
-                                                for dataset in tile.sources.item()])
-                      for tile in sources_list]
-        valid_data = functools.reduce(datacube.utils.intersect_points, [geobox.extent.points] + footprints)
-    except RuntimeError as err:
-        if err.args[0] == 'unsupported geometry type': # intersect_points may fail thusly
-            return None
-        raise err
-    return GeoPolygon(valid_data, geobox.crs)
+    # perform work in CRS of the output tile geobox
+    unfused = [[dataset.extent.to_crs(geobox.crs) for dataset in tile.sources.item()]
+               for tile in sources_list]
+    # fuse the dataset extents within each source tile
+    tiles_extents = map(unary_union, unfused)
+    # find where (within the output tile) that all prerequisite inputs available
+    return unary_intersection([geobox.extent]+list(tiles_extents))
+    # downstream should check if is empty..
 
 
 def docvariable(agdc_dataset, time):
