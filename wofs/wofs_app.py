@@ -81,7 +81,8 @@ def get_filename(config, platform, sensor, x, y, t):
     filename = filename_template.format(platform=platform.upper(),
                                         sensor=sensor,
                                         tile_index=(x, y),
-                                        time=to_datetime(t).strftime('%Y%m%d%H%M%S%f'))
+                                        start_time=to_datetime(t).strftime('%Y%m%d%H%M%S%f'),
+                                        version=config['task_timestamp'])
     return Path(destination, filename)
 
 
@@ -267,7 +268,7 @@ def validate_year(ctx, param, value):
     try:
         if value is None:
             return None
-        years = map(int, value.split('-', 2))
+        years = list(map(int, value.split('-', 2)))
         if len(years) == 1:
             return years[0]
         return tuple(years)

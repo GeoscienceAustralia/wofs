@@ -1,7 +1,7 @@
 version: ${version}
 
 location: '/g/data/fk4/datacube/002/'
-file_path_template: '{platform}_{sensor}_WATER/{tile_index[0]}_{tile_index[1]}/{platform}_{sensor}_WATER_3577_{tile_index[0]}_{tile_index[1]}_{time}.nc'
+file_path_template: '{platform}_{sensor}_WATER/{tile_index[0]}_{tile_index[1]}/{platform}_{sensor}_WATER_3577_{tile_index[0]}_{tile_index[1]}_{start_time}_v{version}.nc'
 
 product_definition:
     name: wofs_albers
@@ -25,7 +25,7 @@ product_definition:
         chunking:
             x: 200
             y: 200
-            time: 1   
+            time: 5
     measurements:
       - name: water
         dtype: uint8
@@ -43,7 +43,7 @@ variable_params:
     water:
         zlib: True
         fletcher32: True
-        chunksizes: [1, 200, 200]
+        chunksizes: [5, 200, 200]
         attrs:
           long_name: Water observation feature layer
           coverage_content_type: "thematicClassification"
