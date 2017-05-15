@@ -118,7 +118,7 @@ def generate_tasks(index, config, time):
 
     for platform, sensor in SENSORS.items():
         source_loadables = gw.list_tiles(product=platform+'_nbar_albers', time=time, **extent)
-        pq_loadables = gw.list_tiles(product=platform+'_pq_albers', time=time, tile_buffer=pq_padding, **extent)
+        pq_loadables = gw.list_tiles(product=platform+'_wofs_pq_albers', time=time, tile_buffer=pq_padding, **extent)
 
         # only valid where EO, PQ and DSM are *all* available (and WOFL isn't yet)
         tile_index_set = (set(source_loadables) & set(pq_loadables)) - set(wofls_loadables)
