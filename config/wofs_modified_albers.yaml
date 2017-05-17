@@ -64,6 +64,12 @@ product_definition:
             bits: 0 
             values: {0: false, 1: true}
             description: 1=pixel masked out due to being NO_DATA in NBAR source, 0=valid data in NBAR
+          result:
+            bits: [0,1,2,3,4,5,6,7]
+            values: 
+                '128': clear_wet
+                '0': clear_dry
+            description: Classification result with unclear observations masked out
 
 variable_params:
     water:
