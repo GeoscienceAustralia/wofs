@@ -1,27 +1,33 @@
 """
-WOfS (wofl) product specification:
+WOfS (wofl) product specification
+=================================
 
-1<<0 nodata (missing all earth observation bands)
-1<<1 noncontiguous (missing any EO bands) or oversaturated/undersaturated
-1<<2 sea
-1<<3 terrain shadow or low solar angle
-1<<4 high slope
-1<<5 cloud shadow
-1<<6 cloud
-1<<7 wet*
+Each value in a ``wofl`` indicates whether it contains a valid water determination,
+and if it is not valid, why it has been excluded.
 
-*Restriction: water bit may only be set if all other flags false.
+The clear and valid observations are:
 
-Implication: clear dry == 0, clear wet == 128, 129-255 disallowed.
+clear dry == 0 or 4
 
-Ambiguous: are all values 0-128 valid, or are there only 8 valid
-values (and if the latter, what is their precedence)?
+clear wet == 128 or 132
 
-Question: can we start using this as a bit field rather than an enumeration?
+===  =============  ==========  =======
+Bit  Decimal value  Value       Meaning
+===  =============  ==========  =======
+0    0              0           no water present
+0    1              1<<0        nodata (missing all earth observation bands)
+1    2              1<<1        noncontiguous (missing any EO bands) or oversaturated/undersaturated
+2    4              1<<2        sea
+3    8              1<<3        terrain shadow or low solar angle
+4    16             1<<4        high slope
+5    32             1<<5        cloud shadow
+6    64             1<<6        cloud
+7    128            1<<7        wet*
+===  =============  ==========  =======
 
-Constants used in the Flood History Project
-
-@Author: Steven Ring, May 2013
+The land/sea mask (bit 2) should be ignored. It is based on a vector sea mask
+which excludes useful data. We are interested in keeping ocean observations
+anyway.
 """
 
 # pylint: disable=bad-whitespace, line-too-long
