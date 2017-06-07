@@ -16,7 +16,7 @@ def dilate(array):
 
 
 PQA_SATURATION_BITS = sum(2 ** n for n in [0, 1, 2, 3, 4, 7])  # exclude thermal
-# PQA_CONTIGUITY_BITS = 0x01FF
+PQA_CONTIGUITY_BITS = 0x01FF
 PQA_CLOUD_BITS = 0x0C00
 PQA_CLOUD_SHADOW_BITS = 0x3000
 PQA_SEA_WATER_BIT = 0x0200
@@ -48,7 +48,7 @@ def pq_filter(pq):
     ipq = ~pq # bitwise-not, e.g. flag cloudiness rather than cloudfree
     
     masking = np.zeros(ipq.shape, dtype=np.uint8)
-    masking[(ipq & (PQA_SATURATION_BITS)).astype(np.bool)] = constants.MASKED_NO_CONTIGUITY
+    masking[(ipq & (PQA_SATURATION_BITS | PQA_CONTIGUITY_BITS)).astype(np.bool)] = constants.MASKED_NO_CONTIGUITY
     masking[(ipq & PQA_SEA_WATER_BIT).astype(np.bool)] += constants.MASKED_SEA_WATER
     masking[dilate(ipq & PQA_CLOUD_BITS)] += constants.MASKED_CLOUD
     masking[dilate(ipq & PQA_CLOUD_SHADOW_BITS)] += constants.MASKED_CLOUD_SHADOW
