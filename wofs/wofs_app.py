@@ -20,7 +20,7 @@ from pandas import to_datetime
 from pathlib import Path
 import xarray
 
-from datacube.utils.geometry import unary_union, unary_intersection
+from datacube.utils.geometry import unary_union, unary_intersection, CRS
 
 import datacube
 from datacube.compat import integer_types
@@ -103,7 +103,7 @@ def generate_tasks(index, config, time):
     extent = {}  # not configurable
     product = config['wofs_dataset_type']
 
-    assert product.grid_spec.crs == datacube.model.CRS('EPSG:3577')
+    assert product.grid_spec.crs == CRS('EPSG:3577')
     assert all((abs(r)==25) for r in product.grid_spec.resolution) # ensure approx. 25 metre raster
     pq_padding = [3*25]*2 # for 3 pixel cloud dilation
     terrain_padding = [6850]*2

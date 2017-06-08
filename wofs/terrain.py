@@ -2,7 +2,7 @@ import numpy
 import ephem
 from scipy import ndimage
 from pandas import to_datetime
-from datacube.model import CRS, GeoPolygon
+from datacube.utils.geometry import CRS
 import math
 import xarray
 
