@@ -13,6 +13,11 @@ def dilate(array):
     y,x = np.ogrid[-3:4,-3:4]
     kernel = x*x + y*y <= 3.5**2 # disk-like 3-pixel radial dilation
     return scipy.ndimage.binary_dilation(array, structure=kernel)
+def bigdilate(array):
+    """Large (100px) buffer e.g. for possible shadow surrounding clouds"""
+    y,x = np.ogrid[-10:11,-10:11]
+    kernel = x*x + y*y <= 101
+    return scipy.ndimage.binary_dilation(array, structure=kernel, iterations=10)
 
 
 PQA_SATURATION_BITS = sum(2 ** n for n in [0, 1, 2, 3, 4, 7])  # exclude thermal
@@ -51,7 +56,7 @@ def pq_filter(pq):
     masking[(ipq & (PQA_SATURATION_BITS | PQA_CONTIGUITY_BITS)).astype(np.bool)] = constants.MASKED_NO_CONTIGUITY
     masking[(ipq & PQA_SEA_WATER_BIT).astype(np.bool)] += constants.MASKED_SEA_WATER
     masking[dilate(ipq & PQA_CLOUD_BITS)] += constants.MASKED_CLOUD
-    masking[dilate(ipq & PQA_CLOUD_SHADOW_BITS)] += constants.MASKED_CLOUD_SHADOW
+    masking[dilate(ipq & PQA_CLOUD_SHADOW_BITS) | bigdilate(ipq & PQA_CLOUD_BITS)] += constants.MASKED_CLOUD_SHADOW
     return masking
 
 def terrain_filter(dsm, nbar):
