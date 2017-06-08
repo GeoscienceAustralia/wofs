@@ -321,7 +321,7 @@ def wofs_app(index, config, tasks, executor, dry_run, queue_size, skip_indexing,
             datasets = executor.result(result)
             if not skip_indexing:
                 for dataset in datasets:
-                    index.datasets.add(dataset, skip_sources=True)
+                    index.datasets.add(dataset, sources_policy='skip')
                     _LOG.info('Dataset added')
             successful += 1
         except Exception as err:  # pylint: disable=broad-except
