@@ -283,12 +283,13 @@ APP_NAME = 'wofs'
 @click.command(name=APP_NAME)
 @ui.pass_index(app_name=APP_NAME)
 @click.option('--dry-run', is_flag=True, default=False, help='Check if output files already exist')
-@click.option('--year', callback=validate_year, help='Limit the process to a particular year')
+@click.option('--year', callback=validate_year, help='Limit the process to a particular year or a range of years')
 @click.option('--queue-size', type=click.IntRange(1, 100000), default=3200,
               help='Number of tasks to queue at the start')
+@click.option('--skip-indexing', default=False)
 @task_app_options
 @task_app(make_config=make_wofs_config, make_tasks=make_wofs_tasks)
-def wofs_app(index, config, tasks, executor, dry_run, queue_size, *args, **kwargs):
+def wofs_app(index, config, tasks, executor, dry_run, queue_size, skip_indexing, *args, **kwargs):
     click.echo('Starting processing...')
 
     if dry_run:
@@ -318,9 +319,10 @@ def wofs_app(index, config, tasks, executor, dry_run, queue_size, *args, **kwarg
         # Process the result
         try:
             datasets = executor.result(result)
-            for dataset in datasets:
-                index.datasets.add(dataset, skip_sources=True)
-                _LOG.info('Dataset added')
+            if not skip_indexing:
+                for dataset in datasets:
+                    index.datasets.add(dataset, skip_sources=True)
+                    _LOG.info('Dataset added')
             successful += 1
         except Exception as err:  # pylint: disable=broad-except
             _LOG.exception('Task failed: %s', err)
