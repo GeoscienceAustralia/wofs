@@ -290,8 +290,8 @@ APP_NAME = 'wofs'
 @click.option('--skip-indexing', default=False)
 @task_app_options
 @task_app(make_config=make_wofs_config, make_tasks=make_wofs_tasks)
-def wofs_app(index, config, tasks, executor, dry_run, queue_size, skip_indexing,
-             print_output_product, *args, **kwargs):
+def wofs_app(index, config, tasks, executor, dry_run, queue_size,
+             print_output_product, skip_indexing, *args, **kwargs):
     if dry_run:
         check_existing_files((task['file_path'] for task in tasks))
         return 0
