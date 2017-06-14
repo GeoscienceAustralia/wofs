@@ -29,8 +29,8 @@ def cli():
     pass
 
 
-@cli.command(help='List all installed app config files')
-def list():
+@cli.command(name='list', help='List all installed app config files')
+def list_command():
     for cfg in CONFIG_DIR.glob('*.yaml'):
         print(cfg.name)
 
@@ -62,7 +62,8 @@ def list():
               is_flag=True)
 @click.argument('app_config')
 @click.argument('year', required=False, default=None)
-def qsub(app_config, year, queue, project, nodes, walltime, name, no_confirm, web_ui, config=None, env=None, taskfile=None):
+def qsub(app_config, year, queue, project, nodes, walltime, name, no_confirm, web_ui, config=None, env=None,
+         taskfile=None):
     confirm = not no_confirm
     app_config = CONFIG_DIR / app_config
 
@@ -125,11 +126,10 @@ def do_qsub(taskfile, name, nodes, walltime, queue, project, config_arg, env_arg
     app_cmd = ('datacube-wofs -v {config_arg} '
                '--load-tasks "{taskfile}" '
                '--queue-size {queue_size} '
-               '--executor distributed DSCHEDULER'.format(
-        config_arg=config_arg,
-        taskfile=taskfile,
-        queue_size=nodes * 16 * 2,
-    ))
+               '--executor distributed DSCHEDULER'.format(config_arg=config_arg,
+                                                          taskfile=taskfile,
+                                                          queue_size=nodes * 16 * 2,
+                                                          ))
 
     distr_cmd = '"%(distr)s" %(env_arg)s --ppn 16 %(app_cmd)s %(bokeh)s' % dict(
         distr=SCRIPT_DIR / 'distributed.sh',
@@ -145,13 +145,13 @@ def do_qsub(taskfile, name, nodes, walltime, queue, project, config_arg, env_arg
         other='gdata2',
     )
 
-    qsub = 'qsub -q %(queue)s -N %(name)s -P %(project)s -l %(l_args)s -- /bin/bash %(distr_cmd)s'
-    cmd = qsub % dict(queue=queue,
-                      name=name,
-                      project=project,
-                      l_args=l_args,
-                      distr_cmd=distr_cmd,
-                      )
+    qsub_template = 'qsub -q %(queue)s -N %(name)s -P %(project)s -l %(l_args)s -- /bin/bash %(distr_cmd)s'
+    cmd = qsub_template % dict(queue=queue,
+                               name=name,
+                               project=project,
+                               l_args=l_args,
+                               distr_cmd=distr_cmd,
+                               )
 
     if not confirm or click.confirm('\n' + cmd + '\nRUN?', default=True):
         subprocess.check_call(cmd, shell=True)
