@@ -9,10 +9,10 @@ import copy
 import errno
 import itertools
 import logging
+import json
 import os
 from datetime import datetime
 from collections import defaultdict
-import functools
 
 import click
 from future.utils import iteritems
@@ -29,7 +29,7 @@ import datacube.model.utils
 from datacube.ui import click as ui
 from datacube.ui.task_app import task_app, task_app_options, check_existing_files
 
-from . import wofls
+from wofs import wofls
 
 
 _LOG = logging.getLogger('agdc-wofs')
@@ -39,12 +39,12 @@ PLATFORM_VOCAB = {'ls8': 'LANDSAT-8', 'ls7': 'LANDSAT-7', 'ls5': 'LANDSAT-5'}
 # http://gcmdservices.gsfc.nasa.gov/static/kms/platforms/platforms.csv
 
 
-def get_product(index, definition, dry_run=False):
+def get_product(index, definition):
     """Utility to get database-record corresponding to product-definition"""
     parsed = definition
     metadata_type = index.metadata_types.get_by_name(parsed['metadata_type'])
     prototype = datacube.model.DatasetType(metadata_type, parsed)
-    return prototype if dry_run else index.products.add(prototype)  # add is idempotent
+    return prototype
 
 
 def make_wofs_config(index, config, dry_run=False, **query):
@@ -66,7 +66,7 @@ def make_wofs_config(index, config, dry_run=False, **query):
     if not dry_run:
         _LOG.info('Created DatasetType %s', config['product_definition']['name'])  # true? nyet.
 
-    config['wofs_dataset_type'] = get_product(index, config['product_definition'], dry_run)
+    config['wofs_dataset_type'] = get_product(index, config['product_definition'])
 
     if not os.access(config['location'], os.W_OK):
         _LOG.warn('Current user appears not have write access output location: %s', config['location'])
@@ -286,16 +286,24 @@ APP_NAME = 'wofs'
 @click.option('--year', callback=validate_year, help='Limit the process to a particular year or a range of years')
 @click.option('--queue-size', type=click.IntRange(1, 100000), default=3200,
               help='Number of tasks to queue at the start')
+@click.option('--print-output-product', is_flag=True)
 @click.option('--skip-indexing', default=False)
 @task_app_options
 @task_app(make_config=make_wofs_config, make_tasks=make_wofs_tasks)
-def wofs_app(index, config, tasks, executor, dry_run, queue_size, skip_indexing, *args, **kwargs):
-    click.echo('Starting processing...')
-
+def wofs_app(index, config, tasks, executor, dry_run, queue_size, skip_indexing,
+             print_output_product, *args, **kwargs):
     if dry_run:
         check_existing_files((task['file_path'] for task in tasks))
         return 0
+    else:
+        # Ensure output product is in index
+        config['wofs_dataset_type'] = index.products.add(config['wofs_dataset_type'])  # add is idempotent
 
+    if print_output_product:
+        click.echo(json.dumps(config['wofs_dataset_type'].definition, indent=4))
+        return 0
+
+    click.echo('Starting processing...')
     results = []
 
     def submit_task(task):
