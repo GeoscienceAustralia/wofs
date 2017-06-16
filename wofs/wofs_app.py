@@ -39,22 +39,15 @@ PLATFORM_VOCAB = {'ls8': 'LANDSAT-8', 'ls7': 'LANDSAT-7', 'ls5': 'LANDSAT-5'}
 # http://gcmdservices.gsfc.nasa.gov/static/kms/platforms/platforms.csv
 
 
-<<<<<<< HEAD
-def get_product(index, definition):
-=======
 def get_product(index, definition, dry_run=False, skip_indexing=False):
->>>>>>> Allow skipping the indexing step when running
     """Utility to get database-record corresponding to product-definition"""
     parsed = definition
     metadata_type = index.metadata_types.get_by_name(parsed['metadata_type'])
     prototype = datacube.model.DatasetType(metadata_type, parsed)
-<<<<<<< HEAD
-=======
 
     if not dry_run and not skip_indexing:
         prototype = index.products.add(prototype)  # idempotent operations
 
->>>>>>> Allow skipping the indexing step when running
     return prototype
 
 
@@ -303,7 +296,7 @@ APP_NAME = 'wofs'
 @click.option('--queue-size', type=click.IntRange(1, 100000), default=3200,
               help='Number of tasks to queue at the start')
 @click.option('--print-output-product', is_flag=True)
-@click.option('--skip-indexing', default=False)
+@click.option('--skip-indexing', is_flag=True, default=False)
 @click.option('--x', type=(int, int))
 @click.option('--y', type=(int, int))
 @task_app_options
@@ -314,8 +307,9 @@ def wofs_app(index, config, tasks, executor, dry_run, queue_size,
         check_existing_files((task['file_path'] for task in tasks))
         return 0
     else:
-        # Ensure output product is in index
-        config['wofs_dataset_type'] = index.products.add(config['wofs_dataset_type'])  # add is idempotent
+        if not skip_indexing:
+            # Ensure output product is in index
+            config['wofs_dataset_type'] = index.products.add(config['wofs_dataset_type'])  # add is idempotent
 
     if print_output_product:
         click.echo(json.dumps(config['wofs_dataset_type'].definition, indent=4))

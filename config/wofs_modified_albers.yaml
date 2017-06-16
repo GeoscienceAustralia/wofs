@@ -1,6 +1,6 @@
 version: 1.0.4
 
-location: '/g/data/v10/WOfS_modified_2/'
+location: '/g/data/v10/WOfS_with_orig_pq//'
 file_path_template: '{tile_index[0]}_{tile_index[1]}/{start_time}_{platform}_{sensor}_WATER_3577_{tile_index[0]}_{tile_index[1]}_v{version}.nc'
 
 product_definition:
@@ -32,44 +32,42 @@ product_definition:
         nodata: 1
         units: '1'
         flags_definition:
-          water_present:
-            bits: 7
-            values: {0: false, 1: true} 
-            description: 1=water present, 0=no water if all other bits zero
-          masked_cloud:
-            bits: 6
-            values: {0: false, 1: true}
-            description: 1=pixel masked out due to cloud, 0=unmasked
-          masked_cloud_shadow:
-            bits: 5
-            values: {0: false, 1: true}
-            description: 1=pixel masked out due to cloud shadow, 0=unmasked
-          masked_high_slope:
-            bits: 4
-            values: {0: false, 1: true}
-            description: 1=pixel masked out due to high slope, 0=unmasked
-          masked_terrain_shadow:
-            bits: 3
-            values: {0: false, 1: true}
-            description: 1=pixel masked out due to terrain shadow, 0=unmasked
-          masked_sea_water:
-            bits: 2
-            values: {0: false, 1: true}
-            description: 1=pixel masked out due to being over sea, 0=unmasked
-          masked_no_contiguity:
-            bits: 1
-            values: {0: false, 1: true}
-            description: 1=pixel masked out due to lack of data contiguity, 0=unmasked
-          no_data:
-            bits: 0 
-            values: {0: false, 1: true}
-            description: 1=pixel masked out due to being NO_DATA in NBAR source, 0=valid data in NBAR
-          result:
-            bits: [0,1,2,3,4,5,6,7]
-            values: 
-                '128': clear_wet
-                '0': clear_dry
-            description: Classification result with unclear observations masked out
+            dry:
+              bits: [7, 6, 5, 4, 3, 1, 0] # Ignore sea mask
+              description: No water detected
+              values: {0: true}
+            nodata:
+              bits: 0
+              description: No data
+              values: {1: true}
+            noncontiguous:
+              bits: 1
+              description: At least one EO band is missing over over/undersaturated
+              values: {0: false, 1: true}
+            sea:
+              bits: 2
+              description: Sea
+              values: {0: false, 1: true}
+            terrain_or_low_angle:
+              bits: 3
+              description: terrain shadow or low solar angle
+              values: {0: false, 1: true}
+            high_slope:
+              bits: 4
+              description: High slope
+              values: {0: false, 1: true}
+            cloud_shadow:
+              bits: 5
+              description: Cloud shadow
+              values: {0: false, 1: true}
+            cloud:
+              bits: 6
+              description: Cloudy
+              values: {0: false, 1: true}
+            wet:
+              bits: [7, 6, 5, 4, 3, 1, 0] # Ignore sea mask
+              description: Clear and Wet
+              values: {128: true}
 
 variable_params:
     water:
