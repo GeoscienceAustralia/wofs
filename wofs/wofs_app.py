@@ -39,11 +39,22 @@ PLATFORM_VOCAB = {'ls8': 'LANDSAT-8', 'ls7': 'LANDSAT-7', 'ls5': 'LANDSAT-5'}
 # http://gcmdservices.gsfc.nasa.gov/static/kms/platforms/platforms.csv
 
 
+<<<<<<< HEAD
 def get_product(index, definition):
+=======
+def get_product(index, definition, dry_run=False, skip_indexing=False):
+>>>>>>> Allow skipping the indexing step when running
     """Utility to get database-record corresponding to product-definition"""
     parsed = definition
     metadata_type = index.metadata_types.get_by_name(parsed['metadata_type'])
     prototype = datacube.model.DatasetType(metadata_type, parsed)
+<<<<<<< HEAD
+=======
+
+    if not dry_run and not skip_indexing:
+        prototype = index.products.add(prototype)  # idempotent operations
+
+>>>>>>> Allow skipping the indexing step when running
     return prototype
 
 
