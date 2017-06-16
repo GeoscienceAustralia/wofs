@@ -105,13 +105,13 @@ def group_tiles_by_cells(tile_index_list, cell_index_list):
     return key_map
 
 
-def generate_tasks(index, config, time):
+def generate_tasks(index, config, time, extent=None):
     """ Yield loadables (nbar,ps,dsm) and targets, for dispatch to workers.
 
     This function is the equivalent of an SQL join query,
     and is required as a workaround for datacube API abstraction layering.
     """
-    extent = {}  # not configurable
+    extent = extent if extent is not None else {}
     product = config['wofs_dataset_type']
 
     assert product.grid_spec.crs == CRS('EPSG:3577')
@@ -129,7 +129,7 @@ def generate_tasks(index, config, time):
 
     for platform, sensor in SENSORS.items():
         source_loadables = gw.list_tiles(product=platform+'_nbar_albers', time=time, **extent)
-        pq_loadables = gw.list_tiles(product=platform+'_wofs_pq_albers', time=time, tile_buffer=pq_padding, **extent)
+        pq_loadables = gw.list_tiles(product=platform+'_pq_albers', time=time, tile_buffer=pq_padding, **extent)
 
         # only valid where EO, PQ and DSM are *all* available (and WOFL isn't yet)
         tile_index_set = (set(source_loadables) & set(pq_loadables)) - set(wofls_loadables)
@@ -161,7 +161,12 @@ def make_wofs_tasks(index, config, year=None, **kwargs):
         elif isinstance(year, tuple):
             time = Range(datetime(year=year[0], month=1, day=1), datetime(year=year[1]+1, month=1, day=1))
 
-    tasks = generate_tasks(index, config, time=time)
+    extent = {}
+    if 'x' in kwargs and kwargs['x'] is not None:
+        extent['x'] = kwargs['x']
+        extent['y'] = kwargs['y']
+
+    tasks = generate_tasks(index, config, time=time, extent=extent)
     return tasks
 
 
@@ -269,7 +274,7 @@ def do_wofs_task(config, source_tile, pq_tile, dsm_tile, file_path, tile_index, 
     global_attributes.update(extra_global_attributes)
 
     # write output
-    datacube.storage.storage.write_dataset_to_netcdf(result, file_path,
+    datacube.storage.write_dataset_to_netcdf(result, file_path,
                                                      global_attributes=global_attributes,
                                                      variable_params=config['variable_params'])
     return [new_record]
@@ -299,6 +304,8 @@ APP_NAME = 'wofs'
               help='Number of tasks to queue at the start')
 @click.option('--print-output-product', is_flag=True)
 @click.option('--skip-indexing', default=False)
+@click.option('--x', type=(int, int))
+@click.option('--y', type=(int, int))
 @task_app_options
 @task_app(make_config=make_wofs_config, make_tasks=make_wofs_tasks)
 def wofs_app(index, config, tasks, executor, dry_run, queue_size,
