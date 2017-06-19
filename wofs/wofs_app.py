@@ -156,6 +156,7 @@ def make_wofs_tasks(index, config, year=None, **kwargs):
 
     extent = {}
     if 'x' in kwargs and kwargs['x'] is not None:
+        extent['crs'] = 'EPSG:3577'
         extent['x'] = kwargs['x']
         extent['y'] = kwargs['y']
 
