@@ -8,51 +8,51 @@ from __future__ import absolute_import, print_function
 import copy
 import errno
 import itertools
-import logging
 import json
+import logging
 import os
-from datetime import datetime
 from collections import defaultdict
+from datetime import datetime
+from pathlib import Path
 
 import click
-from future.utils import iteritems
-from pandas import to_datetime
-from pathlib import Path
 import xarray
-
-from datacube.utils.geometry import unary_union, unary_intersection, CRS
+from pandas import to_datetime
 
 import datacube
+import datacube.model.utils
 from datacube.compat import integer_types
 from datacube.model import Range
-import datacube.model.utils
-from datacube.ui import click as ui
 from datacube.ui.task_app import task_app, task_app_options, check_existing_files
-
+from datacube.utils.geometry import unary_union, unary_intersection, CRS
 from wofs import wofls
 
-
-_LOG = logging.getLogger('agdc-wofs')
+_LOG = logging.getLogger(__name__)
 
 SENSORS = {'ls8': 'OLI', 'ls7': 'ETM', 'ls5': 'TM'}  # { nbar-prefix : filename-prefix } for platforms
 PLATFORM_VOCAB = {'ls8': 'LANDSAT-8', 'ls7': 'LANDSAT-7', 'ls5': 'LANDSAT-5'}
+
+
 # http://gcmdservices.gsfc.nasa.gov/static/kms/platforms/platforms.csv
 
 
 def get_product(index, definition, dry_run=False, skip_indexing=False):
-    """Utility to get database-record corresponding to product-definition"""
+    """
+    Get the database record corresponding to the given product definition
+    """
     parsed = definition
     metadata_type = index.metadata_types.get_by_name(parsed['metadata_type'])
     prototype = datacube.model.DatasetType(metadata_type, parsed)
 
     if not dry_run and not skip_indexing:
-        prototype = index.products.add(prototype)  # idempotent operations
+        prototype = index.products.add(prototype)  # idempotent operation
 
     return prototype
 
 
 def make_wofs_config(index, config, dry_run=False, **query):
-    """ Refine the configuration
+    """
+    Refine the configuration
 
     The task-app machinery loads a config file, from a path specified on the
     command line, into a dict. This function is an opportunity, with access to
@@ -60,10 +60,10 @@ def make_wofs_config(index, config, dry_run=False, **query):
     to both the make-tasks and the do-task). If using the save-tasks option,
     the modified config is included in the task file.
 
-    For a dry run, still needs to create a dummy DatasetType for use to
-    generate tasks (e.g. via the GridSpec), but for a normal run must index
-    it as a product in the database and replace with a fully-fleshed out
-    DatasetType object as the tasks involve writing metadata to file that
+    For a dry run, we still need to create a dummy DatasetType to
+    generate tasks (e.g. via the GridSpec), but a normal run must index
+    it as a product in the database and replace the dummy with a fully-fleshed
+    DatasetType since the tasks involve writing metadata to file that
     is specific to the database instance (note, this may change in future).
     """
 
@@ -73,7 +73,7 @@ def make_wofs_config(index, config, dry_run=False, **query):
     config['wofs_dataset_type'] = get_product(index, config['product_definition'])
 
     if not os.access(config['location'], os.W_OK):
-        _LOG.warn('Current user appears not have write access output location: %s', config['location'])
+        _LOG.warning('Current user appears not have write access output location: %s', config['location'])
 
     return config
 
@@ -86,7 +86,7 @@ def get_filename(config, platform, sensor, x, y, t):
                                         sensor=sensor,
                                         tile_index=(x, y),
                                         start_time=to_datetime(t).strftime('%Y%m%d%H%M%S%f'),
-                                        version=config['task_timestamp'])
+                                        version=config['task_timestamp'])  # A per JOB timestamp, seconds since epoch
     return Path(destination, filename)
 
 
@@ -99,7 +99,8 @@ def group_tiles_by_cells(tile_index_list, cell_index_list):
 
 
 def generate_tasks(index, config, time, extent=None):
-    """ Yield loadables (nbar,ps,dsm) and targets, for dispatch to workers.
+    """
+    Yield tasks (loadables (nbar,ps,dsm) + output targets), for dispatch to workers.
 
     This function is the equivalent of an SQL join query,
     and is required as a workaround for datacube API abstraction layering.
@@ -108,9 +109,9 @@ def generate_tasks(index, config, time, extent=None):
     product = config['wofs_dataset_type']
 
     assert product.grid_spec.crs == CRS('EPSG:3577')
-    assert all((abs(r)==25) for r in product.grid_spec.resolution) # ensure approx. 25 metre raster
-    pq_padding = [3*25]*2 # for 3 pixel cloud dilation
-    terrain_padding = [6850]*2
+    assert all((abs(r) == 25) for r in product.grid_spec.resolution)  # ensure approx. 25 metre raster
+    pq_padding = [3 * 25] * 2  # for 3 pixel cloud dilation
+    terrain_padding = [6850] * 2
     # Worst case shadow: max prominence (Kosciuszko) at lowest solar declination (min incidence minus slope threshold)
     # with snapping to pixel edges to avoid API questions
     # e.g. 2230 metres / math.tan(math.radians(30-12)) // 25 * 25 == 6850
@@ -121,14 +122,14 @@ def generate_tasks(index, config, time, extent=None):
     dsm_loadables = gw.list_cells(product='dsm1sv10', tile_buffer=terrain_padding, **extent)
 
     for platform, sensor in SENSORS.items():
-        source_loadables = gw.list_tiles(product=platform+'_nbar_albers', time=time, **extent)
-        pq_loadables = gw.list_tiles(product=platform+'_pq_albers', time=time, tile_buffer=pq_padding, **extent)
+        source_loadables = gw.list_tiles(product=platform + '_nbar_albers', time=time, **extent)
+        pq_loadables = gw.list_tiles(product=platform + '_pq_albers', time=time, tile_buffer=pq_padding, **extent)
 
         # only valid where EO, PQ and DSM are *all* available (and WOFL isn't yet)
         tile_index_set = (set(source_loadables) & set(pq_loadables)) - set(wofls_loadables)
         key_map = group_tiles_by_cells(tile_index_set, dsm_loadables)
 
-        for (dsm_key, keys) in iteritems(key_map):
+        for dsm_key, keys in key_map.items():
             geobox = gw.grid_spec.tile_geobox(dsm_key)
             dsm_tile = gw.update_tile_lineage(dsm_loadables[dsm_key])
             for tile_index in keys:
@@ -146,13 +147,24 @@ def generate_tasks(index, config, time, extent=None):
 
 
 def make_wofs_tasks(index, config, year=None, **kwargs):
+    """
+    Generate an iterable of 'tasks', matching the provided filter parameters.
+
+    Tasks can be generated for:
+
+     - all of time
+     - 1 particular year
+     - a range of years
+
+    Tasks can also be restricted to a given spatial region, specified in `kwargs['x']` and `kwargs['y']` in `EPSG:3577`.
+    """
     # TODO: Filter query to valid options
     time = None
-    if year is not None:
-        if isinstance(year, integer_types):
-            time = Range(datetime(year=year, month=1, day=1), datetime(year=year+1, month=1, day=1))
-        elif isinstance(year, tuple):
-            time = Range(datetime(year=year[0], month=1, day=1), datetime(year=year[1]+1, month=1, day=1))
+
+    if isinstance(year, integer_types):
+        time = Range(datetime(year=year, month=1, day=1), datetime(year=year + 1, month=1, day=1))
+    elif isinstance(year, tuple):
+        time = Range(datetime(year=year[0], month=1, day=1), datetime(year=year[1] + 1, month=1, day=1))
 
     extent = {}
     if 'x' in kwargs and kwargs['x'] is not None:
@@ -185,20 +197,23 @@ def find_valid_data_region(geobox, *sources_list):
     # fuse the dataset extents within each source tile
     tiles_extents = map(unary_union, unfused)
     # find where (within the output tile) that all prerequisite inputs available
-    return unary_intersection([geobox.extent]+list(tiles_extents))
-    # downstream should check if is empty..
+    return unary_intersection([geobox.extent] + list(tiles_extents))
+    # downstream should check if this is empty..
 
 
 def docvariable(agdc_dataset, time):
-    """Convert datacube dataset to xarray/NetCDF variable"""
+    """
+    Convert datacube dataset to xarray/NetCDF variable
+    """
     array = xarray.DataArray([agdc_dataset], coords=[time])
     docarray = datacube.model.utils.datasets_to_doc(array)
-    docarray.attrs['units'] = '1' # unitless (convention)
+    docarray.attrs['units'] = '1'  # unitless (convention)
     return docarray
 
 
 def do_wofs_task(config, source_tile, pq_tile, dsm_tile, file_path, tile_index, extra_global_attributes, valid_region):
-    """ Load data, run WOFS algorithm, attach metadata, and write output.
+    """
+    Load data, run WOFS algorithm, attach metadata, and write output.
 
     :param dict config: Config object
     :param datacube.api.Tile source_tile: NBAR Tile
@@ -269,8 +284,8 @@ def do_wofs_task(config, source_tile, pq_tile, dsm_tile, file_path, tile_index, 
 
     # write output
     datacube.storage.write_dataset_to_netcdf(result, file_path,
-                                                     global_attributes=global_attributes,
-                                                     variable_params=config['variable_params'])
+                                             global_attributes=global_attributes,
+                                             variable_params=config['variable_params'])
     return [new_record]
 
 
