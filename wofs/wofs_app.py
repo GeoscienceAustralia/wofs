@@ -9,10 +9,10 @@ import copy
 import errno
 import itertools
 import logging
+import json
 import os
 from datetime import datetime
 from collections import defaultdict
-import functools
 
 import click
 from future.utils import iteritems
@@ -20,7 +20,7 @@ from pandas import to_datetime
 from pathlib import Path
 import xarray
 
-from datacube.utils.geometry import unary_union, unary_intersection
+from datacube.utils.geometry import unary_union, unary_intersection, CRS
 
 import datacube
 from datacube.compat import integer_types
@@ -29,7 +29,7 @@ import datacube.model.utils
 from datacube.ui import click as ui
 from datacube.ui.task_app import task_app, task_app_options, check_existing_files
 
-from . import wofls
+from wofs import wofls
 
 
 _LOG = logging.getLogger('agdc-wofs')
@@ -39,12 +39,16 @@ PLATFORM_VOCAB = {'ls8': 'LANDSAT-8', 'ls7': 'LANDSAT-7', 'ls5': 'LANDSAT-5'}
 # http://gcmdservices.gsfc.nasa.gov/static/kms/platforms/platforms.csv
 
 
-def get_product(index, definition, dry_run=False):
+def get_product(index, definition, dry_run=False, skip_indexing=False):
     """Utility to get database-record corresponding to product-definition"""
     parsed = definition
     metadata_type = index.metadata_types.get_by_name(parsed['metadata_type'])
     prototype = datacube.model.DatasetType(metadata_type, parsed)
-    return prototype if dry_run else index.products.add(prototype)  # add is idempotent
+
+    if not dry_run and not skip_indexing:
+        prototype = index.products.add(prototype)  # idempotent operations
+
+    return prototype
 
 
 def make_wofs_config(index, config, dry_run=False, **query):
@@ -66,7 +70,7 @@ def make_wofs_config(index, config, dry_run=False, **query):
     if not dry_run:
         _LOG.info('Created DatasetType %s', config['product_definition']['name'])  # true? nyet.
 
-    config['wofs_dataset_type'] = get_product(index, config['product_definition'], dry_run)
+    config['wofs_dataset_type'] = get_product(index, config['product_definition'])
 
     if not os.access(config['location'], os.W_OK):
         _LOG.warn('Current user appears not have write access output location: %s', config['location'])
@@ -94,16 +98,16 @@ def group_tiles_by_cells(tile_index_list, cell_index_list):
     return key_map
 
 
-def generate_tasks(index, config, time):
+def generate_tasks(index, config, time, extent=None):
     """ Yield loadables (nbar,ps,dsm) and targets, for dispatch to workers.
 
     This function is the equivalent of an SQL join query,
     and is required as a workaround for datacube API abstraction layering.
     """
-    extent = {}  # not configurable
+    extent = extent if extent is not None else {}
     product = config['wofs_dataset_type']
 
-    assert product.grid_spec.crs == datacube.model.CRS('EPSG:3577')
+    assert product.grid_spec.crs == CRS('EPSG:3577')
     assert all((abs(r)==25) for r in product.grid_spec.resolution) # ensure approx. 25 metre raster
     pq_padding = [3*25]*2 # for 3 pixel cloud dilation
     terrain_padding = [6850]*2
@@ -150,7 +154,13 @@ def make_wofs_tasks(index, config, year=None, **kwargs):
         elif isinstance(year, tuple):
             time = Range(datetime(year=year[0], month=1, day=1), datetime(year=year[1]+1, month=1, day=1))
 
-    tasks = generate_tasks(index, config, time=time)
+    extent = {}
+    if 'x' in kwargs and kwargs['x'] is not None:
+        extent['crs'] = 'EPSG:3577'
+        extent['x'] = kwargs['x']
+        extent['y'] = kwargs['y']
+
+    tasks = generate_tasks(index, config, time=time, extent=extent)
     return tasks
 
 
@@ -258,7 +268,7 @@ def do_wofs_task(config, source_tile, pq_tile, dsm_tile, file_path, tile_index, 
     global_attributes.update(extra_global_attributes)
 
     # write output
-    datacube.storage.storage.write_dataset_to_netcdf(result, file_path,
+    datacube.storage.write_dataset_to_netcdf(result, file_path,
                                                      global_attributes=global_attributes,
                                                      variable_params=config['variable_params'])
     return [new_record]
@@ -283,18 +293,30 @@ APP_NAME = 'wofs'
 @click.command(name=APP_NAME)
 @ui.pass_index(app_name=APP_NAME)
 @click.option('--dry-run', is_flag=True, default=False, help='Check if output files already exist')
-@click.option('--year', callback=validate_year, help='Limit the process to a particular year')
+@click.option('--year', callback=validate_year, help='Limit the process to a particular year or a range of years')
 @click.option('--queue-size', type=click.IntRange(1, 100000), default=3200,
               help='Number of tasks to queue at the start')
+@click.option('--print-output-product', is_flag=True)
+@click.option('--skip-indexing', is_flag=True, default=False)
+@click.option('--x', type=(int, int))
+@click.option('--y', type=(int, int))
 @task_app_options
 @task_app(make_config=make_wofs_config, make_tasks=make_wofs_tasks)
-def wofs_app(index, config, tasks, executor, dry_run, queue_size, *args, **kwargs):
-    click.echo('Starting processing...')
-
+def wofs_app(index, config, tasks, executor, dry_run, queue_size,
+             print_output_product, skip_indexing, *args, **kwargs):
     if dry_run:
         check_existing_files((task['file_path'] for task in tasks))
         return 0
+    else:
+        if not skip_indexing:
+            # Ensure output product is in index
+            config['wofs_dataset_type'] = index.products.add(config['wofs_dataset_type'])  # add is idempotent
 
+    if print_output_product:
+        click.echo(json.dumps(config['wofs_dataset_type'].definition, indent=4))
+        return 0
+
+    click.echo('Starting processing...')
     results = []
 
     def submit_task(task):
@@ -318,9 +340,10 @@ def wofs_app(index, config, tasks, executor, dry_run, queue_size, *args, **kwarg
         # Process the result
         try:
             datasets = executor.result(result)
-            for dataset in datasets:
-                index.datasets.add(dataset, skip_sources=True)
-                _LOG.info('Dataset added')
+            if not skip_indexing:
+                for dataset in datasets:
+                    index.datasets.add(dataset, sources_policy='skip')
+                    _LOG.info('Dataset added')
             successful += 1
         except Exception as err:  # pylint: disable=broad-except
             _LOG.exception('Task failed: %s', err)
