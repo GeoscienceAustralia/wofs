@@ -29,8 +29,22 @@ from wofs import wofls
 
 _LOG = logging.getLogger(__name__)
 
-SENSORS = {'ls8': 'OLI', 'ls7': 'ETM', 'ls5': 'TM'}  # { nbar-prefix : filename-prefix } for platforms
-PLATFORM_VOCAB = {'ls8': 'LANDSAT-8', 'ls7': 'LANDSAT-7', 'ls5': 'LANDSAT-5'}
+INPUT_SOURCES = [{'nbar': 'ls5_nbar_albers',
+                  'pq': 'ls5_pq_wofs_scene',
+                  'sensor_name': 'TM',
+                  'platform_name': 'LANDSAT-5',
+                  'platform_name_short': 'ls5'},
+                 {'nbar': 'ls7_nbar_albers',
+                  'pq': 'ls7_pq_wofs_scene',
+                  'sensor_name': 'ETM',
+                  'platform_name': 'LANDSAT-7',
+                  'platform_name_short': 'ls7'},
+                 {'nbar': 'ls8_nbar_albers',
+                  'pq': 'ls8_pq_wofs_scene',
+                  'sensor_name': 'OLI',
+                  'platform_name': 'LANDSAT-8',
+                  'platform_name_short': 'ls8'},
+                 ]
 
 
 # http://gcmdservices.gsfc.nasa.gov/static/kms/platforms/platforms.csv
@@ -40,9 +54,8 @@ def get_product(index, definition, dry_run=False, skip_indexing=False):
     """
     Get the database record corresponding to the given product definition
     """
-    parsed = definition
-    metadata_type = index.metadata_types.get_by_name(parsed['metadata_type'])
-    prototype = datacube.model.DatasetType(metadata_type, parsed)
+    metadata_type = index.metadata_types.get_by_name(definition['metadata_type'])
+    prototype = datacube.model.DatasetType(metadata_type, definition)
 
     if not dry_run and not skip_indexing:
         prototype = index.products.add(prototype)  # idempotent operation
@@ -121,28 +134,31 @@ def generate_tasks(index, config, time, extent=None):
     wofls_loadables = gw.list_tiles(product=product.name, time=time, **extent)
     dsm_loadables = gw.list_cells(product='dsm1sv10', tile_buffer=terrain_padding, **extent)
 
-    for platform, sensor in SENSORS.items():
-        source_loadables = gw.list_tiles(product=platform + '_nbar_albers', time=time, **extent)
-        pq_loadables = gw.list_tiles(product=platform + '_pq_albers', time=time, tile_buffer=pq_padding, **extent)
+    for input_source in INPUT_SOURCES:
+        nbar_loadables = gw.list_tiles(product=input_source['nbar'], time=time, **extent)
+        pq_loadables = gw.list_tiles(product=input_source['pq'], time=time, tile_buffer=pq_padding, **extent)
 
         # only valid where EO, PQ and DSM are *all* available (and WOFL isn't yet)
-        tile_index_set = (set(source_loadables) & set(pq_loadables)) - set(wofls_loadables)
+        tile_index_set = (set(nbar_loadables) & set(pq_loadables)) - set(wofls_loadables)
         key_map = group_tiles_by_cells(tile_index_set, dsm_loadables)
 
-        for dsm_key, keys in key_map.items():
-            geobox = gw.grid_spec.tile_geobox(dsm_key)
-            dsm_tile = gw.update_tile_lineage(dsm_loadables[dsm_key])
-            for tile_index in keys:
-                source_tile = gw.update_tile_lineage(source_loadables.pop(tile_index))
+        # Cell index is X,Y, tile_index is X,Y,T
+        for cell_index, tile_indexes in key_map.items():
+            geobox = gw.grid_spec.tile_geobox(cell_index)
+            dsm_tile = gw.update_tile_lineage(dsm_loadables[cell_index])
+            for tile_index in tile_indexes:
+                nbar_tile = gw.update_tile_lineage(nbar_loadables.pop(tile_index))
                 pq_tile = gw.update_tile_lineage(pq_loadables.pop(tile_index))
-                valid_region = find_valid_data_region(geobox, source_tile, pq_tile, dsm_tile)
+                valid_region = find_valid_data_region(geobox, nbar_tile, pq_tile, dsm_tile)
                 if not valid_region.is_empty:
-                    yield dict(source_tile=source_tile,
+                    yield dict(source_tile=nbar_tile,
                                pq_tile=pq_tile,
                                dsm_tile=dsm_tile,
-                               file_path=get_filename(config, platform, sensor, *tile_index),
+                               file_path=get_filename(config, input_source['platform_name_short'],
+                                                      input_source['sensor_name'], *tile_index),
                                tile_index=tile_index,
-                               extra_global_attributes=dict(platform=PLATFORM_VOCAB[platform], instrument=sensor),
+                               extra_global_attributes=dict(platform=input_source['platform_name'],
+                                                            instrument=input_source['sensor_name']),
                                valid_region=valid_region)
 
 

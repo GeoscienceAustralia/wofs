@@ -32,12 +32,42 @@ product_definition:
         nodata: 1
         units: '1'
         flags_definition:
-          result:
-            bits: [0,1,2,3,4,5,6,7]
-            values: 
-                '128': clear_wet
-                '0': clear_dry
-            description: Classification result with unclear observations masked out
+            dry:
+              bits: [7, 6, 5, 4, 3, 1, 0] # Ignore sea mask
+              description: No water detected
+              values: {0: true}
+            nodata:
+              bits: 0
+              description: No data
+              values: {1: true}
+            noncontiguous:
+              bits: 1
+              description: At least one EO band is missing over over/undersaturated
+              values: {0: false, 1: true}
+            sea:
+              bits: 2
+              description: Sea
+              values: {0: false, 1: true}
+            terrain_or_low_angle:
+              bits: 3
+              description: terrain shadow or low solar angle
+              values: {0: false, 1: true}
+            high_slope:
+              bits: 4
+              description: High slope
+              values: {0: false, 1: true}
+            cloud_shadow:
+              bits: 5
+              description: Cloud shadow
+              values: {0: false, 1: true}
+            cloud:
+              bits: 6
+              description: Cloudy
+              values: {0: false, 1: true}
+            wet:
+              bits: [7, 6, 5, 4, 3, 1, 0] # Ignore sea mask
+              description: Clear and Wet
+              values: {128: true}
 
 variable_params:
     water:
