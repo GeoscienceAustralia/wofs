@@ -6,7 +6,7 @@ umask 002
 
 variant=prod
 export module_dir=/g/data/v10/public/modules
-export agdc_module=agdc-py2-prod
+export agdc_module=agdc-py3-prod/1.5.1
 export module_description="Datacube WOfS utilities and configuration"
 
 while [[ $# > 0 ]]
@@ -37,7 +37,7 @@ module load ${agdc_module}
 
 export module_name=agdc-wofs
 export version=`git describe --tags --always`
-python_version=`python -c 'import sys; print "%s.%s"%sys.version_info[:2]'`
+python_version=`python -c 'import sys; print("%s.%s"%sys.version_info[:2])'`
 
 export module_dest=${module_dir}/${module_name}/${version}
 export python_dest=${module_dest}/lib/python${python_version}/site-packages
