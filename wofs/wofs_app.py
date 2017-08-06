@@ -21,6 +21,8 @@ from pandas import to_datetime
 
 import datacube
 import datacube.model.utils
+from datacube.ui import click as ui
+
 from datacube.compat import integer_types
 from datacube.model import Range
 from datacube.ui.task_app import task_app, task_app_options, check_existing_files
@@ -329,8 +331,8 @@ APP_NAME = 'wofs'
               help='Number of tasks to queue at the start')
 @click.option('--print-output-product', is_flag=True)
 @click.option('--skip-indexing', is_flag=True, default=False)
-@click.option('--x', type=(int, int))
-@click.option('--y', type=(int, int))
+#@click.option('--x', type=(int, int))
+#@click.option('--y', type=(int, int))
 @task_app_options
 @task_app(make_config=make_wofs_config, make_tasks=make_wofs_tasks)
 def wofs_app(index, config, tasks, executor, dry_run, queue_size,
