@@ -66,7 +66,10 @@ mkdir -v -p "${module_dest}"
 
 export PYTHONPATH="${PYTHONPATH}:${python_dest}"
 echo "Installing:"
-pip install . --prefix "${module_dest}" --no-deps --global-option=build --global-option='--executable=/usr/bin/env python'
+rm dist/*
+python setup.py clean bdist_wheel
+#pip install . --prefix "${module_dest}" --no-deps --global-option=build --global-option='--executable=/usr/bin/env python'
+pip install --prefix "${module_dest}" --no-deps --global-option=build --global-option='--executable=/usr/bin/env python' dist/*.whl
 
 # Copy the scripts into the module dir
 cp -v -r scripts "${module_dest}/"
