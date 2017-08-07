@@ -28,7 +28,7 @@ def woffles(source, pq, dsm):
 
     water = classifier.classify(source.to_array(dim='band')) \
             | filters.eo_filter(source) \
-            | filters.pq_filter(pq.pixelquality) \
+            | filters.pq_filter(pq.pqa) \
             | filters.terrain_filter(dsm, source)
 
     assert water.dtype == np.uint8
