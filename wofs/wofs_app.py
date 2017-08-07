@@ -301,9 +301,9 @@ def do_wofs_task(config, source_tile, pq_tile, dsm_tile, file_path, tile_index, 
     global_attributes.update(extra_global_attributes)
 
     # write output
-    datacube.storage.write_dataset_to_netcdf(result, file_path,
-                                             global_attributes=global_attributes,
-                                             variable_params=config['variable_params'])
+    datacube.storage.storage.write_dataset_to_netcdf(result, file_path,
+                                                     global_attributes=global_attributes,
+                                                     variable_params=config['variable_params'])
     return [new_record]
 
 
