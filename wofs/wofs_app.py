@@ -378,11 +378,10 @@ def wofs_app(index, config, tasks, executor, dry_run, queue_size,
                 if not skip_indexing:
                     start = time.clock()
                     index.datasets.add(dataset, sources_policy='skip')
-                    index_time = time.clock() - start
-                    import ipdb; ipdb.set_trace()
-                    _LOG.info('Dataset added: %s', dataset.id)
+                    indexing_time = time.clock() - start
+                    _LOG.info('Dataset added to index in %fs: id=%s path=%s', indexing_time, dataset.id, dataset.local_path)
                 else:
-                    _LOG.info('Dataset completed: %s', dataset.id)
+                    _LOG.info('Dataset completed: id=%s path=%s', dataset.id, dataset.local_path)
             successful += 1
         except Exception as err:  # pylint: disable=broad-except
             _LOG.exception('Task failed: %s', err)
