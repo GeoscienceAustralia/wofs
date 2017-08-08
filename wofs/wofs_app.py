@@ -14,6 +14,7 @@ import os
 from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
+import time
 
 import click
 import xarray
@@ -373,10 +374,15 @@ def wofs_app(index, config, tasks, executor, dry_run, queue_size,
         # Process the result
         try:
             datasets = executor.result(result)
-            if not skip_indexing:
-                for dataset in datasets:
+            for dataset in datasets:
+                if not skip_indexing:
+                    start = time.clock()
                     index.datasets.add(dataset, sources_policy='skip')
-                    _LOG.info('Dataset added')
+                    index_time = time.clock() - start
+                    import ipdb; ipdb.set_trace()
+                    _LOG.info('Dataset added: %s', dataset.id)
+                else:
+                    _LOG.info('Dataset completed: %s', dataset.id)
             successful += 1
         except Exception as err:  # pylint: disable=broad-except
             _LOG.exception('Task failed: %s', err)
