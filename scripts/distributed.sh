@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
 
+set -x
+
 env_script=${module_dest}/scripts/environment.sh
 ppn=1
 tpp=1
