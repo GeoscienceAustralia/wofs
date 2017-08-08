@@ -124,6 +124,7 @@ def do_qsub(taskfile, name, nodes, walltime, queue, project, config_arg, env_arg
     """Submits the job to qsub"""
     name = name or taskfile.stem
     app_cmd = ('datacube-wofs -v {config_arg} '
+               '--skip-indexing '
                '--load-tasks "{taskfile}" '
                '--queue-size {queue_size} '
                '--executor distributed DSCHEDULER'.format(config_arg=config_arg,
