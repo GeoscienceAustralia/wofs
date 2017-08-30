@@ -14,7 +14,7 @@ clear wet == 128 or 132
 ===  =============  ==========  =======
 Bit  Decimal value  Value       Meaning
 ===  =============  ==========  =======
-0    0              0           no water present
+     0              0           no water present
 0    1              1<<0        nodata (missing all earth observation bands)
 1    2              1<<1        noncontiguous (missing any EO bands) or oversaturated/undersaturated
 2    4              1<<2        sea
