@@ -44,7 +44,7 @@ class reader:
 class fuser:
     def __init__(self, tiles):
         self.tiles = tiles
-        print(len(tiles),end='')
+        #print(len(tiles),end='')
     @property
     def water(self):
         output = self.tiles[0].water
@@ -69,8 +69,8 @@ def do_work(observations): # read one file into memory at a time
         bitfield = f.water & land_or_sea
         wet_accumulator += bitfield == 128
         dry_accumulator += bitfield == 0
-        print('.', end='')
-    print('')
+        #print('.', end='')
+    #print('')
     return wet_accumulator, dry_accumulator
 
 def summarise_result(observations):
@@ -82,6 +82,10 @@ def summarise_result(observations):
     with np.errstate(invalid='ignore'): # denominator may be zero
         frequency = wet / clear_observation_count
 
+    write('clear.tif', clear_observation_count)
+    write('wet.tif', wet)
+    write('frequency.tif', frequency.astype(np.float32), nodata=np.nan)
+
     import matplotlib.pyplot as plt
     fig, (ax1,ax2) = plt.subplots(1,2)
     ax1.imshow(clear_observation_count[::10,::10])
@@ -92,36 +96,49 @@ def get_observations(directory, maxtiles=None):
     import pandas
     import glob
     files = glob.glob(directory + '/*.nc')[:maxtiles]
-    print('Opening')
+    #print('Opening')
     rr = list(map(reader, files))
     import time
     t = time.clock()
-    print('Parsing dates of {} tiles'.format(len(files)))
+    #print('Parsing dates of {} tiles'.format(len(files)))
     p = [(r, r.date) for r in rr]
-    print(time.clock()-t)
-    print('Organising')
+    #print(time.clock()-t)
+    #print('Organising')
     tiles = pandas.DataFrame(p,
                              columns=['object', 'date'])
-    print('Grouping..')
+    #print('Grouping..')
     g = tiles.groupby('date', sort=False)
     return [fuser(list(obs.object)) for date, obs in g]
     #for date, observation in g:
     #    yield fuser(list(observation.object))
 
-#print(reader(example_file).metadata.keys())
 
-#list(get_observations(example_dir, maxtiles=100))
-
-#summarise_result(get_observations(example_dir))
-
-z = get_observations(example_dir)
-summarise_result(z)
 
 def show_obs(fus):
     import matplotlib.pyplot as plt
     fig, axes = plt.subplots(1,1+len(fus.tiles))
     for ax, w in zip(axes, [t.water for t in fus.tiles]+[fus.water]):
         ax.imshow((w & np.uint8(1))[::10,::10])
+
+def write(filename, data, nodata=None):
+    import rasterio
+    with rasterio.open('NetCDF:'+example_file+':water') as example:
+        with rasterio.open(filename, mode='w', width=4000, height=4000,
+                           crs=example.profile['crs'],
+                           affine=example.profile['affine'],
+                           count=1, dtype=data.dtype.name,
+                           driver='GTIFF', nodata=nodata) as destination:
+            destination.write(data, 1)
+            destination.close()
+
+#print(reader(example_file).metadata.keys())
+
+#list(get_observations(example_dir, maxtiles=100))
+
+#summarise_result(get_observations(example_dir))s
+
+z = get_observations(example_dir)#, maxtiles=5)
+summarise_result(z)
 
 
 
