@@ -1,4 +1,10 @@
+"""
+Recommended usage:
 
+    xargs -L1 -P8 sh -c "
+
+
+"""
 
 example_dir = '/g/data/v10/testing_ground/wofs_brl/output/LS8_OLI_WATER/13_-35'
 example_file = example_dir + '/LS8_OLI_WATER_3577_13_-35_20130519000352000000_v1502857924.nc'
@@ -81,8 +87,11 @@ def do_work(observations): # read one file into memory at a time
     #Could use high and low bits, to increment both variables in one numexpr?
 
     land_or_sea = ~np.uint8(4) # to mask out the marine flag
+    #wet_versus_dry = np.array([128,0])[None,None,:]
+
     for f in observations:
         bitfield = f.water & land_or_sea
+
         wet_accumulator += bitfield == 128
         dry_accumulator += bitfield == 0
         #print('.', end='')
@@ -145,7 +154,7 @@ def write(filename, data, nodata=None):
                        driver='GTIFF',
                        nodata=nodata,
                        tiled=True,
-                       compress='DEFLATE',
+                       compress='LZW',
                        **reader.cell) as destination:
             destination.write(data, 1)
 
