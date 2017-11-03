@@ -5,11 +5,11 @@ import matplotlib.pyplot as plt
 import xarray
 import numpy as np
 import scipy, scipy.ndimage
+import glob
+import sklearn.linear_model
+import pickle
 
-#import logging
-#logging.basicConfig(level=logging.DEBUG)
-
-
+"""
 # These weights are specified in the WOfS journal paper.
 wofl_wet_freq = 0.1703
 MrVBF = 0.1671
@@ -24,7 +24,10 @@ geofabric_swamp = 1.3231
 geofabric_watercourse = 1.9206
 urban_areas = -4.9358
 
-threshold = 0.05 # also by WOfS journal paper.
+threshold = 0.05 # also by WOfS journal paper. Actually, maybe 0.01 (or 0.02)
+"""
+
+################ Utilities
 
 def numpy_to_xarray(array, geobox, name=None):
     """Utility to convert ndarray to DataArray, using a datacube.model.GeoBox"""
@@ -39,19 +42,30 @@ def geopandas_to_xarray(table, geobox, name=None):
                                         transform=geobox.affine)
     return numpy_to_xarray(array, geobox, name)
 
+# Note on dimensions:
+#   Rasterio has named height and width parameters,
+#   referring to the first and second index of the raster array respectively.
+#   ODC GeoBox names width and height (reverse order) in its constructor,
+#   however height is associated with the "y" axis internally, which
+#   still becomes the first of the two axes in the xarray.
+
 def rasterfile_to_xarray(file, geobox=None, name=None, nodata=None):
     """Blit like"""
     with rasterio.open(file) as src:
         assert src.indexes == (1,) # assume single band
         if geobox is None:
             from datacube.utils.geometry import GeoBox, CRS
+
             # TODO: fix this heinousness
             global crs
             global affine
             crs = src.crs
             affine = src.transform
-            # TODO: not assume particular image dimensions
-            geobox = GeoBox(4000, 4000, src.transform, CRS(src.crs.wkt))
+
+            geobox = GeoBox(width=src.width,
+                            height=src.height,
+                            affine=src.affine, # .transform is a list, .affine is an object
+                            crs=CRS(src.crs.wkt))
             array = src.read(1)
         else:
             band = rasterio.band(src, 1) # do not attempt to read entire extent into memory
@@ -62,6 +76,26 @@ def rasterfile_to_xarray(file, geobox=None, name=None, nodata=None):
                                     dst_transform=geobox.affine,
                                     dst_nodata=nodata)
     return numpy_to_xarray(array, geobox, name)
+
+def write(filename, data, nodata=None):
+    """ Output raster to filesystem """
+    # TODO: eliminate globals (crs,affine) and magic constants (dimensions)
+    import rasterio
+    with rasterio.open(filename,
+                       mode='w',
+                       width=4000,
+                       height=4000,
+                       count=1,
+                       dtype=data.dtype.name,
+                       driver='GTIFF',
+                       nodata=nodata,
+                       tiled=True,
+                       compress='LZW', # balance IO volume and CPU speed
+                       affine=affine,
+                       crs=crs) as destination:
+            destination.write(data.data, 1)
+
+################ Ancilliaries
 
 def urban(geobox):
     ucl_path = "/g/data/v10/wofs/ancillary/ucl/UCL_2011_AUST.shp"
@@ -92,14 +126,6 @@ AHGFHydroArea
     WatercourseAreas ['Watercourse Area'] [54]
 """
 
-geofabric_weights = {'AHGFHydroAreaFlats': geofabric_flat, # includes marine swamp
-                     'AHGFHydroAreaForeshoreFlats': geofabric_foreshore,
-                     'AHGFHydroAreaPondageAreas': geofabric_pondage,
-                     'AHGFHydroAreaWatercourseAreas': geofabric_watercourse,
-                     'AHGFWaterbodyFlats': geofabric_swamp, # type 27
-                     'AHGFWaterbodyLakes': geofabric_lake,
-                     'AHGFWaterbodyReservoirs': geofabric_reservoir}
-
 def geofabric_parts(geobox):
     geofabric_path = "/g/data/v10/wofs/ancillary/geofabric/SH_Cartography_GDB/SH_Cartography.gdb"
     # fiona.listlayers(geofabric_path)
@@ -108,22 +134,36 @@ def geofabric_parts(geobox):
         for fc, df in table.groupby('SrcFCName'):
             if fc not in ['CanalAreas', 'RapidAreas']: # exclude these two feature classes
                 name = layer+fc
-                yield geofabric_weights[name], geopandas_to_xarray(df, geobox, name=name)
+                yield geopandas_to_xarray(df, geobox, name=name)
 
-def geofabric(geobox):
-    return sum(weight*array for weight, array in geofabric_parts(geobox))
+#def geofabric(geobox):
+#    geofabric_weights = {'AHGFHydroAreaFlats': geofabric_flat, # includes marine swamp
+#                         'AHGFHydroAreaForeshoreFlats': geofabric_foreshore,
+#                         'AHGFHydroAreaPondageAreas': geofabric_pondage,
+#                         'AHGFHydroAreaWatercourseAreas': geofabric_watercourse,
+#                         'AHGFWaterbodyFlats': geofabric_swamp, # type 27
+#                         'AHGFWaterbodyLakes': geofabric_lake,
+#                         'AHGFWaterbodyReservoirs': geofabric_reservoir}
+#    return sum(array*geofabric_weights[array.name] for array in geofabric_parts(geobox))
 
 datacube.config.LocalConfig.db_database = 'wofstest'
-datacube.config.LocalConfig.db_hostname = 'agdcstaging-db'
+datacube.config.LocalConfig.db_hostname = 'agdcstaging-db.nci.org.au'
 dc = datacube.Datacube() # only used for elevation
 
 def slope_degrees(geobox):
     pad = 5 # pixels of margin buffering
+    padded = geobox[-pad:geobox.height+pad, -pad:geobox.width+pad]
 
+    #dem = dc.load(product='dsm1sv10', # ? 'srtm_dem1sv1_0'
+    #              geopolygon=geobox[-pad:geobox.height+pad, -pad:geobox.width+pad].extent,
+    #              output_crs=geobox.crs.crs_str, # force target gridspec, address weird bug
+    #              resolution=geobox.resolution).isel(time=0)
+    class likely:
+        geobox = padded
+    likely.extent = likely.geobox.extent
+    likely.coords = likely.geobox.coords
     dem = dc.load(product='dsm1sv10', # ? 'srtm_dem1sv1_0'
-                  geopolygon=geobox[-pad:geobox.height+pad, -pad:geobox.width+pad].extent,
-                  output_crs=geobox.crs, # force target gridspec
-                  resolution=geobox.resolution).isel(time=0)
+                  like=likely()).isel(time=0)
 
     # Sobel is prefered gradient method from DEM-grid literature.
     xgrad = scipy.ndimage.sobel(dem.elevation, axis=1) / abs(8*dem.affine.a) # i.e. dz/dx
@@ -147,62 +187,133 @@ mrvbf_path = "/g/data/v10/wofs/ancillary/mrvbf/mrvbf_int.tif"
 modis_path = "/g/data/v10/wofs/ancillary/modis/MOD09A1.aust.005.OWL.0.2.4.2001.2010.GE.20.tif"
 
 
-def synthesis(frequency_raster_path):
+#def synthesis(frequency_raster_path):
+#
+#    freq = rasterfile_to_xarray(frequency_raster_path)
+#    geobox = freq.geobox
+#
+#    ucl = urban(geobox)
+#    g = geofabric(geobox)
+#    slant = slope_degrees(geobox)
+#    vbf = rasterfile_to_xarray(mrvbf_path, geobox) # let nodata remain at 255
+#    owl = rasterfile_to_xarray(modis_path, geobox)
+#
+#    ancillary = g + slope*slant + MODIS_OWL*owl + MrVBF*vbf + urban_areas*ucl
+#
+#    freq.data = np.nan_to_num(freq.data) # NaN -> 0
+#    confidence = scipy.special.expit(ancillary + wofl_wet_freq*freq)
+#
+#    # filtered summary
+#    filtered = freq*(confidence>threshold)
+#
+#    return confidence, filtered
 
-    freq = rasterfile_to_xarray(frequency_raster_path)
-    geobox = freq.geobox
-
+def ancilliary_experts(geobox):
     ucl = urban(geobox)
-    g = geofabric(geobox)
     slant = slope_degrees(geobox)
-    vbf = rasterfile_to_xarray(mrvbf_path, geobox) # let nodata remain at 255
-    owl = rasterfile_to_xarray(modis_path, geobox)
+    vbf = rasterfile_to_xarray(mrvbf_path, geobox, 'MrVBF') # let nodata remain at 255
+    owl = rasterfile_to_xarray(modis_path, geobox, 'MODIS-OWL')
+    g = list(geofabric_parts(geobox))
 
-    ancillary = g + slope*slant + MODIS_OWL*owl + MrVBF*vbf + urban_areas*ucl
+    full_set = g + [ucl,slant,vbf,owl]
 
-    freq.data = np.nan_to_num(freq.data) # NaN -> 0
-    confidence = scipy.special.expit(ancillary + wofl_wet_freq*freq)
+    # should sort this, say by name?
+    # option to concat into a single xarray
+    return full_set
 
-    # filtered summary
-    filtered = freq*(confidence>threshold)
 
-    return confidence, filtered
 
-def write(filename, data, nodata=None):
-    """ Output raster to filesystem """
-    # TODO: eliminate globals (crs,affine) and magic constants (dimensions)
-    import rasterio
-    with rasterio.open(filename,
-                       mode='w',
-                       width=4000,
-                       height=4000,
-                       count=1,
-                       dtype=data.dtype.name,
-                       driver='GTIFF',
-                       nodata=nodata,
-                       tiled=True,
-                       compress='LZW', # balance IO volume and CPU speed
-                       affine=affine,
-                       crs=crs) as destination:
-            destination.write(data.data, 1)
+def synthesis(frequency_raster_path=None, geobox=None):
+    """Return collection of all input datasets"""
+    if frequency_raster_path is None:
+        frequency_raster_path = '/g/data/v10/testing_ground/wofs_summary/frequency.vrt'
+        assert geobox is not None
 
-def process(filename):
-    assert "frequency" in filename
-    out1 = filename.replace("frequency", "confidence")
-    out2 = filename.replace("frequency", "filtered")
-    import os.path
-    assert not os.path.isfile(out1)
-    assert not os.path.isfile(out2)
-    conf, filt = synthesis(filename)
-    write(out1, conf.astype(np.float32))
-    write(out2, filt.astype(np.float32))
+    raw_freq = rasterfile_to_xarray(frequency_raster_path, geobox=geobox, name='freq')
 
-if __name__ == '__main__':
-    import sys
-    if len(sys.argv) < 2:
-        print("Usage: python confidence.py *frequency*.tif")
-        print("Example: /usr/bin/time find /g/data/v10/testing_ground/wofs_summary/ -maxdepth 1 -name \*frequency.tif | xargs -n 10 -P8 python confidence.py")
-        raise SystemExit
-    else:
-        for filename in sys.argv[1:]:
-            process(filename)
+    if geobox is None:
+        geobox = raw_freq.geobox
+
+    everything = ancilliary_experts(geobox) + [raw_freq]
+
+    return xarray.concat(everything, dim='variable')
+
+def training_data(max_tiles=None):
+    """
+    This gets the synthesis of data over the training areas,
+    and unmasked subset (e.g. clear count must also be nonzero)
+    """
+
+    def generate_parts():
+        for area in glob.glob('/g/data/u46/wofs/confidence/Training/*.tif')[:max_tiles]:
+
+            training = rasterfile_to_xarray(area, name='training')
+
+            clear_path = '/g/data/v10/testing_ground/wofs_summary/clear.vrt'
+            clear = rasterfile_to_xarray(clear_path, geobox=training.geobox, name='clear_counts')
+
+            mask = (clear.data > 0) & (training.data != 0)
+            # del clear
+
+            data = synthesis(geobox=training.geobox)
+
+            Y_subset = (training.data[mask] == 2)
+            T_subset = data.data[np.broadcast_to(mask, data.shape)].reshape((len(data), len(Y_subset)))
+
+            yield Y_subset, T_subset
+
+    Ys, Ts = map(np.hstack, zip(*generate_parts()))
+
+    return Ys, Ts
+
+def train():
+    print('Loading..')
+
+    Ys, Ts = training_data() # 8 works, 10 the kernel dies.
+
+    model = sklearn.linear_model.LogisticRegression(tol=1e-7, class_weight='balanced')
+
+    print('Fitting..')
+
+    model.fit(Ts.T, Ys)
+
+    print('Coefficients:')
+    print(model.coef_)
+    print('Intercept:')
+    print(model.intercept_)
+
+    with open('/g/data/v10/testing_ground/wofs_summary/logistic_model.pkl', 'wb') as f:
+        pickle.dump(model, f)
+
+    return model
+
+
+
+
+model = train()
+
+print('Done.')
+
+
+
+
+#def process(filename):
+#    assert "frequency" in filename
+#    out1 = filename.replace("frequency", "confidence")
+#    out2 = filename.replace("frequency", "filtered")
+#    import os.path
+#    assert not os.path.isfile(out1)
+#    assert not os.path.isfile(out2)
+#    conf, filt = synthesis(filename)
+#    write(out1, conf.astype(np.float32))
+#    write(out2, filt.astype(np.float32))
+#
+#if __name__ == '__main__':
+#    import sys
+#    if len(sys.argv) < 2:
+#        print("Usage: python confidence.py *frequency*.tif")
+#        print("Example: /usr/bin/time find /g/data/v10/testing_ground/wofs_summary/ -maxdepth 1 -name \*frequency.tif | xargs -n 10 -P8 python confidence.py")
+#        raise SystemExit
+#    else:
+#        for filename in sys.argv[1:]:
+#            process(filename)
