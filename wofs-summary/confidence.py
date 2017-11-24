@@ -223,7 +223,7 @@ def ancilliary_experts(geobox):
 
 
 
-def synthesis(frequency_raster_path=None, geobox=None):
+def synthesis(frequency_raster_path=None, geobox=None, return_freq=False):
     """Return collection of all input datasets"""
     if frequency_raster_path is None:
         frequency_raster_path = '/g/data/v10/testing_ground/wofs_summary/frequency.vrt'
@@ -236,7 +236,8 @@ def synthesis(frequency_raster_path=None, geobox=None):
 
     everything = ancilliary_experts(geobox) + [raw_freq]
 
-    return xarray.concat(everything, dim='variable')
+    result = xarray.concat(everything, dim='variable')
+    return result if not return_freq else (result, raw_freq)
 
 def training_data(max_tiles=None):
     """
@@ -266,6 +267,8 @@ def training_data(max_tiles=None):
 
     return Ys, Ts
 
+model_path = '/g/data/v10/testing_ground/wofs_summary/logistic_model.pkl'
+
 def train():
     print('Loading..')
 
@@ -282,38 +285,43 @@ def train():
     print('Intercept:')
     print(model.intercept_)
 
-    with open('/g/data/v10/testing_ground/wofs_summary/logistic_model.pkl', 'wb') as f:
+    with open(model_path, 'wb') as f:
         pickle.dump(model, f)
 
     return model
 
+def process(filename, model, threshold=0.5):
+    assert "frequency" in filename
+    out1 = filename.replace("frequency", "confidence")
+    out2 = filename.replace("frequency", "filtered")
+    import os.path
+    assert not os.path.isfile(out1)
+    assert not os.path.isfile(out2)
+    factors, freq = synthesis(filename, return_freq=True)
+    X = factors.data.reshape((len(factors), -1)).T
+    X = np.nan_to_num(X) # NaN -> zero
+    P = model.predict_proba(X)
+    conf = P[:,1].reshape(freq.shape)
+    conf = numpy_to_xarray(conf, freq.geobox)
 
+    write(out1, conf.astype(np.float32))
 
+    freq.data[conf.data <= threshold] = np.nan
+    filt = freq
 
-model = train()
+    write(out2, filt.astype(np.float32), nodata=np.nan)
 
-print('Done.')
-
-
-
-
-#def process(filename):
-#    assert "frequency" in filename
-#    out1 = filename.replace("frequency", "confidence")
-#    out2 = filename.replace("frequency", "filtered")
-#    import os.path
-#    assert not os.path.isfile(out1)
-#    assert not os.path.isfile(out2)
-#    conf, filt = synthesis(filename)
-#    write(out1, conf.astype(np.float32))
-#    write(out2, filt.astype(np.float32))
-#
-#if __name__ == '__main__':
-#    import sys
-#    if len(sys.argv) < 2:
-#        print("Usage: python confidence.py *frequency*.tif")
-#        print("Example: /usr/bin/time find /g/data/v10/testing_ground/wofs_summary/ -maxdepth 1 -name \*frequency.tif | xargs -n 10 -P8 python confidence.py")
-#        raise SystemExit
-#    else:
-#        for filename in sys.argv[1:]:
-#            process(filename)
+if __name__ == '__main__':
+    import sys
+    if len(sys.argv) < 2:
+        print("Usage: python confidence.py *frequency*.tif")
+        print("Example: /usr/bin/time find /g/data/v10/testing_ground/wofs_summary/ -maxdepth 1 -name \*frequency.tif | xargs -n 10 -P8 python confidence.py")
+        raise SystemExit
+    elif len(sys.argv) == 2 and sys.argv[1] == '--retrain':
+        model = train()
+        print('Done.')
+    else:
+        with open(model_path, 'rb') as f:
+            model = pickle.load(f)
+        for filename in sys.argv[1:]:
+            process(filename, model)
