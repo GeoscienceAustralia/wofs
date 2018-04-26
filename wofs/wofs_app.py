@@ -33,17 +33,17 @@ from wofs import wofls
 _LOG = logging.getLogger(__name__)
 
 INPUT_SOURCES = [{'nbar': 'ls5_nbart_albers',
-                  'pq': 'ls5_pq_wofs_scene',
+                  'pq': 'ls5_pq_legacy_scene',
                   'sensor_name': 'TM',
                   'platform_name': 'LANDSAT-5',
                   'platform_name_short': 'ls5'},
                  {'nbar': 'ls7_nbart_albers',
-                  'pq': 'ls7_pq_wofs_scene',
+                  'pq': 'ls7_pq_legacy_scene',
                   'sensor_name': 'ETM',
                   'platform_name': 'LANDSAT-7',
                   'platform_name_short': 'ls7'},
                  {'nbar': 'ls8_nbart_albers',
-                  'pq': 'ls8_pq_wofs_scene',
+                  'pq': 'ls8_pq_legacy_scene',
                   'sensor_name': 'OLI',
                   'platform_name': 'LANDSAT-8',
                   'platform_name_short': 'ls8'},
@@ -94,13 +94,11 @@ def make_wofs_config(index, config, dry_run=False, **query):
     return config
 
 
-def get_filename(config, platform, sensor, x, y, t):
+def get_filename(config, x, y, t):
     destination = config['location']
     filename_template = config['file_path_template']
 
-    filename = filename_template.format(platform=platform.upper(),
-                                        sensor=sensor,
-                                        tile_index=(x, y),
+    filename = filename_template.format(tile_index=(x, y),
                                         start_time=to_datetime(t).strftime('%Y%m%d%H%M%S%f'),
                                         version=config['task_timestamp'])  # A per JOB timestamp, seconds since epoch
     return Path(destination, filename)
@@ -157,8 +155,7 @@ def generate_tasks(index, config, time, extent=None):
                     yield dict(source_tile=nbar_tile,
                                pq_tile=pq_tile,
                                dsm_tile=dsm_tile,
-                               file_path=get_filename(config, input_source['platform_name_short'],
-                                                      input_source['sensor_name'], *tile_index),
+                               file_path=get_filename(config, *tile_index),
                                tile_index=tile_index,
                                extra_global_attributes=dict(platform=input_source['platform_name'],
                                                             instrument=input_source['sensor_name']),
