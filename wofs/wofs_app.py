@@ -187,7 +187,7 @@ def make_wofs_tasks(index, config, year=None, **kwargs):
         time = Range(datetime(year=year[0], month=1, day=1), datetime(year=year[1] + 1, month=1, day=1))
 
     extent = {}
-    if 'x' in kwargs and kwargs['x'] is not None:
+    if 'x' in kwargs and kwargs['x']:
         extent['crs'] = 'EPSG:3577'
         extent['x'] = kwargs['x']
         extent['y'] = kwargs['y']
@@ -333,8 +333,8 @@ APP_NAME = 'wofs'
               help='Number of tasks to queue at the start')
 @click.option('--print-output-product', is_flag=True)
 @click.option('--skip-indexing', is_flag=True, default=False)
-#@click.option('--x', type=(int, int))
-#@click.option('--y', type=(int, int))
+@click.option('--x', nargs=2, type=int)
+@click.option('--y', nargs=2, type=int)
 @task_app_options
 @task_app(make_config=make_wofs_config, make_tasks=make_wofs_tasks)
 def wofs_app(index, config, tasks, executor, dry_run, queue_size,
