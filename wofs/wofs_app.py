@@ -36,17 +36,20 @@ INPUT_SOURCES = [{'nbar': 'ls5_nbart_albers',
                   'pq': 'ls5_pq_legacy_scene',
                   'sensor_name': 'TM',
                   'platform_name': 'LANDSAT-5',
-                  'platform_name_short': 'ls5'},
+                  'platform_name_short': 'ls5',
+                  'source_product': 'ls5_level1_scene'},
                  {'nbar': 'ls7_nbart_albers',
                   'pq': 'ls7_pq_legacy_scene',
                   'sensor_name': 'ETM',
                   'platform_name': 'LANDSAT-7',
-                  'platform_name_short': 'ls7'},
+                  'platform_name_short': 'ls7',
+                  'source_product': 'ls7_level1_scene'},
                  {'nbar': 'ls8_nbart_albers',
                   'pq': 'ls8_pq_legacy_scene',
                   'sensor_name': 'OLI',
                   'platform_name': 'LANDSAT-8',
-                  'platform_name_short': 'ls8'},
+                  'platform_name_short': 'ls8',
+                  'source_product': 'ls8_level1_scene'},
                  ]
 
 
@@ -136,7 +139,8 @@ def generate_tasks(index, config, time, extent=None):
     dsm_loadables = gw.list_cells(product='dsm1sv10', tile_buffer=terrain_padding, **extent)
 
     for input_source in INPUT_SOURCES:
-        nbar_loadables = gw.list_tiles(product=input_source['nbar'], time=time, **extent)
+        gqa_filter = dict(product=input_source['source_product'], time=time, gqa_iterative_mean_xy=(0,1))
+        nbar_loadables = gw.list_tiles(product=input_source['nbar'], time=time, source_filter=gqa_filter, **extent)
         pq_loadables = gw.list_tiles(product=input_source['pq'], time=time, tile_buffer=pq_padding, **extent)
 
         # only valid where EO, PQ and DSM are *all* available (and WOFL isn't yet)
