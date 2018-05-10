@@ -109,3 +109,33 @@ Currently, cloud and cloud shadow are detected per scene, which is suboptimal at
 
 Improved masking algorithms are anticipated, e.g. as median mosaics become available, or possibly incorporating weather data.
 
+
+Packaging and Deployment
+========================
+
+Deployment
+----------
+
+WOfS is available as a part of Digital Earth Australia enviroment modules on the NCI. These can be used
+after logging into the NCI by running:
+
+    module load dea
+
+Packaging
+---------
+
+To build a new package for WOfS, update the version number in `wofs/__init__.py`. Then, from the base directory of
+the project run:
+
+    python setup.py sdist bdist_wheel
+
+This will create a `source distribution` and a `binary wheel` distribution in the `dist/` directory.
+
+To have the package included in the **DEA Environment Module** upload it to s3://datacube-core-deployment/wofs/ by
+running:
+
+    aws s3 cp dist/ s3://datacube-core-deployment/wofs/ --recursive
+
+It can then also be installed by running:
+
+    pip --index-url https://packages.dea.gadevs.ga/ wofs
