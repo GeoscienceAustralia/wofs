@@ -28,7 +28,7 @@ product_definition:
             time: 5
     measurements:
       - name: water
-        dtype: uint8
+        dtype: int16
         nodata: 1
         units: '1'
         flags_definition:

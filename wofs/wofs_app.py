@@ -15,7 +15,7 @@ from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 import time
-
+import numpy as np
 import click
 import xarray
 from pandas import to_datetime
@@ -258,7 +258,7 @@ def do_wofs_task(config, source_tile, pq_tile, dsm_tile, file_path, tile_index, 
     dsm = datacube.api.GridWorkflow.load(dsm_tile, resampling='cubic')
 
     # Core computation
-    result = wofls.woffles(*(x.isel(time=0) for x in [source, pq, dsm]))
+    result = wofls.woffles(*(x.isel(time=0) for x in [source, pq, dsm])).astype(np.int16)
 
     # Convert 2D DataArray to 3D DataSet
     result = xarray.concat([result], dim=source.time).to_dataset(name='water')
