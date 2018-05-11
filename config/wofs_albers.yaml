@@ -94,7 +94,7 @@ global_attributes:
       The Water Observations from Space product (WOfS) is a key component of the National Flood Risk Information Portal (NFRIP), developed by Geoscience Australia (GA). The objective of Water Observations from Space is to analyse GA's historic archive of satellite imagery to derive water observations, to help understand where flooding may have occurred in the past.
 
 
-    source: "SR-N_25_2.0"
+    source: "Water Observations from Space Detection Algorithm v1.2"
     institution: "Commonwealth of Australia (Geoscience Australia)"
     keywords: "AU/GA,NASA/GSFC/SED/ESD/LANDSAT,ETM+,TM,OLI,EARTH SCIENCE,SURFACE WATER,FLOOD"
     keywords_vocabulary: "GCMD"
