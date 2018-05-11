@@ -15,7 +15,7 @@ from collections import defaultdict
 from datetime import datetime
 from pathlib import Path
 import time
-
+import numpy as np
 import click
 import xarray
 from pandas import to_datetime
@@ -36,17 +36,20 @@ INPUT_SOURCES = [{'nbar': 'ls5_nbart_albers',
                   'pq': 'ls5_pq_legacy_scene',
                   'sensor_name': 'TM',
                   'platform_name': 'LANDSAT-5',
-                  'platform_name_short': 'ls5'},
+                  'platform_name_short': 'ls5',
+                  'source_product': 'ls5_level1_scene'},
                  {'nbar': 'ls7_nbart_albers',
                   'pq': 'ls7_pq_legacy_scene',
                   'sensor_name': 'ETM',
                   'platform_name': 'LANDSAT-7',
-                  'platform_name_short': 'ls7'},
+                  'platform_name_short': 'ls7',
+                  'source_product': 'ls7_level1_scene'},
                  {'nbar': 'ls8_nbart_albers',
                   'pq': 'ls8_pq_legacy_scene',
                   'sensor_name': 'OLI',
                   'platform_name': 'LANDSAT-8',
-                  'platform_name_short': 'ls8'},
+                  'platform_name_short': 'ls8',
+                  'source_product': 'ls8_level1_scene'},
                  ]
 
 
@@ -136,7 +139,8 @@ def generate_tasks(index, config, time, extent=None):
     dsm_loadables = gw.list_cells(product='dsm1sv10', tile_buffer=terrain_padding, **extent)
 
     for input_source in INPUT_SOURCES:
-        nbar_loadables = gw.list_tiles(product=input_source['nbar'], time=time, **extent)
+        gqa_filter = dict(product=input_source['source_product'], time=time, gqa_iterative_mean_xy=(0,1))
+        nbar_loadables = gw.list_tiles(product=input_source['nbar'], time=time, source_filter=gqa_filter, **extent)
         pq_loadables = gw.list_tiles(product=input_source['pq'], time=time, tile_buffer=pq_padding, **extent)
 
         # only valid where EO, PQ and DSM are *all* available (and WOFL isn't yet)
@@ -183,7 +187,7 @@ def make_wofs_tasks(index, config, year=None, **kwargs):
         time = Range(datetime(year=year[0], month=1, day=1), datetime(year=year[1] + 1, month=1, day=1))
 
     extent = {}
-    if 'x' in kwargs and kwargs['x'] is not None:
+    if 'x' in kwargs and kwargs['x']:
         extent['crs'] = 'EPSG:3577'
         extent['x'] = kwargs['x']
         extent['y'] = kwargs['y']
@@ -254,7 +258,7 @@ def do_wofs_task(config, source_tile, pq_tile, dsm_tile, file_path, tile_index, 
     dsm = datacube.api.GridWorkflow.load(dsm_tile, resampling='cubic')
 
     # Core computation
-    result = wofls.woffles(*(x.isel(time=0) for x in [source, pq, dsm]))
+    result = wofls.woffles(*(x.isel(time=0) for x in [source, pq, dsm])).astype(np.int16)
 
     # Convert 2D DataArray to 3D DataSet
     result = xarray.concat([result], dim=source.time).to_dataset(name='water')
@@ -329,8 +333,8 @@ APP_NAME = 'wofs'
               help='Number of tasks to queue at the start')
 @click.option('--print-output-product', is_flag=True)
 @click.option('--skip-indexing', is_flag=True, default=False)
-#@click.option('--x', type=(int, int))
-#@click.option('--y', type=(int, int))
+#@click.option('--x', nargs=2, type=int) This functionality doesn't work, creates borders on tiles
+#@click.option('--y', nargs=2, type=int)
 @task_app_options
 @task_app(make_config=make_wofs_config, make_tasks=make_wofs_tasks)
 def wofs_app(index, config, tasks, executor, dry_run, queue_size,
