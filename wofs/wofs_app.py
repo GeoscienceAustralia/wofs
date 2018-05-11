@@ -333,8 +333,8 @@ APP_NAME = 'wofs'
               help='Number of tasks to queue at the start')
 @click.option('--print-output-product', is_flag=True)
 @click.option('--skip-indexing', is_flag=True, default=False)
-@click.option('--x', nargs=2, type=int)
-@click.option('--y', nargs=2, type=int)
+#@click.option('--x', nargs=2, type=int) This functionality doesn't work, creates borders on tiles
+#@click.option('--y', nargs=2, type=int)
 @task_app_options
 @task_app(make_config=make_wofs_config, make_tasks=make_wofs_tasks)
 def wofs_app(index, config, tasks, executor, dry_run, queue_size,
