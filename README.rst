@@ -121,6 +121,17 @@ after logging into the NCI by running:
 
     module load dea
 
+Versioning
+----------
+
+The module version number is set in `wofs/__init__.py`. This version number is based on the **algorithm version number**, which at the moment stands at 1.2. See the `CMI Record for the WOfS Algorithm <http://cmi.ga.gov.au/node/166>`_.
+
+For minor code changes not affecting the algorithm, increment the least significant digit of the version number.
+
+When committing a version number update, please also git tag with the same version number.
+
+
+
 Packaging
 ---------
 
