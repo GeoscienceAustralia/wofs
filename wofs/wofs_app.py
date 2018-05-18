@@ -13,8 +13,12 @@ import logging
 import os
 from collections import defaultdict
 from datetime import datetime
+from functools import partial
+from math import ceil
 from pathlib import Path
 import time
+from typing import Tuple
+
 import numpy as np
 import click
 import xarray
@@ -22,12 +26,19 @@ from pandas import to_datetime
 
 import datacube
 import datacube.model.utils
+from datacube.api.query import Query
+from datacube.index import Index
 from datacube.ui import click as ui
 
 from datacube.compat import integer_types
 from datacube.model import Range
-from datacube.ui.task_app import task_app, task_app_options, check_existing_files
+from datacube.ui import task_app
+from datacube.ui.task_app import check_existing_files, task_app_options
 from datacube.utils.geometry import unary_union, unary_intersection, CRS
+from digitalearthau import serialise, paths
+from digitalearthau.qsub import with_qsub_runner, QSubLauncher
+from digitalearthau.runners.model import TaskDescription
+from digitalearthau.runners.util import init_task_app, submit_subjob
 from wofs import wofls
 
 _LOG = logging.getLogger(__name__)
@@ -139,7 +150,7 @@ def generate_tasks(index, config, time, extent=None):
     dsm_loadables = gw.list_cells(product='dsm1sv10', tile_buffer=terrain_padding, **extent)
 
     for input_source in INPUT_SOURCES:
-        gqa_filter = dict(product=input_source['source_product'], time=time, gqa_iterative_mean_xy=(0,1))
+        gqa_filter = dict(product=input_source['source_product'], time=time, gqa_iterative_mean_xy=(0, 1))
         nbar_loadables = gw.list_tiles(product=input_source['nbar'], time=time, source_filter=gqa_filter, **extent)
         pq_loadables = gw.list_tiles(product=input_source['pq'], time=time, tile_buffer=pq_padding, **extent)
 
@@ -322,8 +333,16 @@ def validate_year(ctx, param, value):
                                  'or as an inclusive range (eg 1996-2001)')
 
 
+def process_result(index: Index, result):
+    for dataset in result.values:
+        index.datasets.add(dataset, sources_policy='skip')
+        _LOG.info('Dataset %s added at %s', dataset.id, dataset.uris)
+
+
 APP_NAME = 'wofs'
 
+
+'''
 
 @click.command(name=APP_NAME)
 @ui.pass_index(app_name=APP_NAME)
@@ -336,11 +355,11 @@ APP_NAME = 'wofs'
 #@click.option('--x', nargs=2, type=int) This functionality doesn't work, creates borders on tiles
 #@click.option('--y', nargs=2, type=int)
 @task_app_options
-@task_app(make_config=make_wofs_config, make_tasks=make_wofs_tasks)
+@task_app(make_config=make_wofs_config(), make_tasks=make_wofs_tasks())
 def wofs_app(index, config, tasks, executor, dry_run, queue_size,
              print_output_product, skip_indexing, *args, **kwargs):
     if dry_run:
-        check_existing_files((task['file_path'] for task in tasks))
+        check_existing_files(check_existing_files(task['file_path'] for task in tasks))
         return 0
     else:
         if not skip_indexing:
@@ -380,7 +399,8 @@ def wofs_app(index, config, tasks, executor, dry_run, queue_size,
                     start = time.clock()
                     index.datasets.add(dataset, sources_policy='skip')
                     indexing_time = time.clock() - start
-                    _LOG.info('Dataset added to index in %fs: id=%s path=%s', indexing_time, dataset.id, dataset.local_path)
+                    _LOG.info('Dataset added to index in %fs: id=%s path=%s',
+                              indexing_time, dataset.id, dataset.local_path)
                 else:
                     _LOG.info('Dataset completed: id=%s path=%s', dataset.id, dataset.local_path)
             successful += 1
@@ -394,6 +414,207 @@ def wofs_app(index, config, tasks, executor, dry_run, queue_size,
 
     click.echo('%d successful, %d failed' % (successful, failed))
     _LOG.info('Completed: %d successful, %d failed', successful, failed)
+
+
+'''
+# pylint: disable=invalid-name
+tag_option = click.option('--tag', type=str,
+                          default='notset',
+                          help='Unique id for the job')
+
+
+@click.command(help='Kick off two stage PBS job')
+@click.option('--project', '-P', default='u46')
+@click.option('--queue', '-q', default='normal',
+              type=click.Choice(['normal', 'express']))
+@click.option('--year', 'time_range',
+              callback=task_app.validate_year,
+              help='Limit the process to a particular year')
+@click.option('--no-qsub', is_flag=True, default=False,
+              help="Skip submitting job")
+@tag_option
+@task_app.app_config_option
+@ui.config_option
+@ui.verbose_option
+@ui.pass_index(app_name=APP_NAME)
+def submit(index: Index,
+           app_config: str,
+           project: str,
+           queue: str,
+           no_qsub: bool,
+           time_range: Tuple[datetime, datetime],
+           tag: str):
+    _LOG.info('Tag: %s', tag)
+
+    app_config_path = Path(app_config).resolve()
+    app_config = paths.read_document(app_config_path)
+
+    task_desc, task_path = init_task_app(
+        job_type="wofs",
+        source_products=[app_config['source_product']],
+        output_products=[app_config['output_product']],
+        # TODO: Use @datacube.ui.click.parsed_search_expressions to allow params other than time from the cli?
+        datacube_query_args=Query(index=index, time=time_range).search_terms,
+        app_config_path=app_config_path,
+        pbs_project=project,
+        pbs_queue=queue
+    )
+    _LOG.info("Created task description: %s", task_path)
+
+    if no_qsub:
+        _LOG.info('Skipping submission due to --no-qsub')
+        return 0
+
+    submit_subjob(
+        name='generate',
+        task_desc=task_desc,
+        command=[
+            'generate', '-v', '-v',
+            '--task-desc', str(task_path),
+            '--tag', tag
+        ],
+        qsub_params=dict(
+            mem='20G',
+            wd=True,
+            ncpus=1,
+            walltime='1h',
+            name='wofs-generate-{}'.format(tag)
+        )
+    )
+
+
+def estimate_job_size(num_tasks):
+    """ Translate num_tasks to number of nodes and walltime
+    """
+    max_nodes = 20
+    cores_per_node = 16
+    task_time_mins = 5
+
+    # TODO: Tune this code:
+    # "We have found for best throughput 25 nodes can produce about 11.5 tiles per minute per node,
+    # with a CPU efficiency of about 96%."
+    if num_tasks < max_nodes * cores_per_node:
+        nodes = ceil(num_tasks / cores_per_node / 4)  # If fewer tasks than max cores, try to get 4 tasks to a core
+    else:
+        nodes = max_nodes
+
+    tasks_per_cpu = ceil(num_tasks / (nodes * cores_per_node))
+    wall_time_mins = '{mins}m'.format(mins=(task_time_mins * tasks_per_cpu))
+
+    return nodes, wall_time_mins
+
+
+@click.command(help='Generate Tasks into file and Queue PBS job to process them')
+@click.option('--no-qsub', is_flag=True, default=False, help="Skip submitting qsub for next step")
+@click.option(
+    '--task-desc', 'task_desc_file', help='Task environment description file',
+    required=True,
+    type=click.Path(exists=True, readable=True, writable=False, dir_okay=False)
+)
+@tag_option
+@ui.verbose_option
+@ui.log_queries_option
+@ui.pass_index(app_name=APP_NAME)
+def generate(index: Index,
+             task_desc_file: str,
+             no_qsub: bool,
+             tag: str):
+    _LOG.info('Tag: %s', tag)
+
+    config, task_desc = _make_config_and_description(index, Path(task_desc_file))
+
+    num_tasks_saved = task_app.save_tasks(
+        config,
+        make_wofs_tasks(index, config, query=task_desc.parameters.query),
+        task_desc.runtime_state.task_serialisation_path
+    )
+    _LOG.info('Found %d tasks', num_tasks_saved)
+
+    if not num_tasks_saved:
+        _LOG.info("No tasks. Finishing.")
+        return 0
+
+    nodes, walltime = estimate_job_size(num_tasks_saved)
+    _LOG.info('Will request %d nodes and %s time', nodes, walltime)
+
+    if no_qsub:
+        _LOG.info('Skipping submission due to --no-qsub')
+        return 0
+
+    submit_subjob(
+        name='run',
+        task_desc=task_desc,
+
+        command=[
+            'run',
+            '-vv',
+            '--task-desc', str(task_desc_file),
+            '--celery', 'pbs-launch',
+            '--tag', tag,
+        ],
+        qsub_params=dict(
+            name='wofs-run-{}'.format(tag),
+            mem='small',
+            wd=True,
+            nodes=nodes,
+            walltime=walltime
+        ),
+    )
+
+
+def _make_config_and_description(index: Index, task_desc_path: Path) -> Tuple[dict, TaskDescription]:
+    task_desc = serialise.load_structure(task_desc_path, TaskDescription)
+
+    task_time: datetime = task_desc.task_dt
+    app_config = task_desc.runtime_state.config_path
+
+    config = paths.read_document(app_config)
+
+    # TODO: This carries over the old behaviour of each load. Should probably be replaced with *tag*
+    config['task_timestamp'] = int(task_time.timestamp())
+    config['app_config_file'] = Path(app_config)
+    config = make_wofs_config(index, config)
+
+    return config, task_desc
+
+
+@click.command(help='Actually process generated task file')
+@click.option('--dry-run', is_flag=True, default=False, help='Check if output files already exist')
+@click.option(
+    '--task-desc', 'task_desc_file', help='Task environment description file',
+    required=True,
+    type=click.Path(exists=True, readable=True, writable=False, dir_okay=False)
+)
+@with_qsub_runner()
+@task_app.load_tasks_option
+@tag_option
+@ui.config_option
+@ui.verbose_option
+@ui.pass_index(app_name=APP_NAME)
+def run(index,
+        dry_run: bool,
+        tag: str,
+        task_desc_file: str,
+        qsub: QSubLauncher,
+        *args, **kwargs):
+    _LOG.info('Starting Fractional Cover processing...')
+    _LOG.info('Tag: %r', tag)
+
+    task_desc = serialise.load_structure(Path(task_desc_file), TaskDescription)
+    config, tasks = task_app.load_tasks(task_desc.runtime_state.task_serialisation_path)
+
+    if dry_run:
+        task_app.check_existing_files((task['filename'] for task in tasks))
+        return 0
+
+    task_func = partial(do_wofs_task, config)
+    process_func = partial(process_result, index)
+
+    try:
+        with_qsub_runner(task_desc, tasks, task_func, process_func)
+        _LOG.info("Runner finished normally, triggering shutdown.")
+    finally:
+        with_qsub_runner().stop()
 
 
 if __name__ == '__main__':
