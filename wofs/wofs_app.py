@@ -7,8 +7,6 @@ from __future__ import absolute_import, print_function
 
 import copy
 import errno
-import itertools
-import json
 import logging
 import os
 from collections import defaultdict
@@ -16,7 +14,6 @@ from datetime import datetime
 from functools import partial
 from math import ceil
 from pathlib import Path
-import time
 from typing import Tuple
 
 import numpy as np
@@ -33,13 +30,12 @@ from datacube.ui import click as ui
 from datacube.compat import integer_types
 from datacube.model import Range
 from datacube.ui import task_app
-from datacube.ui.task_app import check_existing_files, task_app_options
 from datacube.utils.geometry import unary_union, unary_intersection, CRS
 from digitalearthau import serialise, paths
 from digitalearthau.qsub import with_qsub_runner, QSubLauncher
 from digitalearthau.runners.model import TaskDescription
 from digitalearthau.runners.util import init_task_app, submit_subjob
-from wofs import wofls
+from wofs import wofls, __version__
 
 _LOG = logging.getLogger(__name__)
 
@@ -342,6 +338,12 @@ def process_result(index: Index, result):
 APP_NAME = 'wofs'
 
 
+@click.group(help='Datacube WOfS')
+@click.version_option(version=__version__)
+def cli():
+    pass
+
+
 '''
 
 @click.command(name=APP_NAME)
@@ -618,4 +620,4 @@ def run(index,
 
 
 if __name__ == '__main__':
-    wofs_app()
+    cli()
