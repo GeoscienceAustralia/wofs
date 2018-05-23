@@ -100,7 +100,7 @@ def make_taskfile(year, app_config, config_arg, confirm=True):
     taskfile = Path(app_config.stem + year_append + '.bin').absolute()
 
     year_arg = '--year %(year)s' % dict(year=year) if year is not None else ''
-    prep = 'datacube-wofs -v %(config_arg)s --app-config "%(app_config)s" %(year_arg)s --save-tasks "%(taskfile)s"'
+    prep = 'datacube-wofs %(config_arg)s --app-config "%(app_config)s" %(year_arg)s --save-tasks "%(taskfile)s"'
     cmd = prep % dict(config_arg=config_arg,
                       app_config=app_config,
                       taskfile=taskfile,
