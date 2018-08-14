@@ -5,7 +5,7 @@ from datacube import Datacube
 from wofs.wofls import woffles
 import pytest
 
-WATER = 136 # note, this is wrong.
+WATER = 136  # note, this is wrong.
 NOT_WATER = 8
 
 

@@ -1,13 +1,12 @@
 # Josh Sixsmith, refactored by BL.
-
+from __future__ import absolute_import, division
 import numpy
 import logging
 import gc
 from wofs import boilerplate
 
-# import argparse
-# from osgeo import gdal
 
+# pylint: disable=too-many-locals,too-many-statements
 @boilerplate.simple_numpify
 def classify(images, float64=False):
     """

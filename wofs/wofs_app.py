@@ -9,12 +9,12 @@ The three entry points are:
 2. datacube-wofs generate
 3. datacube-wofs run
 """
-import copy
-import errno
+from __future__ import absolute_import, division
 import logging
 import os
-from collections import defaultdict
+import copy
 from copy import deepcopy
+from collections import defaultdict
 from datetime import datetime
 from functools import partial
 from math import ceil
@@ -30,39 +30,41 @@ from pandas import to_datetime
 import datacube
 import datacube.model.utils
 from datacube.api.query import Query
+from datacube.api.grid_workflow import Tile
 from datacube.index import Index
+from datacube.index.exceptions import MissingRecordError
 from datacube.ui import click as ui
-
 from datacube.compat import integer_types
 from datacube.model import Range, DatasetType
 from datacube.ui import task_app
-from datacube.ui.task_app import check_existing_files
 from datacube.utils.geometry import unary_union, unary_intersection, CRS
+from datacube.storage.storage import write_dataset_to_netcdf
 from digitalearthau import serialise, paths
 from digitalearthau.qsub import with_qsub_runner, QSubLauncher, TaskRunner
 from digitalearthau.runners.model import TaskDescription
 from digitalearthau.runners.util import init_task_app, submit_subjob
 from wofs import wofls, __version__
 
+APP_NAME = 'wofs'
 _LOG = logging.getLogger(__name__)
 ROOT_DIR = Path(__file__).absolute().parent.parent
 CONFIG_DIR = ROOT_DIR / 'config'
 SCRIPT_DIR = ROOT_DIR / 'scripts'
 _MEASUREMENT_KEYS_TO_COPY = ('zlib', 'complevel', 'shuffle', 'fletcher32', 'contiguous', 'attrs')
 
-INPUT_SOURCES = [{'nbar': 'ls5_nbart_albers',
+INPUT_SOURCES = [{'nbart': 'ls5_nbart_albers',
                   'pq': 'ls5_pq_legacy_scene',
                   'sensor_name': 'TM',
                   'platform_name': 'LANDSAT-5',
                   'platform_name_short': 'ls5',
                   'source_product': 'ls5_level1_scene'},
-                 {'nbar': 'ls7_nbart_albers',
+                 {'nbart': 'ls7_nbart_albers',
                   'pq': 'ls7_pq_legacy_scene',
                   'sensor_name': 'ETM',
                   'platform_name': 'LANDSAT-7',
                   'platform_name_short': 'ls7',
                   'source_product': 'ls7_level1_scene'},
-                 {'nbar': 'ls8_nbart_albers',
+                 {'nbart': 'ls8_nbart_albers',
                   'pq': 'ls8_pq_legacy_scene',
                   'sensor_name': 'OLI',
                   'platform_name': 'LANDSAT-8',
@@ -71,7 +73,7 @@ INPUT_SOURCES = [{'nbar': 'ls5_nbart_albers',
                  ]
 
 
-def make_wofs_config(index, config, dry_run=False, **query):
+def make_wofs_config(index, config, dry_run=False):
     """
     Refine the configuration
 
@@ -88,8 +90,8 @@ def make_wofs_config(index, config, dry_run=False, **query):
     is specific to the database instance (note, this may change in future).
     """
 
-    if not os.access(config['location'], os.W_OK):
-        _LOG.warning('Current user appears not have write access output location: %s', config['location'])
+    if not dry_run:
+        _LOG.info('Created DatasetType %s', config['product_definition']['name'])  # true? nyet.
 
     config['wofs_dataset_type'] = get_product(index, config['product_definition'])
 
@@ -97,6 +99,9 @@ def make_wofs_config(index, config, dry_run=False, **query):
 
     if 'task_timestamp' not in config:
         config['task_timestamp'] = int(time_now())
+
+    if not os.access(config['location'], os.W_OK):
+        _LOG.error('Current user appears not have write access output location: %s', config['location'])
 
     return config
 
@@ -107,13 +112,13 @@ def _build_variable_params(config: dict) -> dict:
 
     variable_params = {}
     for mapping in config['product_definition']['measurements']:
-        measurment_name = mapping['name']
-        variable_params[measurment_name] = {
+        measurement_name = mapping['name']
+        variable_params[measurement_name] = {
             k: v
             for k, v in mapping.items()
             if k in _MEASUREMENT_KEYS_TO_COPY
         }
-        variable_params[measurment_name]['chunksizes'] = chunking
+        variable_params[measurement_name]['chunksizes'] = chunking
     return variable_params
 
 
@@ -137,6 +142,22 @@ def _create_output_definition(config: dict, source_product: DatasetType) -> dict
     return output_product_definition
 
 
+def _ensure_products(app_config: dict, index: Index, dry_run=False) -> Tuple[DatasetType, DatasetType]:
+    source_product_name = app_config['source_product']
+    source_product = index.products.get_by_name(source_product_name)
+    if not source_product:
+        raise ValueError(f"Source Product {source_product_name} does not exist")
+
+    output_product = DatasetType(
+        source_product.metadata_type,
+        _create_output_definition(app_config, source_product)
+    )
+    if not dry_run:
+        _LOG.info('Built product %s. Adding to index.', output_product.name)
+        output_product = index.products.add(output_product)
+    return source_product, output_product
+
+
 def get_product(index, definition, dry_run=False, skip_indexing=False):
     """
     Get the database record corresponding to the given product definition
@@ -151,6 +172,9 @@ def get_product(index, definition, dry_run=False, skip_indexing=False):
 
 
 def get_filename(config, x, y, t):
+    """
+    Get file path from the config location
+    """
     destination = config['location']
     filename_template = config['file_path_template']
 
@@ -161,6 +185,9 @@ def get_filename(config, x, y, t):
 
 
 def group_tiles_by_cells(tile_index_list, cell_index_list):
+    """
+    Group the tiles by cells
+    """
     key_map = defaultdict(list)
     for x, y, t in tile_index_list:
         if (x, y) in cell_index_list:
@@ -168,9 +195,10 @@ def group_tiles_by_cells(tile_index_list, cell_index_list):
     return key_map
 
 
+# pylint: disable=too-many-locals
 def generate_tasks(index, config, time, extent=None):
     """
-    Yield tasks (loadables (nbar,ps,dsm) + output targets), for dispatch to workers.
+    Yield tasks (loadables (nbart,ps,dsm) + output targets), for dispatch to workers.
 
     This function is the equivalent of an SQL join query,
     and is required as a workaround for datacube API abstraction layering.
@@ -191,25 +219,35 @@ def generate_tasks(index, config, time, extent=None):
     wofls_loadables = gw.list_tiles(product=product.name, time=time, **extent)
     dsm_loadables = gw.list_cells(product='dsm1sv10', tile_buffer=terrain_padding, **extent)
 
+    if dsm_loadables:
+        _LOG.info('Found %d dsm loadables', len(dsm_loadables))
+    else:
+        _LOG.warning('No dsm1sv10 product in the database')
+
     for input_source in INPUT_SOURCES:
         gqa_filter = dict(product=input_source['source_product'], time=time, gqa_iterative_mean_xy=(0, 1))
-        nbar_loadables = gw.list_tiles(product=input_source['nbar'], time=time, source_filter=gqa_filter, **extent)
+        nbart_loadables = gw.list_tiles(product=input_source['nbart'], time=time, source_filter=gqa_filter, **extent)
         pq_loadables = gw.list_tiles(product=input_source['pq'], time=time, tile_buffer=pq_padding, **extent)
 
+        _LOG.info('Found %d nbart loadables for %r input source', len(nbart_loadables), input_source['nbart'])
+        _LOG.info('Found %d pq  loadables for %r input source', len(pq_loadables), input_source['pq'])
+
         # only valid where EO, PQ and DSM are *all* available (and WOFL isn't yet)
-        tile_index_set = (set(nbar_loadables) & set(pq_loadables)) - set(wofls_loadables)
+        tile_index_set = (set(nbart_loadables) & set(pq_loadables)) - set(wofls_loadables)
         key_map = group_tiles_by_cells(tile_index_set, dsm_loadables)
+
+        _LOG.info('Found %d items for %r input source', len(list(key_map.keys())), input_source['source_product'])
 
         # Cell index is X,Y, tile_index is X,Y,T
         for cell_index, tile_indexes in key_map.items():
             geobox = gw.grid_spec.tile_geobox(cell_index)
             dsm_tile = gw.update_tile_lineage(dsm_loadables[cell_index])
             for tile_index in tile_indexes:
-                nbar_tile = gw.update_tile_lineage(nbar_loadables.pop(tile_index))
+                nbart_tile = gw.update_tile_lineage(nbart_loadables.pop(tile_index))
                 pq_tile = gw.update_tile_lineage(pq_loadables.pop(tile_index))
-                valid_region = find_valid_data_region(geobox, nbar_tile, pq_tile, dsm_tile)
+                valid_region = find_valid_data_region(geobox, nbart_tile, pq_tile, dsm_tile)
                 if not valid_region.is_empty:
-                    yield dict(source_tile=nbar_tile,
+                    yield dict(source_tile=nbart_tile,
                                pq_tile=pq_tile,
                                dsm_tile=dsm_tile,
                                file_path=get_filename(config, *tile_index),
@@ -219,33 +257,37 @@ def generate_tasks(index, config, time, extent=None):
                                valid_region=valid_region)
 
 
-def make_wofs_tasks(index, config, query, **kwargs):
+def make_wofs_tasks(index, config, year=None, **kwargs):
     """
     Generate an iterable of 'tasks', matching the provided filter parameters.
-
     Tasks can be generated for:
-
      - all of time
      - 1 particular year
      - a range of years
-
     Tasks can also be restricted to a given spatial region, specified in `kwargs['x']` and `kwargs['y']` in `EPSG:3577`.
     """
     # TODO: Filter query to valid options
-
-    time = query.get('time')
+    if isinstance(year, integer_types):
+        query_time = Range(datetime(year=year, month=1, day=1), datetime(year=year + 1, month=1, day=1))
+    elif isinstance(year, tuple):
+        query_time = Range(datetime(year=year[0], month=1, day=1), datetime(year=year[1] + 1, month=1, day=1))
+    else:
+        query_time = year
 
     extent = {}
-    if 'x' in query and query['x']:
+    if 'x' in kwargs and kwargs['x']:
         extent['crs'] = 'EPSG:3577'
-        extent['x'] = query['x']
-        extent['y'] = query['y']
+        extent['x'] = kwargs['x']
+        extent['y'] = kwargs['y']
 
-    tasks = generate_tasks(index, config, time=time, extent=extent)
+    tasks = generate_tasks(index, config, time=query_time, extent=extent)
     return tasks
 
 
 def get_app_metadata(config):
+    """
+    Get WOfS app metadata
+    """
     doc = {
         'lineage': {
             'algorithm': {
@@ -260,10 +302,14 @@ def get_app_metadata(config):
 
 
 def find_valid_data_region(geobox, *sources_list):
+    """
+    Find the valid data region
+    """
     # perform work in CRS of the output tile geobox
     unfused = [[dataset.extent.to_crs(geobox.crs) for dataset in tile.sources.item()]
                for tile in sources_list]
     # fuse the dataset extents within each source tile
+    # pylint: disable=map-builtin-not-iterating
     tiles_extents = map(unary_union, unfused)
     # find where (within the output tile) that all prerequisite inputs available
     return unary_intersection([geobox.extent] + list(tiles_extents))
@@ -280,25 +326,31 @@ def docvariable(agdc_dataset, time):
     return docarray
 
 
-def do_wofs_task(config, source_tile, pq_tile, dsm_tile, file_path, tile_index, extra_global_attributes, valid_region):
+def do_wofs_task(config, task):
     """
     Load data, run WOFS algorithm, attach metadata, and write output.
-
     :param dict config: Config object
-    :param datacube.api.Tile source_tile: NBAR Tile
-    :param datacube.api.Tile pq_tile: Pixel quality Tile
-    :param datacube.api.Tile dsm_tile: Digital Surface Model Tile
-    :param Path file_path: output file destination
-    :param tuple tile_index: Index of the tile
+    :param dict task: Dictionary of tasks
 
     :return: Dataset objects representing the generated data that can be added to the index
     :rtype: list(datacube.model.Dataset)
     """
+    # datacube.api.Tile source_tile: NBAR Tile
+    source_tile: Tile = task['source_tile']
+
+    # datacube.api.Tile pq_tile: Pixel quality Tile
+    pq_tile: Tile = task['pq_tile']
+
+    # datacube.api.Tile dsm_tile: Digital Surface Model Tile
+    dsm_tile: Tile = task['dsm_tile']
+
+    # Path file_path: output file destination
+    file_path = Path(task['file_path'])  # Path file_path: output file destination
+
     product = config['wofs_dataset_type']
-    app_info = get_app_metadata(config)
 
     if file_path.exists():
-        raise OSError(errno.EEXIST, 'Output file already exists', str(file_path))
+        _LOG.warning('Output file already exists %r', str(file_path))
 
     # load data
     bands = ['blue', 'green', 'red', 'nir', 'swir1', 'swir2']  # inputs needed from EO data)
@@ -331,8 +383,8 @@ def do_wofs_task(config, source_tile, pq_tile, dsm_tile, file_path, tile_index, 
         center_time=result.time.values[0],
         uri=file_path.absolute().as_uri(),
         extent=source_tile.geobox.extent,
-        valid_data=valid_region,
-        app_info=app_info
+        valid_data=task['valid_region'],
+        app_info=get_app_metadata(config)
     )
 
     # inherit optional metadata from EO, for future convenience only
@@ -349,22 +401,50 @@ def do_wofs_task(config, source_tile, pq_tile, dsm_tile, file_path, tile_index, 
     result['dataset'] = docvariable(new_record, result.time)
 
     global_attributes = config['global_attributes'].copy()
-    global_attributes.update(extra_global_attributes)
+    global_attributes.update(task['extra_global_attributes'])
 
     # write output
-    datacube.storage.storage.write_dataset_to_netcdf(result, file_path,
-                                                     global_attributes=global_attributes,
-                                                     variable_params=config['variable_params'])
+    write_dataset_to_netcdf(result, file_path,
+                            global_attributes=global_attributes,
+                            variable_params=config['variable_params'])
     return [new_record]
 
 
-def process_result(index: Index, result):
-    for dataset in result.values:
-        index.datasets.add(dataset, sources_policy='skip')
-        _LOG.info('Dataset %s added at %s', dataset.id, dataset.uris)
+def _index_datasets(index: Index, results):
+    """
+    Index newly created WOfS datasets
+    """
+    for dataset in results:
+        try:
+            index.datasets.add(dataset,
+                               with_lineage=False,
+                               sources_policy='skip')
+            _LOG.info('Dataset %s added: %r', dataset.id, dataset)
+        except (ValueError, MissingRecordError) as err:
+            _LOG.error('Failed to add %r dataset: Error (%s)',
+                       dataset,
+                       err)
 
 
-APP_NAME = 'wofs'
+def estimate_job_size(num_tasks):
+    """ Translate num_tasks to number of nodes and walltime
+    """
+    max_nodes = 20
+    cores_per_node = 16
+    task_time_mins = 5
+
+    # TODO: Tune this code:
+    # "We have found for best throughput 25 nodes can produce about 11.5 tiles per minute per node,
+    # with a CPU efficiency of about 96%."
+    if num_tasks < max_nodes * cores_per_node:
+        nodes = ceil(num_tasks / cores_per_node / 4)  # If fewer tasks than max cores, try to get 4 tasks to a core
+    else:
+        nodes = max_nodes
+
+    tasks_per_cpu = ceil(num_tasks / (nodes * cores_per_node))
+    wall_time_mins = '{mins}m'.format(mins=(task_time_mins * tasks_per_cpu))
+
+    return nodes, wall_time_mins
 
 
 # pylint: disable=invalid-name
@@ -388,11 +468,7 @@ def list_configs():
 @cli.command(
     help="Ensure the products exist for the given WOfS config, creating them if necessary."
 )
-@click.argument(
-    'app-config-files',
-    nargs=-1,
-    type=click.Path(exists=True, readable=True, writable=False, dir_okay=False)
-)
+@task_app.app_config_option
 @ui.config_option
 @ui.verbose_option
 @ui.pass_index(app_name=APP_NAME)
@@ -402,27 +478,8 @@ def ensure_products(index, app_config_files):
 
         click.secho(f"Loading {app_config_file}", bold=True)
         app_config = paths.read_document(app_config_file)
-
-
-def estimate_job_size(num_tasks):
-    """ Translate num_tasks to number of nodes and walltime
-    """
-    max_nodes = 20
-    cores_per_node = 16
-    task_time_mins = 5
-
-    # TODO: Tune this code:
-    # "We have found for best throughput 25 nodes can produce about 11.5 tiles per minute per node,
-    # with a CPU efficiency of about 96%."
-    if num_tasks < max_nodes * cores_per_node:
-        nodes = ceil(num_tasks / cores_per_node / 4)  # If fewer tasks than max cores, try to get 4 tasks to a core
-    else:
-        nodes = max_nodes
-
-    tasks_per_cpu = ceil(num_tasks / (nodes * cores_per_node))
-    wall_time_mins = '{mins}m'.format(mins=(task_time_mins * tasks_per_cpu))
-
-    return nodes, wall_time_mins
+        in_product, out_product = _ensure_products(app_config, index)
+        click.secho(f"Product {in_product.name} ? {out_product.name}")
 
 
 @cli.command(help='Kick off two stage PBS job')
@@ -449,14 +506,18 @@ def submit(index: Index,
     _LOG.info('Tag: %s', tag)
 
     app_config_path = Path(app_config).resolve()
-    app_config = paths.read_document(app_config_path)
+
+    if not time_range or not all(time_range):
+        query_args = Query(index=index).search_terms
+    else:
+        query_args = Query(index=index, time=time_range).search_terms
 
     task_desc, task_path = init_task_app(
         job_type="wofs",
         source_products=[],  # [app_config['source_product']],
         output_products=['wofs_albers'],
         # TODO: Use @datacube.ui.click.parsed_search_expressions to allow params other than time from the cli?
-        datacube_query_args=Query(index=index, time=time_range).search_terms,
+        datacube_query_args=query_args,
         app_config_path=app_config_path,
         pbs_project=project,
         pbs_queue=queue
@@ -465,33 +526,27 @@ def submit(index: Index,
 
     if no_qsub:
         _LOG.info('Skipping submission due to --no-qsub')
-        return 0
-
-    submit_subjob(
-        name='generate',
-        task_desc=task_desc,
-        command=[
-            'generate', '-v', '-v',
-            '--task-desc', str(task_path),
-            '--tag', tag
-        ],
-        qsub_params=dict(
-            mem='20G',
-            wd=True,
-            ncpus=1,
-            walltime='1h',
-            name='wofs-generate-{}'.format(tag)
-        )
-    )
+    else:
+        submit_subjob(
+            name='generate',
+            task_desc=task_desc,
+            command=[
+                'generate', '-v', '-v',
+                '--task-desc', str(task_path),
+                '--tag', tag],
+            qsub_params=dict(
+                mem='20G',
+                wd=True,
+                ncpus=1,
+                walltime='1h',
+                name='wofs-generate-{}'.format(tag)))
 
 
 @cli.command(help='Generate Tasks into file and Queue PBS job to process them')
 @click.option('--no-qsub', is_flag=True, default=False, help="Skip submitting qsub for next step")
-@click.option(
-    '--task-desc', 'task_desc_file', help='Task environment description file',
-    required=True,
-    type=click.Path(exists=True, readable=True, writable=False, dir_okay=False)
-)
+@click.option('--task-desc', 'task_desc_file', help='Task environment description file',
+              required=True,
+              type=click.Path(exists=True, readable=True, writable=False, dir_okay=False))
 @tag_option
 @ui.verbose_option
 @ui.log_queries_option
@@ -506,7 +561,7 @@ def generate(index: Index,
 
     num_tasks_saved = task_app.save_tasks(
         config,
-        make_wofs_tasks(index, config, query=task_desc.parameters.query),
+        make_wofs_tasks(index, config, year=task_desc.parameters.query.get('time')),
         str(task_desc.runtime_state.task_serialisation_path)
     )
     _LOG.info('Found %d tasks', num_tasks_saved)
@@ -541,6 +596,7 @@ def generate(index: Index,
             walltime=walltime
         ),
     )
+    return 0
 
 
 def _make_config_and_description(index: Index, task_desc_path: Path) -> Tuple[dict, TaskDescription]:
@@ -561,11 +617,9 @@ def _make_config_and_description(index: Index, task_desc_path: Path) -> Tuple[di
 
 @cli.command(help='Actually process generated task file')
 @click.option('--dry-run', is_flag=True, default=False, help='Check if output files already exist')
-@click.option(
-    '--task-desc', 'task_desc_file', help='Task environment description file',
-    required=True,
-    type=click.Path(exists=True, readable=True, writable=False, dir_okay=False)
-)
+@click.option('--task-desc', 'task_desc_file', help='Task environment description file',
+              required=True,
+              type=click.Path(exists=True, readable=True, writable=False, dir_okay=False))
 @with_qsub_runner()
 @task_app.load_tasks_option
 @tag_option
@@ -590,13 +644,15 @@ def run(index,
         return 0
 
     task_func = partial(do_wofs_task, config)
-    process_func = partial(process_result, index)
+    process_func = partial(_index_datasets, index)
 
     try:
         runner(task_desc, tasks, task_func, process_func)
         _LOG.info("Runner finished normally, triggering shutdown.")
     finally:
         runner.stop()
+
+    return 0
 
 
 if __name__ == '__main__':
