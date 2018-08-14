@@ -1,3 +1,4 @@
+from __future__ import absolute_import, division
 import numpy
 import ephem
 from scipy import ndimage
@@ -25,7 +26,7 @@ def _shade_row(shade_mask, elev_m, sun_alt_deg, pixel_scale_m, no_data, fuzz=0.0
 
     # project shadows from tips (light->shadow transition)
     switch = numpy.where(shade_mask[:-1] != shade_mask[1:])
-    for i in switch[0]: # note: could use flatnonzero instead of where; or else switch,=; to avoid [0]. --BL
+    for i in switch[0]:  # note: could use flatnonzero instead of where; or else switch,=; to avoid [0]. --BL
         if shade_mask[i] == LIT:
             # TODO: horizontal fuzz?
             shadow_level = (elev_m[i] + fuzz) - numpy.arange(shade_mask.size - i) * (tan_sun_alt * pixel_scale_m)
@@ -35,47 +36,53 @@ def _shade_row(shade_mask, elev_m, sun_alt_deg, pixel_scale_m, no_data, fuzz=0.0
 
     return shade_mask
 
+
 def vector_to_crs(point, vector, original_crs, destination_crs):
     """
-    Transform a vector (in the tangent space of a particular point) to a new CRS 
-    
-    Expects point and vector to each be a 2-tuple in the original CRS.
-    Returns a pair of 2-tuples (transformed point and vector).
-    Order of coordinates is specified by the CRS (or the OGR library)."""
-    
+        Transform a vector (in the tangent space of a particular point) to a new CRS
+        Expects point and vector to each be a 2-tuple in the original CRS.
+        Returns a pair of 2-tuples (transformed point and vector).
+        Order of coordinates is specified by the CRS (or the OGR library).
+    """
+
     import osr
+    # pylint: disable=protected-access,zip-builtin-not-iterating
     transform = osr.CoordinateTransformation(original_crs._crs, destination_crs._crs)
     # theoretically should use infinitesimal displacement
     # i.e. jacobian of the transformation
     # but here just use a finite displatement (for convenience of implementation)
-    original_line = [point, tuple(map(sum,zip(point,vector)))]
-    transformed_line = [p[:2] for p in transform.TransformPoints(original_line)] # disregard elevation    
+    original_line = [point, tuple(map(sum, zip(point, vector)))]
+    transformed_line = [p[:2] for p in transform.TransformPoints(original_line)]  # disregard elevation
     transformed_point = transformed_line[0]
-    transformed_vector = tuple(map(lambda x: x[1]-x[0], zip(*transformed_line))) # take difference (i.e. remove origin offset)
+    # take difference (i.e. remove origin offset)
+    transformed_vector = tuple(map(lambda x: x[1] - x[0], zip(*transformed_line)))
     return transformed_point, transformed_vector
-    
+
+
 def solar_vector(p, time, crs):
-    (lon,lat), (dlon,dlat) = vector_to_crs(p, (0,100), 
-                                           original_crs=crs, 
-                                           destination_crs=CRS('EPSG:4326'))
-    
+    (lon, lat), (dlon, dlat) = vector_to_crs(p, (0, 100),
+                                             original_crs=crs,
+                                             destination_crs=CRS('EPSG:4326'))
+
     # azimuth north to east of the vertical direction of the crs
-    vert_az = math.atan2(dlon*math.cos(math.radians(lat)), dlat)
+    vert_az = math.atan2(dlon * math.cos(math.radians(lat)), dlat)
 
     observer = ephem.Observer()
+    # pylint: disable=assigning-non-slot
     observer.lat = math.radians(lat)
     observer.lon = math.radians(lon)
     observer.date = time
     sun = ephem.Sun(observer)
 
-    sun_az = sun.az-vert_az
-    x = math.sin(sun_az)*math.cos(sun.alt)
-    y = -math.cos(sun_az)*math.cos(sun.alt)
+    sun_az = sun.az - vert_az
+    x = math.sin(sun_az) * math.cos(sun.alt)
+    y = -math.cos(sun_az) * math.cos(sun.alt)
     z = math.sin(sun.alt)
 
     return x, y, z, sun_az, sun.alt
 
 
+# pylint: disable=too-many-locals
 def shadows_and_slope(tile, time):
     """
     Terrain shadow masking (Greg's implementation) and slope masking.
@@ -96,22 +103,22 @@ def shadows_and_slope(tile, time):
 
     y_size, x_size = tile.elevation.shape
 
-    xgrad = ndimage.sobel(tile.elevation, axis=1) / abs(8*tile.affine.a)
-    ygrad = ndimage.sobel(tile.elevation, axis=0) / abs(8*tile.affine.e)
+    xgrad = ndimage.sobel(tile.elevation, axis=1) / abs(8 * tile.affine.a)
+    ygrad = ndimage.sobel(tile.elevation, axis=0) / abs(8 * tile.affine.e)
 
     # length of the terrain normal vector
-    norm_len = numpy.sqrt(xgrad*xgrad + ygrad*ygrad + 1.0)
+    norm_len = numpy.sqrt((xgrad * xgrad) + (ygrad * ygrad) + 1.0)
 
-    #hypot = numpy.hypot(xgrad, ygrad)
-    #slope = numpy.degrees(numpy.arctan(hypot))
+    # hypot = numpy.hypot(xgrad, ygrad)
+    # slope = numpy.degrees(numpy.arctan(hypot))
 
-    slope = numpy.degrees(numpy.arccos(1.0/norm_len))
+    slope = numpy.degrees(numpy.arccos(1.0 / norm_len))
 
     x, y = tile.dims.keys()
-    tile_center = (tile[x].values[x_size//2], tile[y].values[y_size//2])
+    tile_center = (tile[x].values[x_size // 2], tile[y].values[y_size // 2])
     solar_vec = solar_vector(tile_center, to_datetime(time), tile.crs)
-    sia = (solar_vec[2] - xgrad*solar_vec[0] - ygrad*solar_vec[1])/norm_len
-    sia = 90-numpy.degrees(numpy.arccos(sia))
+    sia = (solar_vec[2] - (xgrad * solar_vec[0]) - (ygrad * solar_vec[1])) / norm_len
+    sia = 90 - numpy.degrees(numpy.arccos(sia))
 
     # # TODO: water_band=SolarTerrainShadowSlope(self.dsm_path).filter(water_band)
     rot_degrees = 90.0 + math.degrees(solar_vec[3])

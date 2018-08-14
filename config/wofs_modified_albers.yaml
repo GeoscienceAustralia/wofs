@@ -10,7 +10,7 @@ product_definition:
     metadata_type: eo
     metadata:
       product_type: wofs
-      format: 
+      format:
         name: NetCDF
     storage:
         crs: EPSG:3577
@@ -33,7 +33,7 @@ product_definition:
         units: '1'
         flags_definition:
             dry:
-              bits: [7, 6, 5, 4, 3, 1, 0] # Ignore sea mask
+              bits: [7, 6, 5, 4, 3, 1, 0]  # Ignore sea mask
               description: No water detected
               values: {0: true}
             nodata:
@@ -65,7 +65,7 @@ product_definition:
               description: Cloudy
               values: {0: false, 1: true}
             wet:
-              bits: [7, 6, 5, 4, 3, 1, 0] # Ignore sea mask
+              bits: [7, 6, 5, 4, 3, 1, 0]  # Ignore sea mask
               description: Clear and Wet
               values: {128: true}
 

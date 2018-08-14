@@ -9,6 +9,9 @@ import os
 import re
 
 from setuptools import setup, find_packages
+from numpy.distutils.core import Extension, setup, Command
+
+import versioneer
 
 here = os.path.abspath(os.path.dirname(__file__))
 config_files = ['config/' + name for name in os.listdir('config')]
@@ -19,17 +22,27 @@ def read(*parts):
         return fp.read()
 
 
-def find_version(*file_paths):
-    version_file = read(*file_paths)
-    version_match = re.search(r"^__version__ = ['\"]([^'\"]*)['\"]",
-                              version_file, re.M)
-    if version_match:
-        return version_match.group(1)
-    raise RuntimeError("Unable to find version string.")
+class PyTest(Command):
+    user_options = []
 
+    def initialize_options(self):
+        pass
+
+    def finalize_options(self):
+        pass
+
+    def run(self):
+        import sys, subprocess
+        errno = subprocess.call([sys.executable, 'runtests.py'])
+        raise SystemExit(errno)
+
+
+my_cmdclass = versioneer.get_cmdclass()
+my_cmdclass['test'] = PyTest
 
 setup(name='wofs',
-      version=find_version("wofs", "__init__.py"),
+      version=versioneer.get_version(),
+      cmdclass=my_cmdclass,
       description='Water Observations from Space - Digital Earth Australia',
       long_description=open('README.rst', 'r').read(),
       license='Apache License 2.0',
@@ -44,7 +57,7 @@ setup(name='wofs',
       ],
       entry_points={
           'console_scripts': [
-              'datacube-wofs = wofs.wofs_app:wofs_app',
+              'datacube-wofs = wofs.wofs_app:cli',
           ]
       },
       scripts=['scripts/datacube-wofs-launcher', 'scripts/distributed.sh'])

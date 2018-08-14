@@ -1,10 +1,12 @@
 import datacube
 import geopandas
-import rasterio, rasterio.features
+import rasterio
+import rasterio.features
 import matplotlib.pyplot as plt
 import xarray
 import numpy as np
-import scipy, scipy.ndimage
+import scipy
+import scipy.ndimage
 import glob
 import sklearn.linear_model
 import pickle
@@ -27,13 +29,15 @@ urban_areas = -4.9358
 threshold = 0.05 # also by WOfS journal paper. Actually, maybe 0.01 (or 0.02)
 """
 
-################ Utilities
+# --------------- Utilities ---------------
+
 
 def numpy_to_xarray(array, geobox, name=None):
     """Utility to convert ndarray to DataArray, using a datacube.model.GeoBox"""
-    coords=[xarray.IndexVariable(x, geobox.coords[x].values, attrs=dict(units=geobox.coords[x].units))
-            for x in geobox.dims]
+    coords = [xarray.IndexVariable(x, geobox.coords[x].values, attrs=dict(units=geobox.coords[x].units))
+              for x in geobox.dims]
     return xarray.DataArray(array, coords=coords, attrs=dict(crs=geobox.crs), name=name)
+
 
 def geopandas_to_xarray(table, geobox, name=None):
     """Rasterise (with reprojection)"""
@@ -42,17 +46,17 @@ def geopandas_to_xarray(table, geobox, name=None):
                                         transform=geobox.affine)
     return numpy_to_xarray(array, geobox, name)
 
+
 # Note on dimensions:
 #   Rasterio has named height and width parameters,
 #   referring to the first and second index of the raster array respectively.
 #   ODC GeoBox names width and height (reverse order) in its constructor,
 #   however height is associated with the "y" axis internally, which
 #   still becomes the first of the two axes in the xarray.
-
 def rasterfile_to_xarray(file, geobox=None, name=None, nodata=None):
     """Blit like"""
     with rasterio.open(file) as src:
-        assert src.indexes == (1,) # assume single band
+        assert src.indexes == (1,)  # assume single band
         if geobox is None:
             from datacube.utils.geometry import GeoBox, CRS
 
@@ -64,11 +68,11 @@ def rasterfile_to_xarray(file, geobox=None, name=None, nodata=None):
 
             geobox = GeoBox(width=src.width,
                             height=src.height,
-                            affine=src.affine, # .transform is a list, .affine is an object
+                            affine=src.affine,  # .transform is a list, .affine is an object
                             crs=CRS(src.crs.wkt))
             array = src.read(1)
         else:
-            band = rasterio.band(src, 1) # do not attempt to read entire extent into memory
+            band = rasterio.band(src, 1)  # do not attempt to read entire extent into memory
             array = np.empty((geobox.height, geobox.width), dtype=band.dtype)
             rasterio.warp.reproject(source=band,
                                     destination=array,
@@ -76,6 +80,7 @@ def rasterfile_to_xarray(file, geobox=None, name=None, nodata=None):
                                     dst_transform=geobox.affine,
                                     dst_nodata=nodata)
     return numpy_to_xarray(array, geobox, name)
+
 
 def write(filename, data, nodata=None):
     """ Output raster to filesystem """
@@ -90,22 +95,23 @@ def write(filename, data, nodata=None):
                        driver='GTIFF',
                        nodata=nodata,
                        tiled=True,
-                       compress='LZW', # balance IO volume and CPU speed
+                       compress='LZW',  # balance IO volume and CPU speed
                        affine=affine,
                        crs=crs) as destination:
             destination.write(data.data, 1)
 
-################ Ancilliaries
 
+# ------------------ Ancilliaries ------------------
 def urban(geobox):
     ucl_path = "/g/data/v10/wofs/ancillary/ucl/UCL_2011_AUST.shp"
-    u = geopandas.read_file(ucl_path) # load shapes table
-    u = u[u['SOS_NAME11']=='Major Urban'] # filter out <100k
-    u = u.to_crs(geobox.crs._crs.ExportToProj4()) # reproject
+    u = geopandas.read_file(ucl_path)  # load shapes table
+    u = u[u['SOS_NAME11'] == 'Major Urban']  # filter out <100k
+    u = u.to_crs(geobox.crs._crs.ExportToProj4())  # reproject
     array = rasterio.features.rasterize(shapes=u.geometry,
                                         out_shape=(geobox.height, geobox.width),
                                         transform=geobox.affine)
     return numpy_to_xarray(array, geobox, 'urban')
+
 
 """
 Geofabric structure:
@@ -126,17 +132,19 @@ AHGFHydroArea
     WatercourseAreas ['Watercourse Area'] [54]
 """
 
+
 def geofabric_parts(geobox):
     geofabric_path = "/g/data/v10/wofs/ancillary/geofabric/SH_Cartography_GDB/SH_Cartography.gdb"
     # fiona.listlayers(geofabric_path)
-    for layer in ['AHGFHydroArea', 'AHGFWaterbody']: # consider these two layers
-        table = geopandas.read_file(geofabric_path, layer=layer)[['AHGFFType','SrcFCName','SrcFType','geometry']]
+    for layer in ['AHGFHydroArea', 'AHGFWaterbody']:  # consider these two layers
+        table = geopandas.read_file(geofabric_path, layer=layer)[['AHGFFType', 'SrcFCName', 'SrcFType', 'geometry']]
         for fc, df in table.groupby('SrcFCName'):
-            if fc not in ['CanalAreas', 'RapidAreas']: # exclude these two feature classes
-                name = layer+fc
+            if fc not in ['CanalAreas', 'RapidAreas']:  # exclude these two feature classes
+                name = layer + fc
                 yield geopandas_to_xarray(df, geobox, name=name)
 
-#def geofabric(geobox):
+
+# def geofabric(geobox):
 #    geofabric_weights = {'AHGFHydroAreaFlats': geofabric_flat, # includes marine swamp
 #                         'AHGFHydroAreaForeshoreFlats': geofabric_foreshore,
 #                         'AHGFHydroAreaPondageAreas': geofabric_pondage,
@@ -145,16 +153,16 @@ def geofabric_parts(geobox):
 #                         'AHGFWaterbodyLakes': geofabric_lake,
 #                         'AHGFWaterbodyReservoirs': geofabric_reservoir}
 #    return sum(array*geofabric_weights[array.name] for array in geofabric_parts(geobox))
-
 datacube.config.LocalConfig.db_database = 'wofstest'
 datacube.config.LocalConfig.db_hostname = 'agdcstaging-db.nci.org.au'
-dc = datacube.Datacube() # only used for elevation
+dc = datacube.Datacube()  # only used for elevation
+
 
 def slope_degrees(geobox):
-    pad = 5 # pixels of margin buffering
-    padded = geobox[-pad:geobox.height+pad, -pad:geobox.width+pad]
+    pad = 5  # pixels of margin buffering
+    padded = geobox[-pad:(geobox.height + pad), -pad:(geobox.width + pad)]
 
-    #dem = dc.load(product='dsm1sv10', # ? 'srtm_dem1sv1_0'
+    # dem = dc.load(product='dsm1sv10', # ? 'srtm_dem1sv1_0'
     #              geopolygon=geobox[-pad:geobox.height+pad, -pad:geobox.width+pad].extent,
     #              output_crs=geobox.crs.crs_str, # force target gridspec, address weird bug
     #              resolution=geobox.resolution).isel(time=0)
@@ -162,16 +170,16 @@ def slope_degrees(geobox):
         geobox = padded
     likely.extent = likely.geobox.extent
     likely.coords = likely.geobox.coords
-    dem = dc.load(product='dsm1sv10', # ? 'srtm_dem1sv1_0'
+    dem = dc.load(product='dsm1sv10',  # ? 'srtm_dem1sv1_0'
                   like=likely()).isel(time=0)
 
     # Sobel is prefered gradient method from DEM-grid literature.
-    xgrad = scipy.ndimage.sobel(dem.elevation, axis=1) / abs(8*dem.affine.a) # i.e. dz/dx
-    ygrad = scipy.ndimage.sobel(dem.elevation, axis=0) / abs(8*dem.affine.e)
+    xgrad = scipy.ndimage.sobel(dem.elevation, axis=1) / abs(8 * dem.affine.a)  # i.e. dz/dx
+    ygrad = scipy.ndimage.sobel(dem.elevation, axis=0) / abs(8 * dem.affine.e)
     # Here, assuming orthogonal grid. Probably shouldn't.
 
-    #slope = numpy.degrees(numpy.arctan(numpy.hypot(xgrad, ygrad)))
-    slope = np.degrees(np.arccos(1.0/np.sqrt(xgrad**2 + ygrad**2 + 1.0)))
+    # slope = numpy.degrees(numpy.arctan(numpy.hypot(xgrad, ygrad)))
+    slope = np.degrees(np.arccos(1.0 / np.sqrt(xgrad**2 + ygrad**2 + 1.0)))
     # Tangential vectors have basis x+dz/dx z, y+dz/dy z.
     # Perpendicularity implies normal is colinear with z - dz/dx x - dz/dy y.
     # The slope cosine is given by the dot product of the normal with vertical
@@ -180,14 +188,14 @@ def slope_degrees(geobox):
     # (delaying magnitude normalisation until afterward),
     # and consider the rise in this direction of steepest ascent (seems like fewer operations).
 
-    return numpy_to_xarray(slope[pad:-pad,pad:-pad],geobox,'slope') # strip padding
+    return numpy_to_xarray(slope[pad:-pad, pad:-pad], geobox, 'slope')  # strip padding
+
 
 mrvbf_path = "/g/data/v10/wofs/ancillary/mrvbf/mrvbf_int.tif"
-
 modis_path = "/g/data/v10/wofs/ancillary/modis/MOD09A1.aust.005.OWL.0.2.4.2001.2010.GE.20.tif"
 
 
-#def synthesis(frequency_raster_path):
+# def synthesis(frequency_raster_path):
 #
 #    freq = rasterfile_to_xarray(frequency_raster_path)
 #    geobox = freq.geobox
@@ -207,20 +215,18 @@ modis_path = "/g/data/v10/wofs/ancillary/modis/MOD09A1.aust.005.OWL.0.2.4.2001.2
 #    filtered = freq*(confidence>threshold)
 #
 #    return confidence, filtered
-
 def ancilliary_experts(geobox):
     ucl = urban(geobox)
     slant = slope_degrees(geobox)
-    vbf = rasterfile_to_xarray(mrvbf_path, geobox, 'MrVBF') # let nodata remain at 255
+    vbf = rasterfile_to_xarray(mrvbf_path, geobox, 'MrVBF')  # let nodata remain at 255
     owl = rasterfile_to_xarray(modis_path, geobox, 'MODIS-OWL')
     g = list(geofabric_parts(geobox))
 
-    full_set = g + [ucl,slant,vbf,owl]
+    full_set = g + [ucl, slant, vbf, owl]
 
     # should sort this, say by name?
     # option to concat into a single xarray
     return full_set
-
 
 
 def synthesis(frequency_raster_path=None, geobox=None, return_freq=False):
@@ -238,6 +244,7 @@ def synthesis(frequency_raster_path=None, geobox=None, return_freq=False):
 
     result = xarray.concat(everything, dim='variable')
     return result if not return_freq else (result, raw_freq)
+
 
 def training_data(max_tiles=None):
     """
@@ -267,12 +274,14 @@ def training_data(max_tiles=None):
 
     return Ys, Ts
 
+
 model_path = '/g/data/v10/testing_ground/wofs_summary/logistic_model.pkl'
+
 
 def train():
     print('Loading..')
 
-    Ys, Ts = training_data() # 8 works, 10 the kernel dies.
+    Ys, Ts = training_data()  # 8 works, 10 the kernel dies.
 
     model = sklearn.linear_model.LogisticRegression(tol=1e-7, class_weight='balanced')
 
@@ -290,6 +299,7 @@ def train():
 
     return model
 
+
 def process(filename, model, threshold=0.5):
     assert "frequency" in filename
     out1 = filename.replace("frequency", "confidence")
@@ -299,9 +309,9 @@ def process(filename, model, threshold=0.5):
     assert not os.path.isfile(out2)
     factors, freq = synthesis(filename, return_freq=True)
     X = factors.data.reshape((len(factors), -1)).T
-    X = np.nan_to_num(X) # NaN -> zero
+    X = np.nan_to_num(X)  # NaN -> zero
     P = model.predict_proba(X)
-    conf = P[:,1].reshape(freq.shape)
+    conf = P[:, 1].reshape(freq.shape)
     conf = numpy_to_xarray(conf, freq.geobox)
 
     write(out1, conf.astype(np.float32))
@@ -311,11 +321,13 @@ def process(filename, model, threshold=0.5):
 
     write(out2, filt.astype(np.float32), nodata=np.nan)
 
+
 if __name__ == '__main__':
     import sys
     if len(sys.argv) < 2:
         print("Usage: python confidence.py *frequency*.tif")
-        print("Example: /usr/bin/time find /g/data/v10/testing_ground/wofs_summary/ -maxdepth 1 -name \*frequency.tif | xargs -n 10 -P8 python confidence.py")
+        print("Example: /usr/bin/time find /g/data/v10/testing_ground/wofs_summary/ -maxdepth 1 "
+              "-name */*frequency.tif | xargs -n 10 -P8 python confidence.py")
         raise SystemExit
     elif len(sys.argv) == 2 and sys.argv[1] == '--retrain':
         model = train()
