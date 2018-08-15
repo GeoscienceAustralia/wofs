@@ -22,6 +22,15 @@ def read(*parts):
         return fp.read()
 
 
+def find_version(*file_paths):
+    version_file = read(*file_paths)
+    version_match = re.search(r"^__version__ = ['\"]([^'\"]*)['\"]",
+                              version_file, re.M)
+    if version_match:
+        return version_match.group(1)
+    raise RuntimeError("Unable to find version string.")
+
+
 class PyTest(Command):
     user_options = []
 
@@ -41,7 +50,7 @@ my_cmdclass = versioneer.get_cmdclass()
 my_cmdclass['test'] = PyTest
 
 setup(name='wofs',
-      version=versioneer.get_version(),
+      version=find_version("wofs", "__init__.py"),
       cmdclass=my_cmdclass,
       description='Water Observations from Space - Digital Earth Australia',
       long_description=open('README.rst', 'r').read(),
