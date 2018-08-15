@@ -1,20 +1,22 @@
-"""
-Setup
------
-
-"""
+#!/usr/bin/env python3
 
 import codecs
 import os
 import re
 
-from setuptools import setup, find_packages
-from numpy.distutils.core import Extension, setup, Command
-
-import versioneer
+from setuptools import find_packages
+from distutils.core import setup
+from distutils.command.sdist import sdist
 
 here = os.path.abspath(os.path.dirname(__file__))
 config_files = ['config/' + name for name in os.listdir('config')]
+tests_require = ['pytest', 'pytest-cov', 'mock', 'pycodestyle', 'pylint',
+                 'hypothesis', 'compliance-checker', 'yamllint']
+extras_require = {
+    'doc': ['Sphinx', 'nbsphinx', 'setuptools', 'sphinx_rtd_theme', 'IPython', 'jupyter_sphinx',
+            'recommonmark'],
+    'test': tests_require,
+}
 
 
 def read(*parts):
@@ -22,42 +24,45 @@ def read(*parts):
         return fp.read()
 
 
-class PyTest(Command):
-    user_options = []
-
-    def initialize_options(self):
-        pass
-
-    def finalize_options(self):
-        pass
-
-    def run(self):
-        import sys, subprocess
-        errno = subprocess.call([sys.executable, 'runtests.py'])
-        raise SystemExit(errno)
+def find_version(*file_paths):
+    version_file = read(*file_paths)
+    version_match = re.search(r"^__version__ = ['\"]([^'\"]*)['\"]",
+                              version_file, re.M)
+    if version_match:
+        return version_match.group(1)
+    raise RuntimeError("Unable to find version string.")
 
 
-my_cmdclass = versioneer.get_cmdclass()
-my_cmdclass['test'] = PyTest
-
-setup(name='wofs',
-      version=versioneer.get_version(),
-      cmdclass=my_cmdclass,
-      description='Water Observations from Space - Digital Earth Australia',
-      long_description=open('README.rst', 'r').read(),
-      license='Apache License 2.0',
-      url='https://github.com/GeoscienceAustralia/wofs',
-      author='Geoscience Australia',
-      maintainer='Geoscience Australia',
-      maintainer_email='',
-      packages=find_packages(),
-      data_files=[('wofs/config', config_files)],
-      install_requires=[
+setup(
+    name='wofs',
+    version=find_version("wofs", "__init__.py"),
+    cmdclass={'sdist': sdist},
+    url='https://github.com/GeoscienceAustralia/wofs',
+    description='Water Observations from Space - Digital Earth Australia',
+    long_description=open('README.rst', 'rt').read(),
+    author='Geoscience Australia',
+    author_email='damien.ayers@ga.gov.au',
+    maintainer='Geoscience Australia',
+    maintainer_email='',
+    license='Apache License 2.0',
+    packages=find_packages(),
+    package_data={
+        '': ['*.yaml', '*/*.yaml'],
+    },
+    include_package_data=True,
+    scripts=['scripts/datacube-wofs-launcher', 'scripts/distributed.sh'],
+    setup_requires=[
+        'pytest-runner'
+    ],
+    data_files=[('wofs/config', config_files)],
+    install_requires=[
           'datacube',
-      ],
-      entry_points={
-          'console_scripts': [
+    ],
+    tests_require=tests_require,
+    extras_require=extras_require,
+    entry_points={
+        'console_scripts': [
               'datacube-wofs = wofs.wofs_app:cli',
-          ]
-      },
-      scripts=['scripts/datacube-wofs-launcher', 'scripts/distributed.sh'])
+        ]
+    },
+)
