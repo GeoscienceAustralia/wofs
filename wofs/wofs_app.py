@@ -128,7 +128,7 @@ def _create_output_definition(config: dict, source_product: DatasetType) -> dict
     output_product_definition['managed'] = True
     output_product_definition['description'] = config['description']
     output_product_definition['metadata']['format'] = {'name': 'NetCDF'}
-    output_product_definition['metadata']['product_type'] = config.get('product_type', 'fractional_cover')
+    output_product_definition['metadata']['product_type'] = config.get('product_type', 'wofs')
     output_product_definition['storage'] = {
         k: v for (k, v) in config['storage'].items()
         if k in ('crs', 'tile_size', 'resolution', 'origin')
