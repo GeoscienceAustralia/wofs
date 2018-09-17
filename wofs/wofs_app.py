@@ -32,12 +32,12 @@ import datacube
 import datacube.model.utils
 from datacube.api.query import Query
 from datacube.api.grid_workflow import Tile
+from datacube.compat import integer_types
 from datacube.index import Index
 from datacube.index.exceptions import MissingRecordError
-from datacube.ui import click as ui
-from datacube.compat import integer_types
 from datacube.model import Range, DatasetType
 from datacube.model import DatasetType as Product
+from datacube.ui import click as ui
 from datacube.ui import task_app
 from datacube.utils.geometry import unary_union, unary_intersection, CRS
 from datacube.storage.storage import write_dataset_to_netcdf
@@ -684,16 +684,17 @@ def run(index,
     """
     Process generated task file. If dry run is enabled, only check for the existing files
     """
-    _LOG.info('Starting WOfS processing...')
-    _LOG.info('Tag: %r', tag)
-
     task_desc = serialise.load_structure(Path(task_desc_file), TaskDescription)
     config, tasks = task_app.load_tasks(task_desc.runtime_state.task_serialisation_path)
 
     if dry_run:
-        task_app.check_existing_files((task['filename'] for task in tasks))
+        _LOG.info('Starting WOfS Dry Run...')
+        # tile_index is X, Y, T
+        task_app.check_existing_files(get_filename(config, *task['tile_index']) for task in tasks)
         return 0
 
+    _LOG.info('Starting WOfS processing...')
+    _LOG.info('Tag: %r', tag)
     task_func = partial(do_wofs_task, config)
     process_func = partial(_index_datasets, index)
 
