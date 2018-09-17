@@ -17,6 +17,7 @@ from copy import deepcopy
 from collections import defaultdict
 from datetime import datetime
 from functools import partial
+import glob
 from math import ceil
 from pathlib import Path
 from time import time as time_now
@@ -36,6 +37,7 @@ from datacube.index.exceptions import MissingRecordError
 from datacube.ui import click as ui
 from datacube.compat import integer_types
 from datacube.model import Range, DatasetType
+from datacube.model import DatasetType as Product
 from datacube.ui import task_app
 from datacube.utils.geometry import unary_union, unary_intersection, CRS
 from datacube.storage.storage import write_dataset_to_netcdf
@@ -48,7 +50,7 @@ from wofs import wofls, __version__
 APP_NAME = 'wofs'
 _LOG = logging.getLogger(__name__)
 ROOT_DIR = Path(__file__).absolute().parent.parent
-CONFIG_DIR = ROOT_DIR / 'config'
+WOFS_CONFIG_DIR = ROOT_DIR / 'wofs/../../../../'
 SCRIPT_DIR = ROOT_DIR / 'scripts'
 _MEASUREMENT_KEYS_TO_COPY = ('zlib', 'complevel', 'shuffle', 'fletcher32', 'contiguous', 'attrs')
 
@@ -73,7 +75,7 @@ INPUT_SOURCES = [{'nbart': 'ls5_nbart_albers',
                  ]
 
 
-def make_wofs_config(index, config, dry_run=False):
+def make_wofs_config(index, config, dry_run):
     """
     Refine the configuration
 
@@ -91,9 +93,9 @@ def make_wofs_config(index, config, dry_run=False):
     """
 
     if not dry_run:
-        _LOG.info('Created DatasetType %s', config['product_definition']['name'])  # true? nyet.
+        _LOG.info('Created DatasetType %s', config['product_definition']['name'])  # true? not yet.
 
-    config['wofs_dataset_type'] = get_product(index, config['product_definition'])
+    config['wofs_dataset_type'] = get_product(index, config['product_definition'], dry_run)
 
     config['variable_params'] = _build_variable_params(config)
 
@@ -124,26 +126,32 @@ def _build_variable_params(config: dict) -> dict:
 
 def _create_output_definition(config: dict, source_product: DatasetType) -> dict:
     output_product_definition = deepcopy(source_product.definition)
-    output_product_definition['name'] = config['output_product']
+    output_product_definition['name'] = config['product_definition']['name']
+    output_product_definition['description'] = config['product_definition']['description']
     output_product_definition['managed'] = True
-    output_product_definition['description'] = config['description']
-    output_product_definition['metadata']['format'] = {'name': 'NetCDF'}
-    output_product_definition['metadata']['product_type'] = config.get('product_type', 'wofs')
-    output_product_definition['storage'] = {
-        k: v for (k, v) in config['storage'].items()
-        if k in ('crs', 'tile_size', 'resolution', 'origin')
-    }
-    var_def_keys = {'name', 'dtype', 'nodata', 'units', 'aliases', 'spectral_definition', 'flags_definition'}
+    var_def_keys = {'name', 'dtype', 'nodata', 'units', 'flags_definition'}
 
     output_product_definition['measurements'] = [
         {k: v for k, v in measurement.items() if k in var_def_keys}
-        for measurement in config['measurements']
+        for measurement in config['product_definition']['measurements']
     ]
+
+    output_product_definition['metadata']['format'] = {'name': 'NetCDF'}
+    output_product_definition['metadata']['product_type'] = config.get('product_type', 'wofs')
+    output_product_definition['metadata_type'] = config['product_definition']['metadata_type']
+
+    output_product_definition['storage'] = {
+        k: v for (k, v) in config['product_definition']['storage'].items()
+        if k in ('crs', 'chunking', 'tile_size', 'resolution', 'dimension_order', 'driver')
+    }
+
+    # Validate the output product definition
+    Product.validate(output_product_definition)
     return output_product_definition
 
 
-def _ensure_products(app_config: dict, index: Index, dry_run=False) -> Tuple[DatasetType, DatasetType]:
-    source_product_name = app_config['source_product']
+def _ensure_products(app_config: dict, index: Index, dry_run: bool, input_source) -> Tuple[DatasetType, DatasetType]:
+    source_product_name = input_source
     source_product = index.products.get_by_name(source_product_name)
     if not source_product:
         raise ValueError(f"Source Product {source_product_name} does not exist")
@@ -152,20 +160,23 @@ def _ensure_products(app_config: dict, index: Index, dry_run=False) -> Tuple[Dat
         source_product.metadata_type,
         _create_output_definition(app_config, source_product)
     )
+
     if not dry_run:
-        _LOG.info('Built product %s. Adding to index.', output_product.name)
+        _LOG.info('Created product %s. Add the product definition the the database.', output_product.name)
         output_product = index.products.add(output_product)
+
     return source_product, output_product
 
 
-def get_product(index, definition, dry_run=False, skip_indexing=False):
+def get_product(index, definition, dry_run):
     """
     Get the database record corresponding to the given product definition
     """
     metadata_type = index.metadata_types.get_by_name(definition['metadata_type'])
     prototype = datacube.model.DatasetType(metadata_type, definition)
 
-    if not dry_run and not skip_indexing:
+    if not dry_run:
+        _LOG.info('Add product definition to the database.')
         prototype = index.products.add(prototype)  # idempotent operation
 
     return prototype
@@ -387,8 +398,10 @@ def do_wofs_task(config, task):
         app_info=get_app_metadata(config)
     )
 
-    # inherit optional metadata from EO, for future convenience only
     def harvest(what, tile):
+        """
+        Inherit optional metadata from EO, for future convenience only
+        """
         datasets = [ds for source_datasets in tile.sources.values for ds in source_datasets]
         values = [dataset.metadata_doc[what] for dataset in datasets]
         assert all(value == values[0] for value in values)
@@ -456,12 +469,22 @@ tag_option = click.option('--tag', type=str,
 @click.group(help='Datacube WOfS')
 @click.version_option(version=__version__)
 def cli():
+    """
+    Instantiate a click.group object
+    :return: None
+    """
     pass
 
 
 @cli.command(name='list', help='List installed WOfS config files')
 def list_configs():
-    for cfg in CONFIG_DIR.glob('*.yaml'):
+    """
+     List installed WOfS config files
+    :return: None
+    """
+    for cfg in (glob.glob(os.path.abspath(os.path.join(WOFS_CONFIG_DIR,
+                                                       "wofs/config/*.yaml")),
+                          recursive=True)):
         click.echo(cfg)
 
 
@@ -469,17 +492,22 @@ def list_configs():
     help="Ensure the products exist for the given WOfS config, creating them if necessary."
 )
 @task_app.app_config_option
+@click.option('--dry-run', is_flag=True, default=False, help='Check if the product definition exist in db')
 @ui.config_option
 @ui.verbose_option
 @ui.pass_index(app_name=APP_NAME)
-def ensure_products(index, app_config_files):
-    for app_config_file in app_config_files:
+def ensure_products(index, app_config, dry_run):
+    """
+    Ensure the products exist for the given WOfS config, creating them if necessary.
+    If dry run is enabled, the validated output product definition will be added to the database.
+    """
+    for app_config_file in [app_config]:
         # TODO: Add more validation of config?
-
         click.secho(f"Loading {app_config_file}", bold=True)
         app_config = paths.read_document(app_config_file)
-        in_product, out_product = _ensure_products(app_config, index)
-        click.secho(f"Product {in_product.name} ? {out_product.name}")
+        in_product, out_product = _ensure_products(app_config, index, dry_run, 'wofs_albers')
+        click.secho(f"Output product definition for {out_product.name} product exits for the given "
+                    f"input config file ({app_config_file})")
 
 
 @cli.command(help='Kick off two stage PBS job')
@@ -492,6 +520,7 @@ def ensure_products(index, app_config_files):
 @click.option('--no-qsub', is_flag=True, default=False,
               help="Skip submitting job")
 @tag_option
+@click.option('--dry-run', is_flag=True, default=False, help='Check if output files already exist')
 @task_app.app_config_option
 @ui.config_option
 @ui.verbose_option
@@ -502,7 +531,11 @@ def submit(index: Index,
            queue: str,
            no_qsub: bool,
            time_range: Tuple[datetime, datetime],
-           tag: str):
+           tag: str,
+           dry_run: bool):
+    """
+    Kick off two stage PBS job
+    """
     _LOG.info('Tag: %s', tag)
 
     app_config_path = Path(app_config).resolve()
@@ -524,6 +557,8 @@ def submit(index: Index,
     )
     _LOG.info("Created task description: %s", task_path)
 
+    enable_dry_run = '--dry-run' if dry_run else ''
+
     if no_qsub:
         _LOG.info('Skipping submission due to --no-qsub')
     else:
@@ -531,11 +566,14 @@ def submit(index: Index,
             name='generate',
             task_desc=task_desc,
             command=[
-                'generate', '-v', '-v',
+                'generate', '-vv',
                 '--task-desc', str(task_path),
-                '--tag', tag],
+                '--tag', tag,
+                enable_dry_run,
+                '--log-queries'
+            ],
             qsub_params=dict(
-                mem='20G',
+                mem='31G',
                 wd=True,
                 ncpus=1,
                 walltime='1h',
@@ -548,16 +586,23 @@ def submit(index: Index,
               required=True,
               type=click.Path(exists=True, readable=True, writable=False, dir_okay=False))
 @tag_option
+@click.option('--dry-run', is_flag=True, default=False, help='Check if output files already exist')
 @ui.verbose_option
 @ui.log_queries_option
 @ui.pass_index(app_name=APP_NAME)
 def generate(index: Index,
              task_desc_file: str,
              no_qsub: bool,
-             tag: str):
+             tag: str,
+             dry_run: bool):
+    """
+    Generate Tasks into file and Queue PBS job to process them
+
+    If dry run is enabled, do not add the new products to the database.
+    """
     _LOG.info('Tag: %s', tag)
 
-    config, task_desc = _make_config_and_description(index, Path(task_desc_file))
+    config, task_desc = _make_config_and_description(index, Path(task_desc_file), dry_run)
 
     num_tasks_saved = task_app.save_tasks(
         config,
@@ -573,6 +618,8 @@ def generate(index: Index,
     nodes, walltime = estimate_job_size(num_tasks_saved)
     _LOG.info('Will request %d nodes and %s time', nodes, walltime)
 
+    enable_dry_run = '--dry-run' if dry_run else ''
+
     if no_qsub:
         _LOG.info('Skipping submission due to --no-qsub')
         return 0
@@ -587,6 +634,7 @@ def generate(index: Index,
             '--task-desc', str(task_desc_file),
             '--celery', 'pbs-launch',
             '--tag', tag,
+            enable_dry_run,
         ],
         qsub_params=dict(
             name='wofs-run-{}'.format(tag),
@@ -599,7 +647,7 @@ def generate(index: Index,
     return 0
 
 
-def _make_config_and_description(index: Index, task_desc_path: Path) -> Tuple[dict, TaskDescription]:
+def _make_config_and_description(index: Index, task_desc_path: Path, dry_run: bool) -> Tuple[dict, TaskDescription]:
     task_desc = serialise.load_structure(task_desc_path, TaskDescription)
 
     task_time: datetime = task_desc.task_dt
@@ -610,7 +658,7 @@ def _make_config_and_description(index: Index, task_desc_path: Path) -> Tuple[di
     # TODO: This carries over the old behaviour of each load. Should probably be replaced with *tag*
     config['task_timestamp'] = int(task_time.timestamp())
     config['app_config_file'] = Path(app_config)
-    config = make_wofs_config(index, config)
+    config = make_wofs_config(index, config, dry_run)
 
     return config, task_desc
 
@@ -633,6 +681,9 @@ def run(index,
         qsub: QSubLauncher,
         runner: TaskRunner,
         *args, **kwargs):
+    """
+    Process generated task file. If dry run is enabled, only check for the existing files
+    """
     _LOG.info('Starting WOfS processing...')
     _LOG.info('Tag: %r', tag)
 
