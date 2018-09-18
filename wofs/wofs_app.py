@@ -537,16 +537,21 @@ def submit(index: Index,
         The task-app machinery loads a config file, from a path specified on the
         command line, into a dict.
 
-        If dry is enabled a dummy DatasetType is created for tasks generation without indexing
+        If dry is enabled, a dummy DatasetType is created for tasks generation without indexing
         the product in the database.
         If dry run is disabled, generate tasks into file and queue PBS job to process them.
 
     Stage 2 (Run):
-        In a normal run tasks (loadables (nbart,ps,dsm) + output targets) shall be yielded for
-        dispatch to workers. Load data, run WOFS algorithm, attach metadata, and write output.
+        During normal run, following are performed:
+           1) Tasks (loadables (nbart,ps,dsm) + output targets) shall be yielded for dispatch to workers.
+           2) Load data
+           3) Run WOFS algorithm
+           4) Attach metadata
+           5) Write output files and
+           6) Finally index the newly created WOfS output files
 
-        If dry run is enabled, application only prepares a list of output files to be created and do not
-        record anyting in the database.
+        If dry run is enabled, application only prepares a list of output files to be created and does not
+        record anything in the database.
     """
     _LOG.info('Tag: %s', tag)
 
