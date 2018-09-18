@@ -1,4 +1,4 @@
-#!python
+#!/usr/bin/env python
 #
 # This is the top-level interface to the application and for launching PBS jobs.
 #
