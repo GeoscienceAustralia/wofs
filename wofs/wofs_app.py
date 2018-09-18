@@ -51,7 +51,6 @@ APP_NAME = 'wofs'
 _LOG = logging.getLogger(__name__)
 ROOT_DIR = Path(__file__).absolute().parent.parent
 WOFS_CONFIG_DIR = ROOT_DIR / 'wofs/../../../../'
-SCRIPT_DIR = ROOT_DIR / 'scripts'
 _MEASUREMENT_KEYS_TO_COPY = ('zlib', 'complevel', 'shuffle', 'fletcher32', 'contiguous', 'attrs')
 
 INPUT_SOURCES = [{'nbart': 'ls5_nbart_albers',

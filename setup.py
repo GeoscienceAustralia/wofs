@@ -50,7 +50,7 @@ setup(
         '': ['*.yaml', '*/*.yaml'],
     },
     include_package_data=True,
-    scripts=['scripts/datacube-wofs-launcher', 'scripts/distributed.sh'],
+    scripts=[],
     setup_requires=[
         'pytest-runner'
     ],
