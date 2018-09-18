@@ -17,7 +17,6 @@ from copy import deepcopy
 from collections import defaultdict
 from datetime import datetime
 from functools import partial
-import glob
 from math import ceil
 from pathlib import Path
 from time import time as time_now
@@ -49,7 +48,6 @@ from wofs import wofls, __version__
 APP_NAME = 'wofs'
 _LOG = logging.getLogger(__name__)
 ROOT_DIR = Path(__file__).absolute().parent.parent
-WOFS_CONFIG_DIR = ROOT_DIR / 'wofs/../../../../'
 _MEASUREMENT_KEYS_TO_COPY = ('zlib', 'complevel', 'shuffle', 'fletcher32', 'contiguous', 'attrs')
 
 INPUT_SOURCES = [{'nbart': 'ls5_nbart_albers',
@@ -73,15 +71,14 @@ INPUT_SOURCES = [{'nbart': 'ls5_nbart_albers',
                  ]
 
 
-def make_wofs_config(index, config, dry_run):
+def _make_wofs_config(index, config, dry_run):
     """
     Refine the configuration
 
     The task-app machinery loads a config file, from a path specified on the
     command line, into a dict. This function is an opportunity, with access to
     the datacube index, to modify that dict before it is used (being passed on
-    to both the make-tasks and the do-task). If using the save-tasks option,
-    the modified config is included in the task file.
+    to both the make-tasks and the do-task).
 
     For a dry run, we still need to create a dummy DatasetType to
     generate tasks (e.g. via the GridSpec), but a normal run must index
@@ -93,7 +90,7 @@ def make_wofs_config(index, config, dry_run):
     if not dry_run:
         _LOG.info('Created DatasetType %s', config['product_definition']['name'])  # true? not yet.
 
-    config['wofs_dataset_type'] = get_product(index, config['product_definition'], dry_run)
+    config['wofs_dataset_type'] = _get_product(index, config['product_definition'], dry_run)
 
     config['variable_params'] = _build_variable_params(config)
 
@@ -160,13 +157,13 @@ def _ensure_products(app_config: dict, index: Index, dry_run: bool, input_source
     )
 
     if not dry_run:
-        _LOG.info('Created product %s. Add the product definition the the database.', output_product.name)
+        _LOG.info('Add the output product definition for %s in the database.', output_product.name)
         output_product = index.products.add(output_product)
 
-    return source_product, output_product
+    return output_product
 
 
-def get_product(index, definition, dry_run):
+def _get_product(index, definition, dry_run):
     """
     Get the database record corresponding to the given product definition
     """
@@ -180,7 +177,7 @@ def get_product(index, definition, dry_run):
     return prototype
 
 
-def get_filename(config, x, y, t):
+def _get_filename(config, x, y, t):
     """
     Get file path from the config location
     """
@@ -193,7 +190,7 @@ def get_filename(config, x, y, t):
     return Path(destination, filename)
 
 
-def group_tiles_by_cells(tile_index_list, cell_index_list):
+def _group_tiles_by_cells(tile_index_list, cell_index_list):
     """
     Group the tiles by cells
     """
@@ -205,7 +202,7 @@ def group_tiles_by_cells(tile_index_list, cell_index_list):
 
 
 # pylint: disable=too-many-locals
-def generate_tasks(index, config, time, extent=None):
+def _generate_tasks(index, config, time, extent=None):
     """
     Yield tasks (loadables (nbart,ps,dsm) + output targets), for dispatch to workers.
 
@@ -243,7 +240,7 @@ def generate_tasks(index, config, time, extent=None):
 
         # only valid where EO, PQ and DSM are *all* available (and WOFL isn't yet)
         tile_index_set = (set(nbart_loadables) & set(pq_loadables)) - set(wofls_loadables)
-        key_map = group_tiles_by_cells(tile_index_set, dsm_loadables)
+        key_map = _group_tiles_by_cells(tile_index_set, dsm_loadables)
 
         _LOG.info('Found %d items for %r input source', len(list(key_map.keys())), input_source['source_product'])
 
@@ -254,19 +251,19 @@ def generate_tasks(index, config, time, extent=None):
             for tile_index in tile_indexes:
                 nbart_tile = gw.update_tile_lineage(nbart_loadables.pop(tile_index))
                 pq_tile = gw.update_tile_lineage(pq_loadables.pop(tile_index))
-                valid_region = find_valid_data_region(geobox, nbart_tile, pq_tile, dsm_tile)
+                valid_region = _find_valid_data_region(geobox, nbart_tile, pq_tile, dsm_tile)
                 if not valid_region.is_empty:
                     yield dict(source_tile=nbart_tile,
                                pq_tile=pq_tile,
                                dsm_tile=dsm_tile,
-                               file_path=get_filename(config, *tile_index),
+                               file_path=_get_filename(config, *tile_index),
                                tile_index=tile_index,
                                extra_global_attributes=dict(platform=input_source['platform_name'],
                                                             instrument=input_source['sensor_name']),
                                valid_region=valid_region)
 
 
-def make_wofs_tasks(index, config, year=None, **kwargs):
+def _make_wofs_tasks(index, config, year=None, **kwargs):
     """
     Generate an iterable of 'tasks', matching the provided filter parameters.
     Tasks can be generated for:
@@ -289,11 +286,11 @@ def make_wofs_tasks(index, config, year=None, **kwargs):
         extent['x'] = kwargs['x']
         extent['y'] = kwargs['y']
 
-    tasks = generate_tasks(index, config, time=query_time, extent=extent)
+    tasks = _generate_tasks(index, config, time=query_time, extent=extent)
     return tasks
 
 
-def get_app_metadata(config):
+def _get_app_metadata(config):
     """
     Get WOfS app metadata
     """
@@ -310,7 +307,7 @@ def get_app_metadata(config):
     return doc
 
 
-def find_valid_data_region(geobox, *sources_list):
+def _find_valid_data_region(geobox, *sources_list):
     """
     Find the valid data region
     """
@@ -325,7 +322,7 @@ def find_valid_data_region(geobox, *sources_list):
     # downstream should check if this is empty..
 
 
-def docvariable(agdc_dataset, time):
+def _docvariable(agdc_dataset, time):
     """
     Convert datacube dataset to xarray/NetCDF variable
     """
@@ -335,7 +332,7 @@ def docvariable(agdc_dataset, time):
     return docarray
 
 
-def do_wofs_task(config, task):
+def _do_wofs_task(config, task):
     """
     Load data, run WOFS algorithm, attach metadata, and write output.
     :param dict config: Config object
@@ -393,7 +390,7 @@ def do_wofs_task(config, task):
         uri=file_path.absolute().as_uri(),
         extent=source_tile.geobox.extent,
         valid_data=task['valid_region'],
-        app_info=get_app_metadata(config)
+        app_info=_get_app_metadata(config)
     )
 
     def harvest(what, tile):
@@ -409,7 +406,7 @@ def do_wofs_task(config, task):
     new_record.metadata_doc['instrument'] = harvest('instrument', source_tile)
 
     # copy metadata record into xarray
-    result['dataset'] = docvariable(new_record, result.time)
+    result['dataset'] = _docvariable(new_record, result.time)
 
     global_attributes = config['global_attributes'].copy()
     global_attributes.update(task['extra_global_attributes'])
@@ -437,7 +434,7 @@ def _index_datasets(index: Index, results):
                        err)
 
 
-def estimate_job_size(num_tasks):
+def _estimate_job_size(num_tasks):
     """ Translate num_tasks to number of nodes and walltime
     """
     max_nodes = 20
@@ -480,32 +477,34 @@ def list_configs():
      List installed WOfS config files
     :return: None
     """
-    for cfg in (glob.glob(os.path.abspath(os.path.join(WOFS_CONFIG_DIR,
-                                                       "wofs/config/*.yaml")),
-                          recursive=True)):
+    # Wofs config directory is accessed by providing the logical
+    # ancestors (dea/<date>) of the ROOT_DIR path.
+    for cfg in ROOT_DIR.parents[2].glob('wofs/config/*.yaml'):
         click.echo(cfg)
 
 
 @cli.command(
-    help="Ensure the products exist for the given WOfS config, creating them if necessary."
+    help="Ensure the products exist for the given WOfS config, create them if necessary."
 )
 @task_app.app_config_option
-@click.option('--dry-run', is_flag=True, default=False, help='Check if the product definition exist in db')
+@click.option('--dry-run', is_flag=True, default=False,
+              help='Check product definition without modifying the database')
 @ui.config_option
 @ui.verbose_option
 @ui.pass_index(app_name=APP_NAME)
 def ensure_products(index, app_config, dry_run):
     """
     Ensure the products exist for the given WOfS config, creating them if necessary.
-    If dry run is enabled, the validated output product definition will be added to the database.
+    If dry run is disabled, the validated output product definition will be added to the database.
     """
-    for app_config_file in [app_config]:
-        # TODO: Add more validation of config?
-        click.secho(f"Loading {app_config_file}", bold=True)
-        app_config = paths.read_document(app_config_file)
-        in_product, out_product = _ensure_products(app_config, index, dry_run, 'wofs_albers')
-        click.secho(f"Output product definition for {out_product.name} product exits for the given "
-                    f"input config file ({app_config_file})")
+    # TODO: Add more validation of config?
+    click.secho(f"Loading {app_config}", bold=True)
+    out_product = _ensure_products(paths.read_document(app_config),
+                                   index,
+                                   dry_run,
+                                   'wofs_albers')
+    click.secho(f"Output product definition for {out_product.name} product exits in the database for the given "
+                f"WOfS input config file")
 
 
 @cli.command(help='Kick off two stage PBS job')
@@ -533,6 +532,21 @@ def submit(index: Index,
            dry_run: bool):
     """
     Kick off two stage PBS job
+
+    Stage 1 (Generate task file):
+        The task-app machinery loads a config file, from a path specified on the
+        command line, into a dict.
+
+        If dry is enabled a dummy DatasetType is created for tasks generation without indexing
+        the product in the database.
+        If dry run is disabled, generate tasks into file and queue PBS job to process them.
+
+    Stage 2 (Run):
+        In a normal run tasks (loadables (nbart,ps,dsm) + output targets) shall be yielded for
+        dispatch to workers. Load data, run WOFS algorithm, attach metadata, and write output.
+
+        If dry run is enabled, application only prepares a list of output files to be created and do not
+        record anyting in the database.
     """
     _LOG.info('Tag: %s', tag)
 
@@ -604,7 +618,7 @@ def generate(index: Index,
 
     num_tasks_saved = task_app.save_tasks(
         config,
-        make_wofs_tasks(index, config, year=task_desc.parameters.query.get('time')),
+        _make_wofs_tasks(index, config, year=task_desc.parameters.query.get('time')),
         str(task_desc.runtime_state.task_serialisation_path)
     )
     _LOG.info('Found %d tasks', num_tasks_saved)
@@ -613,7 +627,7 @@ def generate(index: Index,
         _LOG.info("No tasks. Finishing.")
         return 0
 
-    nodes, walltime = estimate_job_size(num_tasks_saved)
+    nodes, walltime = _estimate_job_size(num_tasks_saved)
     _LOG.info('Will request %d nodes and %s time', nodes, walltime)
 
     enable_dry_run = '--dry-run' if dry_run else ''
@@ -656,7 +670,7 @@ def _make_config_and_description(index: Index, task_desc_path: Path, dry_run: bo
     # TODO: This carries over the old behaviour of each load. Should probably be replaced with *tag*
     config['task_timestamp'] = int(task_time.timestamp())
     config['app_config_file'] = Path(app_config)
-    config = make_wofs_config(index, config, dry_run)
+    config = _make_wofs_config(index, config, dry_run)
 
     return config, task_desc
 
@@ -688,12 +702,12 @@ def run(index,
     if dry_run:
         _LOG.info('Starting WOfS Dry Run...')
         # tile_index is X, Y, T
-        task_app.check_existing_files(get_filename(config, *task['tile_index']) for task in tasks)
+        task_app.check_existing_files(_get_filename(config, *task['tile_index']) for task in tasks)
         return 0
 
     _LOG.info('Starting WOfS processing...')
     _LOG.info('Tag: %r', tag)
-    task_func = partial(do_wofs_task, config)
+    task_func = partial(_do_wofs_task, config)
     process_func = partial(_index_datasets, index)
 
     try:
