@@ -1,9 +1,9 @@
-#!/usr/bin/env python
+#!python
 #
 # This is the top-level interface to the application and for launching PBS jobs.
 #
 # It is the recommended user interface, and wraps lower level interfaces.
-# 
+#
 # Note the "--config" argument refers to the datacube.conf file
 # that specifies e.g. which database index to connect to.
 #
@@ -17,10 +17,12 @@ from __future__ import print_function
 
 import subprocess
 import click
+import glob
+import os
 from pathlib import Path
 
 ROOT_DIR = Path(__file__).absolute().parent.parent
-CONFIG_DIR = ROOT_DIR / 'config'
+CONFIG_DIR = ROOT_DIR / 'wofs/../../../../'
 SCRIPT_DIR = ROOT_DIR / 'scripts'
 
 
@@ -31,8 +33,14 @@ def cli():
 
 @cli.command(name='list', help='List all installed app config files')
 def list_command():
-    for cfg in CONFIG_DIR.glob('*.yaml'):
-        print(cfg.name)
+    """
+     List installed WOfS config files
+    :return: None
+    """
+    for cfg in (glob.glob(os.path.abspath(os.path.join(CONFIG_DIR,
+                                                       "wofs/config/*.yaml")),
+                          recursive=True)):
+        click.echo(cfg)
 
 
 @cli.command(short_help='Submit a job to qsub',
@@ -64,6 +72,22 @@ def list_command():
 @click.argument('year', required=False, default=None)
 def qsub(app_config, year, queue, project, nodes, walltime, name, no_confirm, web_ui, config=None, env=None,
          taskfile=None):
+    """
+     Top level interface to the WOfS application and lauch using PBS jobs.
+    :param app_config: WOfS product configuration file (*.yaml)
+    :param year: Year to apply WOfS
+    :param queue: PBS job queue (express | normal)
+    :param project: Specify a project for the job
+    :param nodes: Number of nodes
+    :param walltime: Job execution wall-time
+    :param name: Job name
+    :param no_confirm: Don't ask for confirmation or perform file check
+    :param web_ui: Flag to enable launch of bokeh web interface
+    :param config: Datacube configuration file
+    :param env: Node environment setup script
+    :param taskfile: Qsub task file (if we have one else task file shall be created internally)
+    :return: None
+    """
     confirm = not no_confirm
     app_config = CONFIG_DIR / app_config
 
@@ -75,18 +99,18 @@ def qsub(app_config, year, queue, project, nodes, walltime, name, no_confirm, we
             print('%s is not a valid WOfS application config file' % app_config)
             return 1
 
-        do_system_check(config_arg)
-        taskfile = make_taskfile(year, app_config, config_arg, confirm)
+        _do_system_check(config_arg)
+        taskfile = _make_taskfile(year, app_config, config_arg, confirm)
         if confirm:
             # skip the file check if the user isn't paying attention
-            do_file_check(taskfile, config_arg)
+            _do_file_check(taskfile, config_arg)
     else:
         taskfile = Path(taskfile).absolute()
 
-    do_qsub(taskfile, name, nodes, walltime, queue, project, config_arg, env_arg, confirm, web_ui)
+    _do_qsub(taskfile, name, nodes, walltime, queue, project, config_arg, env_arg, confirm, web_ui)
 
 
-def do_system_check(config_arg):
+def _do_system_check(config_arg):
     """Checks the connection to the database"""
     check_cmd = 'datacube %(config_arg)s -v system check' % dict(
         config_arg=config_arg,
@@ -94,7 +118,7 @@ def do_system_check(config_arg):
     subprocess.check_call(check_cmd, shell=True)
 
 
-def make_taskfile(year, app_config, config_arg, confirm=True):
+def _make_taskfile(year, app_config, config_arg, confirm=True):
     """Makes the taskfile for the given year or years"""
     year_append = '_{}'.format(year) if year is not None else ''
     taskfile = Path(app_config.stem + year_append + '.bin').absolute()
@@ -111,7 +135,7 @@ def make_taskfile(year, app_config, config_arg, confirm=True):
     return taskfile
 
 
-def do_file_check(taskfile, config_arg, confirm=True):
+def _do_file_check(taskfile, config_arg, confirm=True):
     """Checks for tasks with output files that already exist"""
     test = 'datacube-wofs -v %(config_arg)s --load-tasks "%(taskfile)s" --dry-run'
     cmd = test % dict(config_arg=config_arg,
@@ -120,7 +144,7 @@ def do_file_check(taskfile, config_arg, confirm=True):
         subprocess.check_call(cmd, shell=True)
 
 
-def do_qsub(taskfile, name, nodes, walltime, queue, project, config_arg, env_arg, confirm=True, web_ui=False):
+def _do_qsub(taskfile, name, nodes, walltime, queue, project, config_arg, env_arg, confirm=True, web_ui=False):
     """Submits the job to qsub"""
     name = name or taskfile.stem
     app_cmd = ('datacube-wofs -v {config_arg} '
