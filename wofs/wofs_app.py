@@ -36,7 +36,6 @@ from datacube.compat import integer_types
 from datacube.index import Index
 from datacube.index.exceptions import MissingRecordError
 from datacube.model import Range, DatasetType
-from datacube.model import DatasetType as Product
 from datacube.ui import click as ui
 from datacube.ui import task_app
 from datacube.utils.geometry import unary_union, unary_intersection, CRS
@@ -145,7 +144,7 @@ def _create_output_definition(config: dict, source_product: DatasetType) -> dict
     }
 
     # Validate the output product definition
-    Product.validate(output_product_definition)
+    DatasetType.validate(output_product_definition)
     return output_product_definition
 
 
@@ -153,7 +152,7 @@ def _ensure_products(app_config: dict, index: Index, dry_run: bool, input_source
     source_product_name = input_source
     source_product = index.products.get_by_name(source_product_name)
     if not source_product:
-        raise ValueError(f"Source Product {source_product_name} does not exist")
+        raise ValueError(f"Source product {source_product_name} does not exist")
 
     output_product = DatasetType(
         source_product.metadata_type,
@@ -172,7 +171,7 @@ def get_product(index, definition, dry_run):
     Get the database record corresponding to the given product definition
     """
     metadata_type = index.metadata_types.get_by_name(definition['metadata_type'])
-    prototype = datacube.model.DatasetType(metadata_type, definition)
+    prototype = DatasetType(metadata_type, definition)
 
     if not dry_run:
         _LOG.info('Add product definition to the database.')
