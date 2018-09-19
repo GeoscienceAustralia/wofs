@@ -148,7 +148,7 @@ def _create_output_definition(config: dict, source_product: DatasetType) -> dict
     return output_product_definition
 
 
-def _ensure_products(app_config: dict, index: Index, dry_run: bool, input_source) -> Tuple[DatasetType, DatasetType]:
+def _ensure_products(app_config: dict, index: Index, dry_run: bool, input_source) -> Tuple[DatasetType]:
     source_product_name = input_source
     source_product = index.products.get_by_name(source_product_name)
     if not source_product:
