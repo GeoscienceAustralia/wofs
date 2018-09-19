@@ -689,7 +689,7 @@ def _make_config_and_description(index: Index, task_desc_path: Path, dry_run: bo
     return config, task_desc
 
 
-@cli.command(help='Actually process generated task file')
+@cli.command(help='Process generated task file')
 @click.option('--dry-run', is_flag=True, default=False, help='Check if output files already exist')
 @click.option('--task-desc', 'task_desc_file', help='Task environment description file',
               required=True,
