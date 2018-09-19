@@ -47,8 +47,11 @@ from wofs import wofls, __version__
 
 APP_NAME = 'wofs'
 _LOG = logging.getLogger(__name__)
-ROOT_DIR = Path(__file__).absolute().parent.parent
 _MEASUREMENT_KEYS_TO_COPY = ('zlib', 'complevel', 'shuffle', 'fletcher32', 'contiguous', 'attrs')
+
+# ROOT_DIR is the current directory of this file.
+ROOT_DIR = Path(__file__).absolute().parent.parent
+
 
 INPUT_SOURCES = [{'nbart': 'ls5_nbart_albers',
                   'pq': 'ls5_pq_legacy_scene',
@@ -465,7 +468,13 @@ tag_option = click.option('--tag', type=str,
 @click.version_option(version=__version__)
 def cli():
     """
-    Instantiate a click.group object
+    Instantiate a click 'Datacube WOfS' group object to register the following sub-commands for
+    different bits of WOfS processing:
+         1) list_configs
+         2) ensure_products
+         3) submit
+         4) generate
+         5) run
     :return: None
     """
     pass
@@ -477,8 +486,8 @@ def list_configs():
      List installed WOfS config files
     :return: None
     """
-    # Wofs config directory is accessed by providing the logical
-    # ancestors (dea/<date>) of the ROOT_DIR path.
+    # Since wofs config files are packaged two levels down the ROOT_DIR,
+    # ROOT_DIR.parents[2] will ensure that we point to dea/<YYYYMMDD> directory.
     for cfg in ROOT_DIR.parents[2].glob('wofs/config/*.yaml'):
         click.echo(cfg)
 
