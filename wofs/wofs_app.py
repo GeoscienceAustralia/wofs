@@ -583,7 +583,8 @@ def submit(index: Index,
     )
     _LOG.info("Created task description: %s", task_path)
 
-    enable_dry_run = '--dry-run' if dry_run else ''
+    # If dry run is not enabled just pass verbose option
+    dry_run_option = '--dry-run' if dry_run else '-v'
 
     if no_qsub:
         _LOG.info('Skipping submission due to --no-qsub')
@@ -595,8 +596,8 @@ def submit(index: Index,
                 'generate', '-vv',
                 '--task-desc', str(task_path),
                 '--tag', tag,
-                enable_dry_run,
-                '--log-queries'
+                '--log-queries',
+                dry_run_option,
             ],
             qsub_params=dict(
                 mem='31G',
@@ -644,7 +645,8 @@ def generate(index: Index,
     nodes, walltime = _estimate_job_size(num_tasks_saved)
     _LOG.info('Will request %d nodes and %s time', nodes, walltime)
 
-    enable_dry_run = '--dry-run' if dry_run else ''
+    # If dry run is not enabled just pass verbose option
+    dry_run_option = '--dry-run' if dry_run else '-v'
 
     if no_qsub:
         _LOG.info('Skipping submission due to --no-qsub')
@@ -660,7 +662,7 @@ def generate(index: Index,
             '--task-desc', str(task_desc_file),
             '--celery', 'pbs-launch',
             '--tag', tag,
-            enable_dry_run,
+            dry_run_option,
         ],
         qsub_params=dict(
             name='wofs-run-{}'.format(tag),
