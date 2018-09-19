@@ -19,13 +19,13 @@ extras_require = {
 }
 
 
-def read(*parts):
+def _read(*parts):
     with codecs.open(os.path.join(here, *parts), 'r') as fp:
         return fp.read()
 
 
-def find_version(*file_paths):
-    version_file = read(*file_paths)
+def _find_version(*file_paths):
+    version_file = _read(*file_paths)
     version_match = re.search(r"^__version__ = ['\"]([^'\"]*)['\"]",
                               version_file, re.M)
     if version_match:
@@ -35,7 +35,7 @@ def find_version(*file_paths):
 
 setup(
     name='wofs',
-    version=find_version("wofs", "__init__.py"),
+    version=_find_version("wofs", "__init__.py"),
     cmdclass={'sdist': sdist},
     url='https://github.com/GeoscienceAustralia/wofs',
     description='Water Observations from Space - Digital Earth Australia',
@@ -50,11 +50,11 @@ setup(
         '': ['*.yaml', '*/*.yaml'],
     },
     include_package_data=True,
-    scripts=['scripts/datacube-wofs-launcher', 'scripts/distributed.sh'],
+    scripts=[],
     setup_requires=[
         'pytest-runner'
     ],
-    data_files=[('wofs/config', config_files)],
+    data_files=[('wofs/config/', config_files)],
     install_requires=[
           'datacube',
     ],
