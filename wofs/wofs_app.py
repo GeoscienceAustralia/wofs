@@ -47,8 +47,11 @@ from wofs import wofls, __version__
 
 APP_NAME = 'wofs'
 _LOG = logging.getLogger(__name__)
-ROOT_DIR = Path(__file__).absolute().parent.parent
 _MEASUREMENT_KEYS_TO_COPY = ('zlib', 'complevel', 'shuffle', 'fletcher32', 'contiguous', 'attrs')
+
+# ROOT_DIR is the current directory of this file.
+ROOT_DIR = Path(__file__).absolute().parent.parent
+
 
 INPUT_SOURCES = [{'nbart': 'ls5_nbart_albers',
                   'pq': 'ls5_pq_legacy_scene',
@@ -145,7 +148,7 @@ def _create_output_definition(config: dict, source_product: DatasetType) -> dict
     return output_product_definition
 
 
-def _ensure_products(app_config: dict, index: Index, dry_run: bool, input_source) -> Tuple[DatasetType, DatasetType]:
+def _ensure_products(app_config: dict, index: Index, dry_run: bool, input_source) -> Tuple[DatasetType]:
     source_product_name = input_source
     source_product = index.products.get_by_name(source_product_name)
     if not source_product:
@@ -465,7 +468,13 @@ tag_option = click.option('--tag', type=str,
 @click.version_option(version=__version__)
 def cli():
     """
-    Instantiate a click.group object
+    Instantiate a click 'Datacube WOfS' group object to register the following sub-commands for
+    different bits of WOfS processing:
+         1) list_configs
+         2) ensure_products
+         3) submit
+         4) generate
+         5) run
     :return: None
     """
     pass
@@ -477,8 +486,8 @@ def list_configs():
      List installed WOfS config files
     :return: None
     """
-    # Wofs config directory is accessed by providing the logical
-    # ancestors (dea/<date>) of the ROOT_DIR path.
+    # Since wofs config files are packaged two levels down the ROOT_DIR,
+    # ROOT_DIR.parents[2] will ensure that we point to dea/<YYYYMMDD> directory.
     for cfg in ROOT_DIR.parents[2].glob('wofs/config/*.yaml'):
         click.echo(cfg)
 
@@ -574,7 +583,8 @@ def submit(index: Index,
     )
     _LOG.info("Created task description: %s", task_path)
 
-    enable_dry_run = '--dry-run' if dry_run else ''
+    # If dry run is not enabled just pass verbose option
+    dry_run_option = '--dry-run' if dry_run else '-v'
 
     if no_qsub:
         _LOG.info('Skipping submission due to --no-qsub')
@@ -586,8 +596,8 @@ def submit(index: Index,
                 'generate', '-vv',
                 '--task-desc', str(task_path),
                 '--tag', tag,
-                enable_dry_run,
-                '--log-queries'
+                '--log-queries',
+                dry_run_option,
             ],
             qsub_params=dict(
                 mem='31G',
@@ -635,7 +645,8 @@ def generate(index: Index,
     nodes, walltime = _estimate_job_size(num_tasks_saved)
     _LOG.info('Will request %d nodes and %s time', nodes, walltime)
 
-    enable_dry_run = '--dry-run' if dry_run else ''
+    # If dry run is not enabled just pass verbose option
+    dry_run_option = '--dry-run' if dry_run else '-v'
 
     if no_qsub:
         _LOG.info('Skipping submission due to --no-qsub')
@@ -651,7 +662,7 @@ def generate(index: Index,
             '--task-desc', str(task_desc_file),
             '--celery', 'pbs-launch',
             '--tag', tag,
-            enable_dry_run,
+            dry_run_option,
         ],
         qsub_params=dict(
             name='wofs-run-{}'.format(tag),
@@ -680,7 +691,7 @@ def _make_config_and_description(index: Index, task_desc_path: Path, dry_run: bo
     return config, task_desc
 
 
-@cli.command(help='Actually process generated task file')
+@cli.command(help='Process generated task file')
 @click.option('--dry-run', is_flag=True, default=False, help='Check if output files already exist')
 @click.option('--task-desc', 'task_desc_file', help='Task environment description file',
               required=True,
