@@ -16,7 +16,6 @@ from the production of the statistical summary mosaics, and is intended to
 improve consistency with other datacube applications (e.g., parallelisation
 of the workflow employs *distributed* rather than *luigi*).
 
-
 Codebase outline
 ----------------
 
@@ -36,7 +35,6 @@ These consist of an 8-bit integer raster band.
 
 - **Decision tree:** The standard classifier is *band maths* performed on 6 EO source bands (TM 1-5, 7). A published tree with 21 nodes, producing boolean output, comprising of thresholds applied to three raw bands (TM 1, 3, 7) and three band-pair ratio-indices (NDI 52, 43, 72).
 - **Filter masks:** various flags are accumulated onto the output band. Inputs are the landsat image, the pixel quality product, and the elevation model. (The difficulty is generating some of the flags, e.g. terrain shadow.)
-
 
 Summary
 -------
@@ -64,7 +62,6 @@ Results (below) indicate that memory is already within the 2GB/core available, t
 - Most of the time is spent on terrain, but only 5-10% speedup plausible by better implementation.
 - Most limiting factor is rotating the DSM (to approximately align with sunlight) but nontrivial to improve or mitigate this. (May or may not be amenable to cheaper interpolation methods or an algorithm that traverses the array differently.)
 
-
 Overlaps
 --------
 The Landsats collect a swath of data as they pass over the continent. 
@@ -85,7 +82,6 @@ observations. Potential alternate measures would include:
 The usefulness of preserving observation-duplicates (e.g. for investigation of 
 sensitivity to uncontrolled upstream processing parameters) is narrow.
 
-
 Classifier
 ----------
 
@@ -95,12 +91,10 @@ Ideally the PQ product might be a band in the EO product (and include terrain re
 
 Alternative algorithms are under development elsewhere.
 
-
 Terrain
 -------
 
 Terrain algorithms usually begin with finding the gradient component along each of the two axes, typically by operating with a 3x3 kernel. One example is the Rook's case (simply using nearest neighbours on either side of the pixel, which turns out to be a 2nd order finite difference method). Another is the Sobel operator, which additionally applies smoothing along the orthogonal axis. Tang and Pilesjo 2011 showed these belong to a variety of methods which produce statistically similar results (different from a more naive and unbalanced method of differencing the central cell with one neighbour along each axis). Jones 1998 found the Rook's case to give the best accuracy (narrowly followed by Sobel), but the methodology (e.g. noise-free synthetic) may have been biased (to favour balanced methods with more compact footprints). Zhou and Liu 2004 added noise to a synthetic, confirming the Rook's case to be optimal in absence of noise but the Sobel operator was more robust to the noise. 
-
 
 Clouds
 ------
@@ -124,13 +118,11 @@ after logging into the NCI by running:
 Versioning
 ----------
 
-The module version number is set in `wofs/__init__.py`. This version number is based on the **algorithm version number**, which at the moment stands at 1.3. See the `CMI Record for the WOfS Algorithm <http://cmi.ga.gov.au/node/166>`_.
+The module version number is set in `wofs/__init__.py`. This version number is based on the **algorithm version number**, which at the moment stands at 1.4. See the `CMI Record for the WOfS Algorithm <http://cmi.ga.gov.au/node/166>`_.
 
 For minor code changes not affecting the algorithm, increment the least significant digit of the version number.
 
 When committing a version number update, please also git tag with the same version number.
-
-
 
 Packaging
 ---------
