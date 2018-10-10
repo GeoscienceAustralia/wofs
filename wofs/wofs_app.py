@@ -613,6 +613,8 @@ def submit(index: Index,
                 '--task-desc', str(task_path),
                 '--tag', tag,
                 '--log-queries',
+                '--email-id', email_id,
+                '--email-options', email_options,
                 dry_run_option,
             ],
             qsub_params=dict(
