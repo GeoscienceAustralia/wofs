@@ -502,8 +502,7 @@ def list_configs():
 
 
 @cli.command(name='ensure-products',
-             help="Ensure the products exist for the given WOfS config, create them if necessary."
-)
+             help="Ensure the products exist for the given WOfS config, create them if necessary.")
 @task_app.app_config_option
 @click.option('--dry-run', is_flag=True, default=False,
               help='Check product definition without modifying the database')
@@ -618,7 +617,7 @@ def submit(index: Index,
             ],
             qsub_params=dict(
                 name='wofs-generate-{}'.format(tag),
-                mem='31G',
+                mem='medium',
                 wd=True,
                 nodes=1,
                 walltime='1h'))
