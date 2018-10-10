@@ -52,7 +52,6 @@ _MEASUREMENT_KEYS_TO_COPY = ('zlib', 'complevel', 'shuffle', 'fletcher32', 'cont
 # ROOT_DIR is the current directory of this file.
 ROOT_DIR = Path(__file__).absolute().parent.parent
 
-
 INPUT_SOURCES = [{'nbart': 'ls5_nbart_albers',
                   'pq': 'ls5_pq_legacy_scene',
                   'sensor_name': 'TM',
@@ -463,6 +462,16 @@ tag_option = click.option('--tag', type=str,
                           default='notset',
                           help='Unique id for the job')
 
+# pylint: disable=invalid-name
+pbs_email_options = click.option('--email-options', '-m', default='ae',
+                                 type=click.Choice(['a', 'b', 'e', 'n', 'ae', 'ab', 'be', 'abe']),
+                                 help='Send Email when execution is, \n'
+                                 '[a = aborted | b = begins | e = ends | n = do not send email]')
+
+# pylint: disable=invalid-name
+pbs_email_id = click.option('--email-id', '-M', default='nci.monitor@dea.ga.gov.au',
+                            help='Email Recipient List')
+
 
 @click.group(help='Datacube WOfS')
 @click.version_option(version=__version__)
@@ -470,8 +479,8 @@ def cli():
     """
     Instantiate a click 'Datacube WOfS' group object to register the following sub-commands for
     different bits of WOfS processing:
-         1) list_configs
-         2) ensure_products
+         1) list
+         2) ensure-products
          3) submit
          4) generate
          5) run
@@ -492,8 +501,8 @@ def list_configs():
         click.echo(cfg)
 
 
-@cli.command(
-    help="Ensure the products exist for the given WOfS config, create them if necessary."
+@cli.command(name='ensure-products',
+             help="Ensure the products exist for the given WOfS config, create them if necessary."
 )
 @task_app.app_config_option
 @click.option('--dry-run', is_flag=True, default=False,
@@ -526,6 +535,8 @@ def ensure_products(index, app_config, dry_run):
 @click.option('--no-qsub', is_flag=True, default=False,
               help="Skip submitting job")
 @tag_option
+@pbs_email_options
+@pbs_email_id
 @click.option('--dry-run', is_flag=True, default=False, help='Check if output files already exist')
 @task_app.app_config_option
 @ui.config_option
@@ -538,6 +549,8 @@ def submit(index: Index,
            no_qsub: bool,
            time_range: Tuple[datetime, datetime],
            tag: str,
+           email_options: str,
+           email_id: str,
            dry_run: bool):
     """
     Kick off two stage PBS job
@@ -585,6 +598,10 @@ def submit(index: Index,
 
     # If dry run is not enabled just pass verbose option
     dry_run_option = '--dry-run' if dry_run else '-v'
+    extra_qsub_args = '-M {0} -m {1}'.format(email_id, email_options)
+
+    # Append email options and email id to the PbsParameters dict key, extra_qsub_args
+    task_desc.runtime_state.pbs_parameters.extra_qsub_args.extend(extra_qsub_args.split(' '))
 
     if no_qsub:
         _LOG.info('Skipping submission due to --no-qsub')
@@ -600,11 +617,11 @@ def submit(index: Index,
                 dry_run_option,
             ],
             qsub_params=dict(
+                name='wofs-generate-{}'.format(tag),
                 mem='31G',
                 wd=True,
-                ncpus=1,
-                walltime='1h',
-                name='wofs-generate-{}'.format(tag)))
+                nodes=1,
+                walltime='1h'))
 
 
 @cli.command(help='Generate Tasks into file and Queue PBS job to process them')
@@ -613,6 +630,8 @@ def submit(index: Index,
               required=True,
               type=click.Path(exists=True, readable=True, writable=False, dir_okay=False))
 @tag_option
+@pbs_email_options
+@pbs_email_id
 @click.option('--dry-run', is_flag=True, default=False, help='Check if output files already exist')
 @ui.verbose_option
 @ui.log_queries_option
@@ -621,6 +640,8 @@ def generate(index: Index,
              task_desc_file: str,
              no_qsub: bool,
              tag: str,
+             email_options: str,
+             email_id: str,
              dry_run: bool):
     """
     Generate Tasks into file and Queue PBS job to process them
@@ -647,6 +668,10 @@ def generate(index: Index,
 
     # If dry run is not enabled just pass verbose option
     dry_run_option = '--dry-run' if dry_run else '-v'
+    extra_qsub_args = '-M {0} -m {1}'.format(email_id, email_options)
+
+    # Append email options and email id to the PbsParameters dict key, extra_qsub_args
+    task_desc.runtime_state.pbs_parameters.extra_qsub_args.extend(extra_qsub_args.split(' '))
 
     if no_qsub:
         _LOG.info('Skipping submission due to --no-qsub')
@@ -666,7 +691,7 @@ def generate(index: Index,
         ],
         qsub_params=dict(
             name='wofs-run-{}'.format(tag),
-            mem='small',
+            mem='medium',
             wd=True,
             nodes=nodes,
             walltime=walltime
