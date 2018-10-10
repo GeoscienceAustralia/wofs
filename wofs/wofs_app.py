@@ -463,7 +463,7 @@ tag_option = click.option('--tag', type=str,
                           help='Unique id for the job')
 
 # pylint: disable=invalid-name
-pbs_email_options = click.option('--email-options', '-m', default='ae',
+pbs_email_options = click.option('--email-options', '-m', default='abe',
                                  type=click.Choice(['a', 'b', 'e', 'n', 'ae', 'ab', 'be', 'abe']),
                                  help='Send Email when execution is, \n'
                                  '[a = aborted | b = begins | e = ends | n = do not send email]')
