@@ -31,14 +31,14 @@ import datacube
 import datacube.model.utils
 from datacube.api.query import Query
 from datacube.api.grid_workflow import Tile
-from datacube.compat import integer_types
 from datacube.index import Index
 from datacube.index.exceptions import MissingRecordError
 from datacube.model import Range, DatasetType
 from datacube.ui import click as ui
 from datacube.ui import task_app
+from datacube.utils import geometry
 from datacube.utils.geometry import unary_union, unary_intersection, CRS
-from datacube.storage.storage import write_dataset_to_netcdf
+from datacube.drivers.netcdf import write_dataset_to_netcdf
 from digitalearthau import serialise, paths
 from digitalearthau.qsub import with_qsub_runner, QSubLauncher, TaskRunner
 from digitalearthau.runners.model import TaskDescription
@@ -71,6 +71,13 @@ INPUT_SOURCES = [{'nbart': 'ls5_nbart_albers',
                   'platform_name_short': 'ls8',
                   'source_product': 'ls8_level1_scene'},
                  ]
+
+
+def polygon_from_sources_extents(sources, geobox):
+    sources_union = geometry.unary_union(source.extent.to_crs(geobox.crs) for source in sources)
+    valid_data = geobox.extent.intersection(sources_union)
+    resolution = min([abs(x) for x in geobox.resolution])
+    return valid_data.simplify(tolerance=resolution * 0.01)
 
 
 def _make_wofs_config(index, config, dry_run):
@@ -275,7 +282,7 @@ def _make_wofs_tasks(index, config, year=None, **kwargs):
     Tasks can also be restricted to a given spatial region, specified in `kwargs['x']` and `kwargs['y']` in `EPSG:3577`.
     """
     # TODO: Filter query to valid options
-    if isinstance(year, integer_types):
+    if isinstance(year, int):
         query_time = Range(datetime(year=year, month=1, day=1), datetime(year=year + 1, month=1, day=1))
     elif isinstance(year, tuple):
         query_time = Range(datetime(year=year[0], month=1, day=1), datetime(year=year[1] + 1, month=1, day=1))
