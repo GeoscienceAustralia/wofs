@@ -73,13 +73,6 @@ INPUT_SOURCES = [{'nbart': 'ls5_nbart_albers',
                  ]
 
 
-def polygon_from_sources_extents(sources, geobox):
-    sources_union = geometry.unary_union(source.extent.to_crs(geobox.crs) for source in sources)
-    valid_data = geobox.extent.intersection(sources_union)
-    resolution = min([abs(x) for x in geobox.resolution])
-    return valid_data.simplify(tolerance=resolution * 0.01)
-
-
 def _make_wofs_config(index, config, dry_run):
     """
     Refine the configuration
