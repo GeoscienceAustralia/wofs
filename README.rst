@@ -141,4 +141,4 @@ running:
 
 It can then also be installed by running:
 
-    pip --index-url https://packages.dea.gadevs.ga/ wofs
+    pip install --index-url https://packages.dea.gadevs.ga/ wofs
