@@ -3,12 +3,27 @@ from __future__ import absolute_import, division
 import numpy
 import logging
 import gc
+
+try:
+    import dask.array
+    dask_array_type = (dask.array.Array,)
+except ImportError:  # pragma: no cover
+    dask_array_type = ()
+
 from wofs import boilerplate
 
 
-# pylint: disable=too-many-locals,too-many-statements
 @boilerplate.simple_numpify
 def classify(images, float64=False):
+    if isinstance(images, dask_array_type):
+        # Apply the classify function on each block in the x and y dimensions
+        # Remove chunks and reduce along the 'band' dimension (axis 0)
+        return dask.array.map_blocks(_classify, images.rechunk({0: -1}), drop_axis=0, dtype='uint8')
+    return _classify(images, float64)
+
+
+# pylint: disable=too-many-locals,too-many-statements
+def _classify(images, float64=False):
     """
     Produce a water classification image from the supplied images (6 bands of an NBAR, multiband Landsat image)
     This method evaluates N.Mueller's decision tree as follows:
