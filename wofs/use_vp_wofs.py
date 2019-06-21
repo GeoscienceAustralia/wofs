@@ -18,10 +18,16 @@ input:
 ''')
 virtual_product = construct(**virtual_product_defn)
 
-# [odc_conf_test]
+# [odc_conf_test] -
 # db_hostname: agdcdev-db.nci.org.au
 # db_port: 6432
 # db_database: odc_conf_test
+
+
+# [ard_interop] - collection upgrade DB
+# db_hostname: agdcstaging-db.nci.org.au
+# db_port:     6432
+# db_database: ard_interop
 
 dc = datacube.Datacube(env="odc_conf_test")
 
@@ -35,3 +41,6 @@ virtual_product.output_measurements(vdbag.product_definitions)
 data = virtual_product.fetch(box, dask_chunks=dict(x=1000, y=1000))
 
 print(data)
+
+# crash!
+#done = data.compute()

@@ -27,10 +27,10 @@ class Wofs(Transformation):
                for p in product(*[[(i.name, i.item()) for i in c]
                                   for v, c in data.coords.items()
                                   if v not in data.geobox.dims])]
-        fc = []
+        wofs = []
         for s in sel:
-            fc.append(woffles_no_terrain_filter(data.sel(**s)))
-        return xr.concat(fc, dim='time')
+            wofs.append(woffles_no_terrain_filter(data.sel(**s)))
+        return xr.concat(wofs, dim='time')
 
 
 DEFAULT_RESOLVER.lookup_table['transform']['wofs'] = Wofs
