@@ -29,7 +29,7 @@ class Wofs(Transformation):
                                   if v not in data.geobox.dims])]
         fc = []
         for s in sel:
-            fc.append(woffles_no_terrain_filter(data.sel(**s), self.output_measurements))
+            fc.append(woffles_no_terrain_filter(data.sel(**s)))
         return xr.concat(fc, dim='time')
 
 
