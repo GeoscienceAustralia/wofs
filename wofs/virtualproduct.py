@@ -2,7 +2,7 @@ from datacube.virtual import Transformation, Measurement, DEFAULT_RESOLVER
 import xarray as xr
 from itertools import product
 
-FC_MEASUREMENTS = [{
+WOFS_OUTPUT = [{
     'name': 'water',
     'dtype': 'uint8',
     'nodata': 1,
@@ -12,11 +12,12 @@ FC_MEASUREMENTS = [{
 
 class Wofs(Transformation):
     """ Applies the wofs algorithm to surface reflectance data.
-    Requires bands named 'green', 'red', 'nir', 'swir1', 'swir2'
+    Requires bands named
+    bands = ['nbart_blue', 'nbart_green', 'nbart_red', 'nbart_nir', 'nbart_swir_1', 'nbart_swir_2', 'fmask']
     """
 
     def __init__(self, *args, **kwargs):
-        self.output_measurements = [Measurement(**m) for m in FC_MEASUREMENTS]
+        self.output_measurements = [Measurement(**m) for m in WOFS_OUTPUT]
 
     def measurements(self, input_measurements):
         return self.output_measurements
