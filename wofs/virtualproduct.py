@@ -1,6 +1,7 @@
-from datacube.virtual import Transformation, Measurement, DEFAULT_RESOLVER
 import xarray as xr
 from itertools import product
+
+from datacube.virtual import Transformation, Measurement
 
 WOFS_OUTPUT = [{
     'name': 'water',
@@ -10,7 +11,7 @@ WOFS_OUTPUT = [{
 }, ]
 
 
-class Wofs(Transformation):
+class WOfSClassifier(Transformation):
     """ Applies the wofs algorithm to surface reflectance data.
     Requires bands named
     bands = ['nbart_blue', 'nbart_green', 'nbart_red', 'nbart_nir', 'nbart_swir_1', 'nbart_swir_2', 'fmask']
@@ -32,6 +33,3 @@ class Wofs(Transformation):
         for s in sel:
             wofs.append(woffles_no_terrain_filter(data.sel(**s)))
         return xr.concat(wofs, dim='time')
-
-
-DEFAULT_RESOLVER.lookup_table['transform']['wofs'] = Wofs
