@@ -1,5 +1,9 @@
+from collections import Mapping
+from typing import Dict
+
 import xarray as xr
 from itertools import product
+from xarray import Dataset
 
 from datacube.virtual import Transformation, Measurement
 
@@ -18,18 +22,17 @@ class WOfSClassifier(Transformation):
     """
 
     def __init__(self, *args, **kwargs):
-        self.output_measurements = [Measurement(**m) for m in WOFS_OUTPUT]
+        self.output_measurements = {m['name']: Measurement(**m) for m in WOFS_OUTPUT}
 
-    def measurements(self, input_measurements):
+    def measurements(self, input_measurements) -> Dict[str, Measurement]:
         return self.output_measurements
 
-    def compute(self, data):
+    def compute(self, data) -> Dataset:
         from wofs.vp_wofs import woffles_no_terrain_filter
-        sel = [dict(p)
-               for p in product(*[[(i.name, i.item()) for i in c]
-                                  for v, c in data.coords.items()
-                                  if v not in data.geobox.dims])]
+        time_selectors = data.time.values
         wofs = []
-        for s in sel:
-            wofs.append(woffles_no_terrain_filter(data.sel(**s)))
-        return xr.concat(wofs, dim='time')
+        for time in time_selectors:
+            wofs.append(woffles_no_terrain_filter(data.sel(time=time)).to_dataset(name='wofs', dim='water'))
+        wofs = xr.concat(wofs, dim='time')
+        wofs.attrs['crs'] = data.attrs['crs']
+        return wofs
