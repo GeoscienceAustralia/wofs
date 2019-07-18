@@ -12,19 +12,18 @@
 #     'match'
 
 
-import datacube
-import wofs.wofs_app
-
 import numpy as np
 import scipy
 import xarray
+import wofs.classifier
+# import wofs.terrain
 
-MASKED_HIGH_SLOPE = 1 << 4   # (dec 16)  bit 4: 1=pixel masked out due to high slope
+MASKED_HIGH_SLOPE = 1 << 4  # (dec 16)  bit 4: 1=pixel masked out due to high slope
 MASKED_TERRAIN_SHADOW = 1 << 3  # (dec 8)   bit 3: 1=pixel masked out due to terrain shadow or
-MASKED_NO_CONTIGUITY = 1 << 1   # (dec 2)   bit 1: 1=pixel masked out due to lack of data contiguity
-NO_DATA = 1 << 0   # (dec 1)   bit 0: 1=pixel masked out due to NO_DATA in NBAR source, 0=valid data in NBAR
-MASKED_CLOUD = 1 << 6   # (dec 64)  bit 6: 1=pixel masked out due to cloud
-MASKED_CLOUD_SHADOW = 1 << 5   # (dec 32)  bit 5: 1=pixel masked out due to cloud shadow
+MASKED_NO_CONTIGUITY = 1 << 1  # (dec 2)   bit 1: 1=pixel masked out due to lack of data contiguity
+NO_DATA = 1 << 0  # (dec 1)   bit 0: 1=pixel masked out due to NO_DATA in NBAR source, 0=valid data in NBAR
+MASKED_CLOUD = 1 << 6  # (dec 64)  bit 6: 1=pixel masked out due to cloud
+MASKED_CLOUD_SHADOW = 1 << 5  # (dec 32)  bit 5: 1=pixel masked out due to cloud shadow
 
 # Water detected on slopes equal or greater than this value are masked out
 SLOPE_THRESHOLD_DEGREES = 12.0
@@ -32,8 +31,7 @@ SLOPE_THRESHOLD_DEGREES = 12.0
 LOW_SOLAR_INCIDENCE_THRESHOLD_DEGREES = 30
 
 
-
-#--------------These are from wofs and should be referenced there rather than copied------
+# --------------These are from wofs and should be referenced there rather than copied------
 def eo_filter(source):
     """
     Find where there is no data
@@ -51,7 +49,7 @@ def dilate(array):
     """Dilation e.g. for cloud and cloud/terrain shadow"""
     # kernel = [[1] * 7] * 7 # blocky 3-pixel dilation
     y, x = np.ogrid[-3:4, -3:4]
-    kernel = ((x * x) + (y * y) <= 3.5**2)  # disk-like 3-pixel radial dilation
+    kernel = ((x * x) + (y * y) <= 3.5 ** 2)  # disk-like 3-pixel radial dilation
     return scipy.ndimage.binary_dilation(array, structure=kernel)
 
 
@@ -72,7 +70,7 @@ def terrain_filter(dsm, nbar):
     return xarray.DataArray(result, coords=[dsm.y, dsm.x])  # note, assumes (y,x) axis ordering
 
 
-#-------------------------------------------------------------------------------------------
+# -------------------------------------------------------------------------------------------
 def pq_filter(fmask):
     masking = np.zeros(fmask.shape, dtype=np.uint8)
     masking[fmask == 0] += NO_DATA
