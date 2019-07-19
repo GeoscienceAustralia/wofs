@@ -32,7 +32,7 @@ class WOfSClassifier(Transformation):
         time_selectors = data.time.values
         wofs = []
         for time in time_selectors:
-            wofs.append(woffles_no_terrain_filter(data.sel(time=time)).to_dataset(name='wofs', dim='water'))
+            wofs.append(woffles_no_terrain_filter(data.sel(time=time)).to_dataset(name='water'))
         wofs = xr.concat(wofs, dim='time')
         wofs.attrs['crs'] = data.attrs['crs']
         return wofs
