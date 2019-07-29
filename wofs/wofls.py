@@ -23,13 +23,13 @@ import numpy as np
 from wofs import classifier, filters
 
 
-def woffles(source, pq, dsm):
+def woffles(nbar, pq, dsm):
     """Generate a Water Observation Feature Layer from NBAR, PQ and surface elevation inputs."""
 
-    water = classifier.classify(source.to_array(dim='band')) \
-        | filters.eo_filter(source) \
+    water = classifier.classify(nbar.to_array(dim='band')) \
+        | filters.eo_filter(nbar) \
         | filters.pq_filter(pq.pqa) \
-        | filters.terrain_filter(dsm, source)
+        | filters.terrain_filter(dsm, nbar)
 
     assert water.dtype == np.uint8
 
