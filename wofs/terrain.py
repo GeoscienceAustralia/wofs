@@ -83,7 +83,7 @@ def solar_vector(p, time, crs):
 
 
 # pylint: disable=too-many-locals
-def shadows_and_slope(tile, time):
+def shadows_and_slope(tile, time, pixel_scale_m=25.0): # TODO proper res
     """
     Terrain shadow masking (Greg's implementation) and slope masking.
 
@@ -124,7 +124,6 @@ def shadows_and_slope(tile, time):
     rot_degrees = 90.0 + math.degrees(solar_vec[3])
     sun_alt_deg = math.degrees(solar_vec[4])
     # print solar_vec, rot_degrees, sun_alt_deg
-    pixel_scale_m = 25.0  # TODO: proper res
     no_data = -1000
 
     rotated_elv_array = ndimage.interpolation.rotate(tile.elevation.values,
