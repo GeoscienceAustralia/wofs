@@ -18,6 +18,8 @@ class WOfSClassifier(Transformation):
     """ Applies the wofs algorithm to surface reflectance data.
     Requires bands named
     bands = ['nbart_blue', 'nbart_green', 'nbart_red', 'nbart_nir', 'nbart_swir_1', 'nbart_swir_2', 'fmask']
+
+    Terrain buffer is specified in CRS Units (typically meters)
     """
 
     def __init__(self, dsm_path, terrain_buffer=0):
