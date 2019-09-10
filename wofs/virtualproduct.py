@@ -1,6 +1,7 @@
 import xarray as xr
 from typing import Dict
 from xarray import Dataset
+import logging
 
 from datacube.testutils.io import dc_read
 from datacube.virtual import Transformation, Measurement
@@ -12,7 +13,7 @@ WOFS_OUTPUT = [{
     'nodata': 1,
     'units': '1'
 }, ]
-
+_LOG = logging.getLogger(__file__)
 
 class WOfSClassifier(Transformation):
     """ Applies the wofs algorithm to surface reflectance data.
@@ -23,9 +24,11 @@ class WOfSClassifier(Transformation):
     """
 
     def __init__(self, dsm_path=None, terrain_buffer=0):
-        self.dsm_path = dsm_path if dsm_path != 'None' else None
+        self.dsm_path = dsm_path
         self.terrain_buffer = terrain_buffer
         self.output_measurements = {m['name']: Measurement(**m) for m in WOFS_OUTPUT}
+        if dsm_path is None:
+            _LOG.warning('WARNING: DSM not set, terrain shadow will not be calculated')
 
     def measurements(self, input_measurements) -> Dict[str, Measurement]:
         return self.output_measurements
