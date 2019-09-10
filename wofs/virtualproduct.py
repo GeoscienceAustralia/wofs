@@ -1,10 +1,11 @@
 import xarray as xr
 from typing import Dict
 from xarray import Dataset
+import logging
 
 from datacube.testutils.io import dc_read
 from datacube.virtual import Transformation, Measurement
-from wofs.vp_wofs import woffles_ard
+from wofs.vp_wofs import woffles_ard, woffles_ard_no_terrain_filter
 
 WOFS_OUTPUT = [{
     'name': 'water',
@@ -12,7 +13,7 @@ WOFS_OUTPUT = [{
     'nodata': 1,
     'units': '1'
 }, ]
-
+_LOG = logging.getLogger(__file__)
 
 class WOfSClassifier(Transformation):
     """ Applies the wofs algorithm to surface reflectance data.
@@ -22,10 +23,12 @@ class WOfSClassifier(Transformation):
     Terrain buffer is specified in CRS Units (typically meters)
     """
 
-    def __init__(self, dsm_path, terrain_buffer=0):
+    def __init__(self, dsm_path=None, terrain_buffer=0):
         self.dsm_path = dsm_path
         self.terrain_buffer = terrain_buffer
         self.output_measurements = {m['name']: Measurement(**m) for m in WOFS_OUTPUT}
+        if dsm_path is None:
+            _LOG.warning('WARNING: DSM not set, terrain shadow will not be calculated')
 
     def measurements(self, input_measurements) -> Dict[str, Measurement]:
         return self.output_measurements
@@ -33,12 +36,16 @@ class WOfSClassifier(Transformation):
     def compute(self, data) -> Dataset:
         print(data.geobox)
         print(repr(data.geobox))
-        dsm = self._load_dsm(data.geobox.buffered(self.terrain_buffer, self.terrain_buffer))
+        if self.dsm_path is not None:
+            dsm = self._load_dsm(data.geobox.buffered(self.terrain_buffer, self.terrain_buffer))
 
         time_selectors = data.time.values
         wofs = []
         for time in time_selectors:
-            wofs.append(woffles_ard(data.sel(time=time), dsm).to_dataset(name='water'))
+            if self.dsm_path is None:
+                wofs.append(woffles_ard_no_terrain_filter(data.sel(time=time)).to_dataset(name='water'))
+            else:
+                wofs.append(woffles_ard(data.sel(time=time), dsm).to_dataset(name='water'))
         wofs = xr.concat(wofs, dim='time')
         wofs.attrs['crs'] = data.attrs['crs']
         return wofs
