@@ -5,6 +5,7 @@ import logging
 
 from datacube.testutils.io import dc_read
 from datacube.virtual import Transformation, Measurement
+from datacube.storage.masking import valid_data_mask
 from wofs.vp_wofs import woffles_ard, woffles_ard_no_terrain_filter
 
 WOFS_OUTPUT = [{
@@ -23,9 +24,10 @@ class WOfSClassifier(Transformation):
     Terrain buffer is specified in CRS Units (typically meters)
     """
 
-    def __init__(self, dsm_path=None, terrain_buffer=0):
+    def __init__(self, dsm_path=None, terrain_buffer=0, c2=False):
         self.dsm_path = dsm_path
         self.terrain_buffer = terrain_buffer
+        self.c2 = c2
         self.output_measurements = {m['name']: Measurement(**m) for m in WOFS_OUTPUT}
         if dsm_path is None:
             _LOG.warning('WARNING: DSM not set, terrain shadow will not be calculated')
@@ -34,8 +36,24 @@ class WOfSClassifier(Transformation):
         return self.output_measurements
 
     def compute(self, data) -> Dataset:
+
         print(data.geobox)
         print(repr(data.geobox))
+
+        if self.c2:
+            # The C2 data needs to be scaled
+            bands = ['nbart_blue', 'nbart_green', 'nbart_red', 'nbart_nir', 'nbart_swir_1', 'nbart_swir_2', 'fmask']
+
+            for band in bands:
+                dtype = data[band].dtype
+                nodata = data[band].attrs['nodata']
+
+                is_valid_array = valid_data_mask(data[band])
+
+                data[band] = data[band].where(is_valid_array)
+                data[band] = numpy.clip((data[band] * 2.75e-5 - 0.2) * 10000, 0, 10000)
+                data[band] = data[band].astype(dtype).where(is_valid_array, nodata)
+
         if self.dsm_path is not None:
             dsm = self._load_dsm(data.geobox.buffered(self.terrain_buffer, self.terrain_buffer))
 
