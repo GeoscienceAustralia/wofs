@@ -28,6 +28,13 @@ def fmask_filter(fmask):
 
     return masking
 
+def fmask_filter_c2(fmask):
+    masking = np.zeros(fmask.shape, dtype=np.uint8)
+    masking[fmask == 0] += NO_DATA
+    masking[fmask == 3] += MASKED_CLOUD
+    masking[fmask == 4] += MASKED_CLOUD_SHADOW
+
+    return masking
 
 def classify_ard(ds):
     """Put the bands in the expected order, and exclude the fmask band, then classify"""
@@ -35,10 +42,10 @@ def classify_ard(ds):
     return wofs.classifier.classify(ds[bands].to_array(dim='band'))
 
 
-def woffles_ard_no_terrain_filter(ard):
+def woffles_ard_no_terrain_filter(ard, masking_filter=fmask_filter_c2):
     """Generate a Water Observation Feature Layer from ARD (NBART and FMASK) surface elevation inputs."""
 
-    water = classify_ard(ard) | eo_filter(ard) | fmask_filter(ard.fmask)
+    water = classify_ard(ard) | eo_filter(ard) | masking_filter(ard.fmask)
 
     assert water.dtype == np.uint8
 
