@@ -18,6 +18,7 @@ import wofs.classifier
 # import wofs.terrain
 from wofs.constants import NO_DATA, MASKED_CLOUD, MASKED_CLOUD_SHADOW
 from wofs.filters import eo_filter, terrain_filter
+from datacube.storage import masking
 
 
 def fmask_filter(fmask):
@@ -28,13 +29,17 @@ def fmask_filter(fmask):
 
     return masking
 
-def fmask_filter_c2(fmask):
-    masking = np.zeros(fmask.shape, dtype=np.uint8)
-    masking[fmask == 0] += NO_DATA
-    masking[fmask == 3] += MASKED_CLOUD
-    masking[fmask == 4] += MASKED_CLOUD_SHADOW
 
-    return masking
+def fmask_filter_c2(fmask):
+    mask = np.zeros(fmask.shape, dtype=np.uint8)
+    col2_nodata = masking.make_mask(fmask, nodata=True)
+    col2_cloud = masking.make_mask(fmask, cloud_or_cirrus='cloud_or_cirrus')
+    col2_cloud_shadow = masking.make_mask(fmask, cloud_shadow='cloud_shadow')
+    mask[col2_nodata.values] += NO_DATA
+    mask[col2_cloud.values] += MASKED_CLOUD
+    mask[col2_cloud_shadow.values] += MASKED_CLOUD_SHADOW
+    return mask
+
 
 def classify_ard(ds):
     """Put the bands in the expected order, and exclude the fmask band, then classify"""
@@ -42,7 +47,7 @@ def classify_ard(ds):
     return wofs.classifier.classify(ds[bands].to_array(dim='band'))
 
 
-def woffles_ard_no_terrain_filter(ard, masking_filter=fmask_filter_c2):
+def woffles_ard_no_terrain_filter(ard, masking_filter=fmask_filter):
     """Generate a Water Observation Feature Layer from ARD (NBART and FMASK) surface elevation inputs."""
 
     water = classify_ard(ard) | eo_filter(ard) | masking_filter(ard.fmask)
@@ -52,8 +57,8 @@ def woffles_ard_no_terrain_filter(ard, masking_filter=fmask_filter_c2):
     return water
 
 
-def woffles_ard(ard, dsm):
-    water = classify_ard(ard) | eo_filter(ard) | fmask_filter(ard.fmask) | terrain_filter(dsm, ard.rename(
+def woffles_ard(ard, dsm, masking_filter=fmask_filter):
+    water = classify_ard(ard) | eo_filter(ard) | masking_filter(ard.fmask) | terrain_filter(dsm, ard.rename(
         {'nbart_blue': 'blue'}))
 
     assert water.dtype == np.uint8
