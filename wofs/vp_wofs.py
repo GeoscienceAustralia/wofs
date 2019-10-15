@@ -35,9 +35,10 @@ def fmask_filter_c2(fmask):
     col2_nodata = masking.make_mask(fmask, nodata=True)
     col2_cloud = masking.make_mask(fmask, cloud_or_cirrus='cloud_or_cirrus')
     col2_cloud_shadow = masking.make_mask(fmask, cloud_shadow='cloud_shadow')
-    mask[col2_nodata.values] += NO_DATA
+
     mask[col2_cloud.values] += MASKED_CLOUD
     mask[col2_cloud_shadow.values] += MASKED_CLOUD_SHADOW
+    mask[col2_nodata.values] = NO_DATA
     return mask
 
 
