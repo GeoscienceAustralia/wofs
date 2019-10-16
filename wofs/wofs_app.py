@@ -9,7 +9,6 @@ The three entry points are:
 2. datacube-wofs generate
 3. datacube-wofs run
 """
-from __future__ import absolute_import, division
 import logging
 import os
 import copy

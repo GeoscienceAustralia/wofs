@@ -1,7 +1,6 @@
 """
 Set individual bitflags needed for wofls.
 """
-from __future__ import absolute_import
 import numpy as np
 import scipy.ndimage
 from wofs import terrain, constants, boilerplate

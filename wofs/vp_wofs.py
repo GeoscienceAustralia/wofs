@@ -59,8 +59,8 @@ def woffles_ard_no_terrain_filter(ard, masking_filter=fmask_filter):
 
 
 def woffles_ard(ard, dsm, masking_filter=fmask_filter):
-    water = classify_ard(ard) | eo_filter(ard) | masking_filter(ard.fmask) | terrain_filter(dsm, ard.rename(
-        {'nbart_blue': 'blue'}))
+    water = classify_ard(ard) | eo_filter(ard) | masking_filter(ard.fmask) \
+            | terrain_filter(dsm, ard.rename({'nbart_blue': 'blue'}))
 
     assert water.dtype == np.uint8
 
