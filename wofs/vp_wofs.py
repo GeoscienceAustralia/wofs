@@ -74,4 +74,8 @@ def woffles_ard(ard, dsm, masking_filter=fmask_filter):
 def _fix_nodata_to_single_value(dataarray):
     # Force any values with the NODATA bit set, to be the nodata value
     nodata_set = np.bitwise_and(dataarray.data, NO_DATA) == NO_DATA
-    dataarray.data[nodata_set] = NO_DATA
+
+    # If we don't specifically set the dtype in the following line,
+    # dask arrays explode to int64s. Make sure it stays a uint8!
+    dataarray.data[nodata_set] = np.array(NO_DATA, dtype='uint8')
+
