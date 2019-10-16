@@ -53,6 +53,8 @@ def woffles_ard_no_terrain_filter(ard, masking_filter=fmask_filter):
 
     water = classify_ard(ard) | eo_filter(ard) | masking_filter(ard.fmask)
 
+    _fix_nodata_to_single_value(water)
+
     assert water.dtype == np.uint8
 
     return water
@@ -62,6 +64,14 @@ def woffles_ard(ard, dsm, masking_filter=fmask_filter):
     water = classify_ard(ard) | eo_filter(ard) | masking_filter(ard.fmask) \
             | terrain_filter(dsm, ard.rename({'nbart_blue': 'blue'}))
 
+    _fix_nodata_to_single_value(water)
+
     assert water.dtype == np.uint8
 
     return water
+
+
+def _fix_nodata_to_single_value(dataarray):
+    # Force any values with the NODATA bit set, to be the nodata value
+    nodata_set = np.bitwise_and(dataarray.data, NO_DATA) == NO_DATA
+    dataarray.data[nodata_set] = NO_DATA
