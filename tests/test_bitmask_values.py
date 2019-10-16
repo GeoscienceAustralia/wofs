@@ -8,7 +8,7 @@ from datacube.utils.geometry import GeoBox, CRS
 from wofs.virtualproduct import WOfSClassifier
 
 
-@pytest.mark.parametrize("c2_data", [False, True])
+@pytest.mark.parametrize("c2_data", [False, True], ids=["ga_landsat", "usgs_col2"])
 def test_nodata_bit_setting(sample_data, c2_data):
     """
 
@@ -22,8 +22,8 @@ def test_nodata_bit_setting(sample_data, c2_data):
     wofl = wofl.water.data.reshape(-1)
 
     values_with_nodata_bit_set = wofl[np.bitwise_and(wofl, 1) == 1]
-    assert (values_with_nodata_bit_set == 1).all()
     assert wofl.dtype == np.dtype('uint8')
+    assert (values_with_nodata_bit_set == 1).all()
 
 
 @pytest.fixture(params=[np, da], ids=["numpy", "dask.array"])
