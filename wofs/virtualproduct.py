@@ -17,6 +17,7 @@ WOFS_OUTPUT = [{
 }, ]
 _LOG = logging.getLogger(__file__)
 
+
 class WOfSClassifier(Transformation):
     """ Applies the wofs algorithm to surface reflectance data.
     Requires bands named
@@ -31,7 +32,7 @@ class WOfSClassifier(Transformation):
         self.c2 = c2
         self.output_measurements = {m['name']: Measurement(**m) for m in WOFS_OUTPUT}
         if dsm_path is None:
-            _LOG.warning('WARNING: DSM not set, terrain shadow will not be calculated')
+            _LOG.warning('WARNING: Path or URL to a DSM is not set. Terrain shadow mask will not be calculated.')
 
     def measurements(self, input_measurements) -> Dict[str, Measurement]:
         return self.output_measurements
@@ -66,10 +67,11 @@ class WOfSClassifier(Transformation):
         wofs = []
         for time in time_selectors:
             if self.dsm_path is None:
-                wofs.append(woffles_ard_no_terrain_filter(data.sel(time=time),
-                            masking_filter=masking_used).to_dataset(name='water'))
+                wofs.append(woffles_ard_no_terrain_filter(data.sel(time=time), masking_filter=masking_used
+                                                          ).to_dataset(name='water'))
             else:
-                wofs.append(woffles_ard(data.sel(time=time), dsm, masking_filter=masking_used).to_dataset(name='water'))
+                wofs.append(woffles_ard(data.sel(time=time), dsm, masking_filter=masking_used
+                                        ).to_dataset(name='water'))
         wofs = xr.concat(wofs, dim='time')
         wofs.attrs['crs'] = data.attrs['crs']
         return wofs

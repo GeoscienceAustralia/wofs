@@ -17,8 +17,6 @@ Issues:
       Also, should quantify whether earth's curvature is significant on tile scale.
     - Yet to profile memory, CPU or IO usage.
 """
-from __future__ import absolute_import
-
 import numpy as np
 from wofs import classifier, filters
 

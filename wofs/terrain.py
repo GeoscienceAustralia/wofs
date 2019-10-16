@@ -1,4 +1,3 @@
-from __future__ import absolute_import, division
 import numpy
 import ephem
 from scipy import ndimage
