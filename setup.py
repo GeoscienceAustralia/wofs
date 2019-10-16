@@ -13,8 +13,7 @@ config_files = ['config/' + name for name in os.listdir('config')]
 tests_require = ['pytest', 'pytest-cov', 'mock', 'pycodestyle', 'pylint',
                  'hypothesis', 'compliance-checker', 'yamllint']
 extras_require = {
-    'doc': ['Sphinx', 'nbsphinx', 'setuptools', 'sphinx_rtd_theme', 'IPython', 'jupyter_sphinx',
-            'recommonmark'],
+    'terrain': ['scipy', 'ephem'],
     'test': tests_require,
 }
 
