@@ -19,6 +19,7 @@ Issues:
 """
 import numpy as np
 from wofs import classifier, filters
+from wofs.vp_wofs import _fix_nodata_to_single_value
 
 
 def woffles(nbar, pq, dsm):
@@ -28,6 +29,8 @@ def woffles(nbar, pq, dsm):
         | filters.eo_filter(nbar) \
         | filters.pq_filter(pq.pqa) \
         | filters.terrain_filter(dsm, nbar)
+
+    _fix_nodata_to_single_value(water)
 
     assert water.dtype == np.uint8
 
