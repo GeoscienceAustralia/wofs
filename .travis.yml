@@ -1,0 +1,37 @@
+---
+dist: bionic
+language: python
+python:
+    - '3.6'
+
+git:
+  # We need a deeper depth for 'git descibe' to ensure
+  # we can reach the last tagged version.
+  depth: 99999
+
+install:
+    # For debugging
+    - pip freeze
+
+script:
+    - ./check-code.sh
+
+after_success:
+    - coveralls
+
+before_deploy:
+    - python setup.py sdist bdist_wheel
+
+deploy:
+ - provider: s3
+   bucket: "datacube-core-deployment"
+   region: "ap-southeast-2"
+   local_dir: dist
+   upload_dir: wofs
+   skip_cleanup: true
+   on:
+       all_branches: true  # Let the condition below decide if the branch is to be deployed
+       condition: $TRAVIS_BRANCH = "master" || ! -z "${TRAVIS_TAG}"  # master branch or tags
+       repo: GeoscienceAustralia/wofs
+       python: "3.6"
+
