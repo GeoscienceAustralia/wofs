@@ -1,6 +1,0 @@
-[
-  "tests/test_bitmask_values.py::test_nodata_bit_setting[numpy-ga_landsat]",
-  "tests/test_bitmask_values.py::test_nodata_bit_setting[numpy-usgs_col2]",
-  "tests/test_bitmask_values.py::test_nodata_bit_setting[dask.array-ga_landsat]",
-  "tests/test_bitmask_values.py::test_nodata_bit_setting[dask.array-usgs_col2]"
-]
