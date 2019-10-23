@@ -21,8 +21,8 @@ from pathlib import Path
 from time import time as time_now
 from typing import Tuple
 
-import numpy as np
 import click
+import numpy as np
 import xarray
 from pandas import to_datetime
 
@@ -31,11 +31,9 @@ import datacube.model.utils
 from datacube.api.query import Query
 from datacube.api.grid_workflow import Tile
 from datacube.index import Index
-from datacube.index.exceptions import MissingRecordError
-from datacube.model import Range, DatasetType
+from datacube.model import DatasetType
 from datacube.ui import click as ui
 from datacube.ui import task_app
-from datacube.utils import geometry
 from datacube.utils.geometry import unary_union, unary_intersection, CRS
 from datacube.drivers.netcdf import write_dataset_to_netcdf
 from digitalearthau import serialise, paths
@@ -454,7 +452,6 @@ def _estimate_job_size(num_tasks):
     wall_time_mins = '{mins}m'.format(mins=(task_time_mins * tasks_per_cpu))
 
     return nodes, wall_time_mins
-
 
 # pylint: disable=invalid-name
 tag_option = click.option('--tag', type=str,
