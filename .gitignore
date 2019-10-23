@@ -94,3 +94,4 @@ zlocal*
 private*
 scratch/*
 
+.pytest_cache/

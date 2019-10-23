@@ -4,14 +4,14 @@ import datacube
 
 import yaml
 
-#from fc.fractional_cover import fractional_cover
+# from fc.fractional_cover import fractional_cover
 from wofs.vp_wofs import woffles_ard_no_terrain_filter
 
 
 # measurements: [green, red, nir, swir1, swir2]
 virtual_product_defn = yaml.safe_load('''
 transform: wofs.virtualproduct.Wofs
-input: 
+input:
     product: ls8_ard
     measurements: [nbart_blue, nbart_green, nbart_red, nbart_nir, nbart_swir_1, nbart_swir_2, fmask]
 ''')
@@ -42,4 +42,4 @@ data = virtual_product.fetch(box, dask_chunks=dict(x=1000, y=1000))
 print(data)
 
 # crash!
-#done = data.compute()
+# done = data.compute()

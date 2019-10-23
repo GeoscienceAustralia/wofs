@@ -82,7 +82,7 @@ def solar_vector(p, time, crs):
 
 
 # pylint: disable=too-many-locals
-def shadows_and_slope(tile, time, pixel_scale_m=25.0): # TODO proper res
+def shadows_and_slope(tile, time, pixel_scale_m=25.0):  # TODO proper res
     """
     Terrain shadow masking (Greg's implementation) and slope masking.
 

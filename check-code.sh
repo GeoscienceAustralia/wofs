@@ -19,8 +19,5 @@ pycodestyle --ignore=E122,E711,E701,E501 --max-line-length 120  \
     wofs \
     wofs-summary/*.py \
 
-shellcheck ./**/*.sh
-yamllint ./**/*.yaml
 
-# Users can specify extra folders (ie. integration_tests) as arguments.
-#py.test -r sx --cov wofs --durations=5 wofs scripts/**/*.py "$@"
+pytest tests
