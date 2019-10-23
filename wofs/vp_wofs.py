@@ -15,6 +15,7 @@
 import numpy as np
 
 import wofs.classifier
+
 # import wofs.terrain
 from wofs.constants import NO_DATA, MASKED_CLOUD, MASKED_CLOUD_SHADOW
 from wofs.filters import eo_filter, terrain_filter
@@ -33,8 +34,8 @@ def fmask_filter(fmask):
 def fmask_filter_c2(fmask):
     mask = np.zeros(fmask.shape, dtype=np.uint8)
     col2_nodata = masking.make_mask(fmask, nodata=True)
-    col2_cloud = masking.make_mask(fmask, cloud_or_cirrus='cloud_or_cirrus')
-    col2_cloud_shadow = masking.make_mask(fmask, cloud_shadow='cloud_shadow')
+    col2_cloud = masking.make_mask(fmask, cloud_or_cirrus="cloud_or_cirrus")
+    col2_cloud_shadow = masking.make_mask(fmask, cloud_shadow="cloud_shadow")
 
     mask[col2_cloud.values] += MASKED_CLOUD
     mask[col2_cloud_shadow.values] += MASKED_CLOUD_SHADOW
@@ -44,8 +45,15 @@ def fmask_filter_c2(fmask):
 
 def classify_ard(ds):
     """Put the bands in the expected order, and exclude the fmask band, then classify"""
-    bands = ['nbart_blue', 'nbart_green', 'nbart_red', 'nbart_nir', 'nbart_swir_1', 'nbart_swir_2']
-    return wofs.classifier.classify(ds[bands].to_array(dim='band'))
+    bands = [
+        "nbart_blue",
+        "nbart_green",
+        "nbart_red",
+        "nbart_nir",
+        "nbart_swir_1",
+        "nbart_swir_2",
+    ]
+    return wofs.classifier.classify(ds[bands].to_array(dim="band"))
 
 
 def woffles_ard_no_terrain_filter(ard, masking_filter=fmask_filter):
@@ -61,8 +69,8 @@ def woffles_ard_no_terrain_filter(ard, masking_filter=fmask_filter):
 
 
 def woffles_ard(ard, dsm, masking_filter=fmask_filter):
-    water = classify_ard(ard) | eo_filter(ard) | masking_filter(ard.fmask) \
-            | terrain_filter(dsm, ard.rename({'nbart_blue': 'blue'}))
+    water = classify_ard(ard) | eo_filter(ard) | masking_filter(ard.fmask) | \
+        terrain_filter(dsm, ard.rename({"nbart_blue": "blue"}))
 
     _fix_nodata_to_single_value(water)
 
@@ -77,5 +85,4 @@ def _fix_nodata_to_single_value(dataarray):
 
     # If we don't specifically set the dtype in the following line,
     # dask arrays explode to int64s. Make sure it stays a uint8!
-    dataarray.data[nodata_set] = np.array(NO_DATA, dtype='uint8')
-
+    dataarray.data[nodata_set] = np.array(NO_DATA, dtype="uint8")

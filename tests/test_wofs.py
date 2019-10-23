@@ -1,5 +1,3 @@
-
-from __future__ import absolute_import, print_function
 from datacube import Datacube
 
 from wofs.wofls import woffles
@@ -9,6 +7,7 @@ WATER = 136  # note, this is wrong.
 NOT_WATER = 8
 
 
+@pytest.mark.skip("Requires running ODC Database + Data")
 @pytest.mark.parametrize("query,expected", [
     # Australian Parliament House, generally not water
     (dict(lat=(-35.308, -35.309), lon=(149.124, 149.125), time=('2016-01-10', '2016-01-14')), NOT_WATER),

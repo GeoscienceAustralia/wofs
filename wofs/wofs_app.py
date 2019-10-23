@@ -453,6 +453,7 @@ def _estimate_job_size(num_tasks):
 
     return nodes, wall_time_mins
 
+
 # pylint: disable=invalid-name
 tag_option = click.option('--tag', type=str,
                           default='notset',

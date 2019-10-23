@@ -4,6 +4,9 @@ language: python
 python:
     - '3.6'
 
+services:
+    - docker
+
 git:
   # We need a deeper depth for 'git describe' to ensure
   # we can reach the last tagged version.
@@ -14,13 +17,10 @@ install:
     - pip freeze
 
 script:
-    - ./check-code.sh
+    - ./runtests-docker.sh
 
 after_success:
     - coveralls
-
-before_deploy:
-    - python setup.py sdist bdist_wheel
 
 deploy:
  - provider: s3
