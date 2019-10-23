@@ -23,7 +23,6 @@ def _read(*parts):
         return fp.read()
 
 
-
 setup(name='wofs',
       description='Water Observations from Space - Digital Earth Australia',
       long_description=open('README.rst', 'r').read(),
