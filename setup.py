@@ -1,12 +1,8 @@
 #!/usr/bin/env python3
 
-import codecs
 import os
-import re
 
-from setuptools import find_packages
-from distutils.core import setup
-from distutils.command.sdist import sdist
+from setuptools import find_packages, setup
 
 here = os.path.abspath(os.path.dirname(__file__))
 config_files = ['config/' + name for name in os.listdir('config')]
@@ -28,8 +24,8 @@ setup(
     maintainer_email='',
     packages=find_packages(),
     data_files=[('wofs/config', config_files)],
-    use_scm_version=True,
     setup_requires=['setuptools_scm'],
+    use_scm_version=True,
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Science/Research",
