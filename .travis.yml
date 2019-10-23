@@ -5,7 +5,7 @@ python:
     - '3.6'
 
 git:
-  # We need a deeper depth for 'git descibe' to ensure
+  # We need a deeper depth for 'git describe' to ensure
   # we can reach the last tagged version.
   depth: 99999
 
@@ -34,4 +34,3 @@ deploy:
        condition: $TRAVIS_BRANCH = "master" || ! -z "${TRAVIS_TAG}"  # master branch or tags
        repo: GeoscienceAustralia/wofs
        python: "3.6"
-
