@@ -29,6 +29,7 @@ urban_areas = -4.9358
 threshold = 0.05 # also by WOfS journal paper. Actually, maybe 0.01 (or 0.02)
 """
 
+
 # --------------- Utilities ---------------
 
 
@@ -98,7 +99,7 @@ def write(filename, data, nodata=None):
                        compress='LZW',  # balance IO volume and CPU speed
                        affine=affine,
                        crs=crs) as destination:
-            destination.write(data.data, 1)
+        destination.write(data.data, 1)
 
 
 # ------------------ Ancilliaries ------------------
@@ -168,6 +169,7 @@ def slope_degrees(geobox):
     #              resolution=geobox.resolution).isel(time=0)
     class likely:
         geobox = padded
+
     likely.extent = likely.geobox.extent
     likely.coords = likely.geobox.coords
     dem = dc.load(product='dsm1sv10',  # ? 'srtm_dem1sv1_0'
@@ -179,7 +181,7 @@ def slope_degrees(geobox):
     # Here, assuming orthogonal grid. Probably shouldn't.
 
     # slope = numpy.degrees(numpy.arctan(numpy.hypot(xgrad, ygrad)))
-    slope = np.degrees(np.arccos(1.0 / np.sqrt(xgrad**2 + ygrad**2 + 1.0)))
+    slope = np.degrees(np.arccos(1.0 / np.sqrt(xgrad ** 2 + ygrad ** 2 + 1.0)))
     # Tangential vectors have basis x+dz/dx z, y+dz/dy z.
     # Perpendicularity implies normal is colinear with z - dz/dx x - dz/dy y.
     # The slope cosine is given by the dot product of the normal with vertical
@@ -254,7 +256,6 @@ def training_data(max_tiles=None):
 
     def generate_parts():
         for area in glob.glob('/g/data/u46/wofs/confidence/Training/*.tif')[:max_tiles]:
-
             training = rasterfile_to_xarray(area, name='training')
 
             clear_path = '/g/data/v10/testing_ground/wofs_summary/clear.vrt'
@@ -324,6 +325,7 @@ def process(filename, model, threshold=0.5):
 
 if __name__ == '__main__':
     import sys
+
     if len(sys.argv) < 2:
         print("Usage: python confidence.py *frequency*.tif")
         print("Example: /usr/bin/time find /g/data/v10/testing_ground/wofs_summary/ -maxdepth 1 "
