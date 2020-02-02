@@ -64,7 +64,8 @@ class reader:
     @property
     def gqa(self):
         import math
-        offset = self.metadata['lineage']['source_datasets']['0']['lineage']['source_datasets']['0']['lineage']['source_datasets']['level1']['gqa']['residual']['iterative_mean']
+        offset = self.metadata['lineage']['source_datasets']['0']['lineage']['source_datasets']['0']['lineage'][
+            'source_datasets']['level1']['gqa']['residual']['iterative_mean']
         return math.hypot(float(offset['x']), float(offset['y']))  # Or lookup pre-computed "xy" attribute
         # return self.metadata \
         #    ['lineage']['source_datasets']['0'] \
@@ -79,6 +80,7 @@ class reader:
 
 class fuser:
     """ Combine one or more datasets into a single-rasterisable package """
+
     def __init__(self, tiles):
         self.tiles = tiles
         # print(len(tiles),end='')
@@ -180,7 +182,7 @@ def write(filename, data, nodata=None):
                        tiled=True,
                        compress='LZW',  # balance IO volume and CPU speed
                        **reader.cell) as destination:
-            destination.write(data, 1)
+        destination.write(data, 1)
 
 
 def main():
