@@ -595,6 +595,7 @@ def submit(index: Index,
     # If dry run is not enabled just pass verbose option
     dry_run_option = '--dry-run' if dry_run else '-v'
     extra_qsub_args = '-M {0} -m {1}'.format(email_id, email_options)
+    extra_qsub_args += '-l storage=gdata/v10+gdata/fk4+gdata/rs0'
 
     # Append email options and email id to the PbsParameters dict key, extra_qsub_args
     task_desc.runtime_state.pbs_parameters.extra_qsub_args.extend(extra_qsub_args.split(' '))
@@ -667,6 +668,7 @@ def generate(index: Index,
     # If dry run is not enabled just pass verbose option
     dry_run_option = '--dry-run' if dry_run else '-v'
     extra_qsub_args = '-M {0} -m {1}'.format(email_id, email_options)
+    extra_qsub_args += '-l storage=gdata/v10+gdata/fk4+gdata/rs0'
 
     # Append email options and email id to the PbsParameters dict key, extra_qsub_args
     task_desc.runtime_state.pbs_parameters.extra_qsub_args.extend(extra_qsub_args.split(' '))
