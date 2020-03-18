@@ -14,7 +14,7 @@ import logging
 import os
 from collections import defaultdict
 from copy import deepcopy
-from datetime import datetime
+from datetime import datetime, timezone
 from functools import partial
 from pathlib import Path
 from time import time as time_now
@@ -30,7 +30,7 @@ import datacube.model.utils
 from datacube.api.grid_workflow import Tile
 from datacube.api.query import Query
 from datacube.drivers.netcdf import write_dataset_to_netcdf
-from datacube.index import Index
+from datacube.index import Index, MissingRecordError
 from datacube.model import DatasetType, Range
 from datacube.ui import click as ui
 from datacube.ui import task_app
@@ -430,6 +430,12 @@ def _index_datasets(index: Index, results):
                        dataset,
                        err)
 
+def _skip_indexing_and_only_log(result):
+    _LOG.info(f'Skipping Indexing {len(result.values)} datasets')
+
+    for dataset in result.values:
+        _LOG.info('Dataset %s created at %s but not indexed', dataset.id, dataset.uris)
+
 
 @click.group(help='Datacube WOfS')
 @click.version_option(version=__version__)
@@ -533,27 +539,37 @@ def generate(index: Index,
 
 @cli.command(help='Process generated task file')
 @click.option('--dry-run', is_flag=True, default=False, help='Check if output files already exist')
-@click.option('--task-desc', 'task_desc_file', help='Task environment description file',
-              required=True,
+@click.option('--input-filename', required=True,
+              help='A Tasks File to process',
               type=click.Path(exists=True, readable=True, writable=False, dir_okay=False))
+@click.option('--skip-indexing', is_flag=True, default=False,
+              help="Generate output files but don't record to a database index")
 @with_qsub_runner()
-@task_app.load_tasks_option
-@tag_option
-@ui.config_option
 @ui.verbose_option
 @ui.pass_index(app_name=APP_NAME)
 def run(index,
         dry_run: bool,
-        tag: str,
-        task_desc_file: str,
-        qsub: QSubLauncher,
+        input_filename: str,
         runner: TaskRunner,
-        *args, **kwargs):
+        skip_indexing: bool,
+        **kwargs):
     """
-    Process generated task file. If dry run is enabled, only check for the existing files
+    Process generated task file.
+    If dry run is enabled, only check for the existing files
     """
-    task_desc = serialise.load_structure(Path(task_desc_file), TaskDescription)
-    config, tasks = task_app.load_tasks(task_desc.runtime_state.task_serialisation_path)
+    config, tasks = task_app.load_tasks(input_filename)
+    work_dir = Path(input_filename).parent
+
+    # TODO: Get rid of this completely
+    task_desc = TaskDescription(
+        type_='fc',
+        task_dt=datetime.utcnow().astimezone(timezone.utc),
+        events_path=work_dir,
+        logs_path=work_dir,
+        jobs_path=work_dir,
+        parameters=None,
+        runtime_state=None,
+    )
 
     if dry_run:
         _LOG.info('Starting WOfS Dry Run...')
@@ -562,9 +578,11 @@ def run(index,
         return 0
 
     _LOG.info('Starting WOfS processing...')
-    _LOG.info('Tag: %r', tag)
     task_func = partial(_do_wofs_task, config)
-    process_func = partial(_index_datasets, index)
+    if skip_indexing:
+        process_func = _skip_indexing_and_only_log
+    else:
+        process_func = partial(_index_datasets, index)
 
     try:
         runner(task_desc, tasks, task_func, process_func)
