@@ -1,10 +1,7 @@
-#!/usr/bin/env python3
-
 import os
 
 from setuptools import find_packages, setup
 
-here = os.path.abspath(os.path.dirname(__file__))
 config_files = ['config/' + name for name in os.listdir('config')]
 tests_require = ['pytest', 'pytest-cov', 'mock', 'pycodestyle', 'pylint',
                  'hypothesis', 'compliance-checker', 'yamllint']
@@ -24,8 +21,6 @@ setup(
     maintainer_email='',
     packages=find_packages(),
     data_files=[('wofs/config', config_files)],
-    setup_requires=['setuptools_scm'],
-    use_scm_version=True,
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Science/Research",

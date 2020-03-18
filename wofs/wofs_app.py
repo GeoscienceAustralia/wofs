@@ -9,14 +9,13 @@ The three entry points are:
 2. datacube-wofs generate
 3. datacube-wofs run
 """
+import copy
 import logging
 import os
-import copy
-from copy import deepcopy
 from collections import defaultdict
+from copy import deepcopy
 from datetime import datetime
 from functools import partial
-from math import ceil
 from pathlib import Path
 from time import time as time_now
 from typing import Tuple
@@ -28,18 +27,17 @@ from pandas import to_datetime
 
 import datacube
 import datacube.model.utils
-from datacube.api.query import Query
 from datacube.api.grid_workflow import Tile
+from datacube.api.query import Query
+from datacube.drivers.netcdf import write_dataset_to_netcdf
 from datacube.index import Index
-from datacube.model import DatasetType
+from datacube.model import DatasetType, Range
 from datacube.ui import click as ui
 from datacube.ui import task_app
 from datacube.utils.geometry import unary_union, unary_intersection, CRS
-from datacube.drivers.netcdf import write_dataset_to_netcdf
 from digitalearthau import serialise, paths
 from digitalearthau.qsub import with_qsub_runner, QSubLauncher, TaskRunner
 from digitalearthau.runners.model import TaskDescription
-from digitalearthau.runners.util import init_task_app, submit_subjob
 from wofs import wofls, __version__
 
 APP_NAME = 'wofs'
@@ -144,7 +142,7 @@ def _create_output_definition(config: dict, source_product: DatasetType) -> dict
     return output_product_definition
 
 
-def _ensure_products(app_config: dict, index: Index, dry_run: bool, input_source) -> Tuple[DatasetType]:
+def _ensure_products(app_config: dict, index: Index, dry_run: bool, input_source) -> DatasetType:
     source_product_name = input_source
     source_product = index.products.get_by_name(source_product_name)
     if not source_product:
@@ -433,43 +431,6 @@ def _index_datasets(index: Index, results):
                        err)
 
 
-def _estimate_job_size(num_tasks):
-    """ Translate num_tasks to number of nodes and walltime
-    """
-    max_nodes = 20
-    cores_per_node = 16
-    task_time_mins = 5
-
-    # TODO: Tune this code:
-    # "We have found for best throughput 25 nodes can produce about 11.5 tiles per minute per node,
-    # with a CPU efficiency of about 96%."
-    if num_tasks < max_nodes * cores_per_node:
-        nodes = ceil(num_tasks / cores_per_node / 4)  # If fewer tasks than max cores, try to get 4 tasks to a core
-    else:
-        nodes = max_nodes
-
-    tasks_per_cpu = ceil(num_tasks / (nodes * cores_per_node))
-    wall_time_mins = '{mins}m'.format(mins=(task_time_mins * tasks_per_cpu))
-
-    return nodes, wall_time_mins
-
-
-# pylint: disable=invalid-name
-tag_option = click.option('--tag', type=str,
-                          default='notset',
-                          help='Unique id for the job')
-
-# pylint: disable=invalid-name
-pbs_email_options = click.option('--email-options', '-m', default='abe',
-                                 type=click.Choice(['a', 'b', 'e', 'n', 'ae', 'ab', 'be', 'abe']),
-                                 help='Send Email when execution is, \n'
-                                 '[a = aborted | b = begins | e = ends | n = do not send email]')
-
-# pylint: disable=invalid-name
-pbs_email_id = click.option('--email-id', '-M', default='nci.monitor@dea.ga.gov.au',
-                            help='Email Recipient List')
-
-
 @click.group(help='Datacube WOfS')
 @click.version_option(version=__version__)
 def cli():
@@ -478,7 +439,6 @@ def cli():
     different bits of WOfS processing:
          1) list
          2) ensure-products
-         3) submit
          4) generate
          5) run
     :return: None
@@ -521,199 +481,54 @@ def ensure_products(index, app_config, dry_run):
                 f"WOfS input config file")
 
 
-@cli.command(help='Kick off two stage PBS job')
-@click.option('--project', '-P', default='u46')
-@click.option('--queue', '-q', default='normal',
-              type=click.Choice(['normal', 'express']))
+@cli.command(help='Generate Tasks into a queue file for later processing')
+@click.option('--app-config', help='Fractional Cover configuration file',
+              required=True,
+              type=click.Path(exists=True, readable=True, writable=False, dir_okay=False))
+@click.option('--output-filename',
+              help='Filename to write the list of tasks to.',
+              required=True,
+              type=click.Path(exists=False, writable=True, dir_okay=False))
 @click.option('--year', 'time_range',
               callback=task_app.validate_year,
-              help='Limit the process to a particular year')
-@click.option('--no-qsub', is_flag=True, default=False,
-              help="Skip submitting job")
-@tag_option
-@pbs_email_options
-@pbs_email_id
-@click.option('--dry-run', is_flag=True, default=False, help='Check if output files already exist')
-@task_app.app_config_option
-@ui.config_option
+              help='Limit the process to a particular year, or "-" separated range of years.')
+@click.option('--dry-run', is_flag=True, default=False,
+              help='Check product definition without modifying the database')
 @ui.verbose_option
+@ui.log_queries_option
 @ui.pass_index(app_name=APP_NAME)
-def submit(index: Index,
-           app_config: str,
-           project: str,
-           queue: str,
-           no_qsub: bool,
-           time_range: Tuple[datetime, datetime],
-           tag: str,
-           email_options: str,
-           email_id: str,
-           dry_run: bool):
+def generate(index: Index,
+             app_config: str,
+             output_filename: str,
+             dry_run: bool,
+             time_range: Tuple[datetime, datetime]):
     """
-    Kick off two stage PBS job
+    Generate Tasks into file and Queue PBS job to process them
 
-    Stage 1 (Generate task file):
-        The task-app machinery loads a config file, from a path specified on the
-        command line, into a dict.
+    By default, also ensures the Output Product is present in the database.
 
-        If dry is enabled, a dummy DatasetType is created for tasks generation without indexing
-        the product in the database.
-        If dry run is disabled, generate tasks into file and queue PBS job to process them.
-
-    Stage 2 (Run):
-        During normal run, following are performed:
-           1) Tasks (loadables (nbart,ps,dsm) + output targets) shall be yielded for dispatch to workers.
-           2) Load data
-           3) Run WOFS algorithm
-           4) Attach metadata
-           5) Write output files and
-           6) Finally index the newly created WOfS output files
-
-        If dry run is enabled, application only prepares a list of output files to be created and does not
-        record anything in the database.
+    --dry-run will still generate a tasks file, but not add the output product to the database.
     """
-    _LOG.info('Tag: %s', tag)
-
-    app_config_path = Path(app_config).resolve()
+    app_config_file = Path(app_config).resolve()
+    app_config = paths.read_document(app_config_file)
 
     if not time_range or not all(time_range):
         query_args = Query(index=index).search_terms
     else:
         query_args = Query(index=index, time=time_range).search_terms
 
-    task_desc, task_path = init_task_app(
-        job_type="wofs",
-        source_products=[],  # [app_config['source_product']],
-        output_products=['wofs_albers'],
-        # TODO: Use @datacube.ui.click.parsed_search_expressions to allow params other than time from the cli?
-        datacube_query_args=query_args,
-        app_config_path=app_config_path,
-        pbs_project=project,
-        pbs_queue=queue
-    )
-    _LOG.info("Created task description: %s", task_path)
+    wofs_config = _make_wofs_config(index, app_config, dry_run)
 
-    # If dry run is not enabled just pass verbose option
-    dry_run_option = '--dry-run' if dry_run else '-v'
-    extra_qsub_args = '-M {0} -m {1}'.format(email_id, email_options)
-    extra_qsub_args += '-l storage=gdata/v10+gdata/fk4+gdata/rs0'
+    # Patch in config file location, for recording in dataset metadata
+    wofs_config['app_config_file'] = app_config_file
 
-    # Append email options and email id to the PbsParameters dict key, extra_qsub_args
-    task_desc.runtime_state.pbs_parameters.extra_qsub_args.extend(extra_qsub_args.split(' '))
-
-    if no_qsub:
-        _LOG.info('Skipping submission due to --no-qsub')
-    else:
-        submit_subjob(
-            name='generate',
-            task_desc=task_desc,
-            command=[
-                'generate', '-vv',
-                '--task-desc', str(task_path),
-                '--tag', tag,
-                '--log-queries',
-                '--email-id', email_id,
-                '--email-options', email_options,
-                dry_run_option,
-            ],
-            qsub_params=dict(
-                name='wofs-generate-{}'.format(tag),
-                mem='medium',
-                wd=True,
-                nodes=1,
-                walltime='1h'))
-
-
-@cli.command(help='Generate Tasks into file and Queue PBS job to process them')
-@click.option('--no-qsub', is_flag=True, default=False, help="Skip submitting qsub for next step")
-@click.option('--task-desc', 'task_desc_file', help='Task environment description file',
-              required=True,
-              type=click.Path(exists=True, readable=True, writable=False, dir_okay=False))
-@tag_option
-@pbs_email_options
-@pbs_email_id
-@click.option('--dry-run', is_flag=True, default=False, help='Check if output files already exist')
-@ui.verbose_option
-@ui.log_queries_option
-@ui.pass_index(app_name=APP_NAME)
-def generate(index: Index,
-             task_desc_file: str,
-             no_qsub: bool,
-             tag: str,
-             email_options: str,
-             email_id: str,
-             dry_run: bool):
-    """
-    Generate Tasks into file and Queue PBS job to process them
-
-    If dry run is enabled, do not add the new products to the database.
-    """
-    _LOG.info('Tag: %s', tag)
-
-    config, task_desc = _make_config_and_description(index, Path(task_desc_file), dry_run)
-
+    wofs_tasks = _make_wofs_tasks(index, wofs_config)
     num_tasks_saved = task_app.save_tasks(
-        config,
-        _make_wofs_tasks(index, config, year=task_desc.parameters.query.get('time')),
-        str(task_desc.runtime_state.task_serialisation_path)
+        wofs_config,
+        wofs_tasks,
+        output_filename
     )
     _LOG.info('Found %d tasks', num_tasks_saved)
-
-    if not num_tasks_saved:
-        _LOG.info("No tasks. Finishing.")
-        return 0
-
-    nodes, walltime = _estimate_job_size(num_tasks_saved)
-    _LOG.info('Will request %d nodes and %s time', nodes, walltime)
-
-    # If dry run is not enabled just pass verbose option
-    dry_run_option = '--dry-run' if dry_run else '-v'
-    extra_qsub_args = '-M {0} -m {1}'.format(email_id, email_options)
-    extra_qsub_args += '-l storage=gdata/v10+gdata/fk4+gdata/rs0'
-
-    # Append email options and email id to the PbsParameters dict key, extra_qsub_args
-    task_desc.runtime_state.pbs_parameters.extra_qsub_args.extend(extra_qsub_args.split(' '))
-
-    if no_qsub:
-        _LOG.info('Skipping submission due to --no-qsub')
-        return 0
-
-    submit_subjob(
-        name='run',
-        task_desc=task_desc,
-
-        command=[
-            'run',
-            '-vv',
-            '--task-desc', str(task_desc_file),
-            '--celery', 'pbs-launch',
-            '--tag', tag,
-            dry_run_option,
-        ],
-        qsub_params=dict(
-            name='wofs-run-{}'.format(tag),
-            mem='medium',
-            wd=True,
-            nodes=nodes,
-            walltime=walltime
-        ),
-    )
-    return 0
-
-
-def _make_config_and_description(index: Index, task_desc_path: Path, dry_run: bool) -> Tuple[dict, TaskDescription]:
-    task_desc = serialise.load_structure(task_desc_path, TaskDescription)
-
-    task_time: datetime = task_desc.task_dt
-    app_config = task_desc.runtime_state.config_path
-
-    config = paths.read_document(app_config)
-
-    # TODO: This carries over the old behaviour of each load. Should probably be replaced with *tag*
-    config['task_timestamp'] = int(task_time.timestamp())
-    config['app_config_file'] = Path(app_config)
-    config = _make_wofs_config(index, config, dry_run)
-
-    return config, task_desc
 
 
 @cli.command(help='Process generated task file')
