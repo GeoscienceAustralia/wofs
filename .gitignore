@@ -96,3 +96,5 @@ scratch/*
 
 .pytest_cache/
 .vscode
+
+wofs/_version.py
