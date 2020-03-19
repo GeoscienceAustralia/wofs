@@ -28,15 +28,14 @@ from pandas import to_datetime
 import datacube
 import datacube.model.utils
 from datacube.api.grid_workflow import Tile
-from datacube.api.query import Query
 from datacube.drivers.netcdf import write_dataset_to_netcdf
 from datacube.index import Index, MissingRecordError
 from datacube.model import DatasetType, Range
 from datacube.ui import click as ui
 from datacube.ui import task_app
 from datacube.utils.geometry import unary_union, unary_intersection, CRS
-from digitalearthau import serialise, paths
-from digitalearthau.qsub import with_qsub_runner, QSubLauncher, TaskRunner
+from digitalearthau import paths
+from digitalearthau.qsub import with_qsub_runner, TaskRunner
 from digitalearthau.runners.model import TaskDescription
 from wofs import wofls, __version__
 
@@ -229,7 +228,7 @@ def _generate_tasks(index, config, time, extent=None):
 
     for input_source in INPUT_SOURCES:
         gqa_filter = dict(product=input_source['source_product'], time=time, gqa_iterative_mean_xy=(0, 1))
-        nbart_loadables = gw.list_tiles(product=input_source['nbart'], time=time, source_filter=gqa_filter, **extent)
+        nbart_loadables = gw.list_tiles(product=input_source['nbart'], time=time, **extent)
         pq_loadables = gw.list_tiles(product=input_source['pq'], time=time, tile_buffer=pq_padding, **extent)
 
         _LOG.info('Found %d nbart loadables for %r input source', len(nbart_loadables), input_source['nbart'])
@@ -430,6 +429,7 @@ def _index_datasets(index: Index, results):
                        dataset,
                        err)
 
+
 def _skip_indexing_and_only_log(result):
     _LOG.info(f'Skipping Indexing {len(result.values)} datasets')
 
@@ -496,7 +496,7 @@ def ensure_products(index, app_config, dry_run):
               required=True,
               type=click.Path(exists=False, writable=True, dir_okay=False))
 @click.option('--year', 'time_range',
-              callback=task_app.validate_year,
+              type=int,
               help='Limit the process to a particular year, or "-" separated range of years.')
 @click.option('--dry-run', is_flag=True, default=False,
               help='Check product definition without modifying the database')
@@ -518,17 +518,12 @@ def generate(index: Index,
     app_config_file = Path(app_config).resolve()
     app_config = paths.read_document(app_config_file)
 
-    if not time_range or not all(time_range):
-        query_args = Query(index=index).search_terms
-    else:
-        query_args = Query(index=index, time=time_range).search_terms
-
     wofs_config = _make_wofs_config(index, app_config, dry_run)
 
     # Patch in config file location, for recording in dataset metadata
     wofs_config['app_config_file'] = app_config_file
 
-    wofs_tasks = _make_wofs_tasks(index, wofs_config)
+    wofs_tasks = _make_wofs_tasks(index, wofs_config, time_range)
     num_tasks_saved = task_app.save_tasks(
         wofs_config,
         wofs_tasks,
