@@ -6,12 +6,13 @@ config_files = ['config/' + name for name in os.listdir('config')]
 tests_require = ['pytest', 'pytest-cov', 'mock', 'pycodestyle', 'pylint',
                  'hypothesis', 'compliance-checker', 'yamllint']
 extras_require = {
-    'terrain': ['scipy', 'ephem'],
     'test': tests_require,
 }
 
 setup(
     name='wofs',
+    setup_requires=['setuptools_scm'],
+    use_scm_version=True,
     description='Water Observations from Space - Digital Earth Australia',
     long_description=open('README.rst', 'r').read(),
     license='Apache License 2.0',
@@ -33,6 +34,8 @@ setup(
     ],
     install_requires=[
         'datacube',
+        'scipy',
+        'ephem'
     ],
     tests_require=tests_require,
     extras_require=extras_require,

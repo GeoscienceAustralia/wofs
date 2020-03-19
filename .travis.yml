@@ -17,6 +17,7 @@ install:
     - pip freeze
 
 script:
+    - python3 setup.py sdist bdist_wheel
     - ./runtests-docker.sh
 
 after_success:
