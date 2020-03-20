@@ -430,10 +430,10 @@ def _index_datasets(index: Index, results):
                        err)
 
 
-def _skip_indexing_and_only_log(result):
-    _LOG.info(f'Skipping Indexing {len(result.values)} datasets')
+def _skip_indexing_and_only_log(results):
+    _LOG.info(f'Skipping Indexing {len(results)} datasets')
 
-    for dataset in result.values:
+    for dataset in results:
         _LOG.info('Dataset %s created at %s but not indexed', dataset.id, dataset.uris)
 
 

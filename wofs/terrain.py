@@ -60,7 +60,7 @@ def vector_to_crs(point, vector, original_crs, destination_crs):
 
 def solar_vector(p, time, crs):
     (lon, lat), (dlon, dlat) = vector_to_crs(p, (0, 100),
-                                             original_crs=crs,
+                                             original_crs=CRS(crs),
                                              destination_crs=CRS('EPSG:4326'))
 
     # azimuth north to east of the vertical direction of the crs
