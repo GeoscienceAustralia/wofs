@@ -78,7 +78,7 @@ class WOfSClassifier(Transformation):
 
     def _load_dsm(self, gbox):
         # Data variable needs to be named elevation
-        dsm = dc_read(self.dsm_path, gbox=gbox, resampling="average")
+        dsm = dc_read(self.dsm_path, gbox=gbox, resampling="bilinear")
         return xr.Dataset(data_vars={'elevation': (('y', 'x'), dsm)}, coords=_to_xrds_coords(gbox),
                           attrs={'crs': gbox.crs})
 
