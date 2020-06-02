@@ -488,7 +488,7 @@ def ensure_products(index, app_config, dry_run):
 
 
 @cli.command(help='Generate Tasks into a queue file for later processing')
-@click.option('--app-config', help='Fractional Cover configuration file',
+@click.option('--app-config', help='WOfS configuration file',
               required=True,
               type=click.Path(exists=True, readable=True, writable=False, dir_okay=False))
 @click.option('--output-filename',
