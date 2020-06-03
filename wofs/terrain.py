@@ -2,7 +2,7 @@ import numpy
 import ephem
 from scipy import ndimage
 from pandas import to_datetime
-from datacube.utils.geometry import CRS
+from datacube.utils.geometry import CRS, line
 import math
 import xarray
 
@@ -38,28 +38,27 @@ def _shade_row(shade_mask, elev_m, sun_alt_deg, pixel_scale_m, no_data, fuzz=0.0
 
 def vector_to_crs(point, vector, original_crs, destination_crs):
     """
-        Transform a vector (in the tangent space of a particular point) to a new CRS
-        Expects point and vector to each be a 2-tuple in the original CRS.
-        Returns a pair of 2-tuples (transformed point and vector).
-        Order of coordinates is specified by the CRS (or the OGR library).
-    """
+    Transform a vector (in the tangent space of a particular point) to a new CRS
 
-    import osr
-    # pylint: disable=protected-access,zip-builtin-not-iterating
-    transform = osr.CoordinateTransformation(original_crs._crs, destination_crs._crs)
+    Expects point and vector to each be a 2-tuple in the original CRS.
+    Returns a pair of 2-tuples (transformed point and vector).
+    Order of coordinates is specified by the CRS (or the OGR library).
+    """
     # theoretically should use infinitesimal displacement
     # i.e. jacobian of the transformation
     # but here just use a finite displatement (for convenience of implementation)
-    original_line = [point, tuple(map(sum, zip(point, vector)))]
-    transformed_line = [p[:2] for p in transform.TransformPoints(original_line)]  # disregard elevation
-    transformed_point = transformed_line[0]
+    original_line = line([point, tuple(map(sum, zip(point, vector)))], crs=original_crs)
+    transformed_line = original_line.to_crs(destination_crs)
+
+    transformed_point, transformed_end = transformed_line.points
+
     # take difference (i.e. remove origin offset)
-    transformed_vector = tuple(map(lambda x: x[1] - x[0], zip(*transformed_line)))
+    transformed_vector = tuple(map(lambda x: x[1] - x[0], zip(*transformed_line.points)))
     return transformed_point, transformed_vector
 
 
-def solar_vector(p, time, crs):
-    (lon, lat), (dlon, dlat) = vector_to_crs(p, (0, 100),
+def solar_vector(point, time, crs):
+    (lon, lat), (dlon, dlat) = vector_to_crs(point, (0, 100),
                                              original_crs=CRS(crs),
                                              destination_crs=CRS('EPSG:4326'))
 
