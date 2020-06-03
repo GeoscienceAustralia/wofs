@@ -44,6 +44,7 @@ def vector_to_crs(point, vector, original_crs, destination_crs):
     Returns a pair of 2-tuples (transformed point and vector).
     Order of coordinates is specified by the CRS (or the OGR library).
     """
+    # pylint: disable=zip-builtin-not-iterating
     # theoretically should use infinitesimal displacement
     # i.e. jacobian of the transformation
     # but here just use a finite displatement (for convenience of implementation)
