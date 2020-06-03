@@ -19,7 +19,7 @@ import wofs.classifier
 # import wofs.terrain
 from wofs.constants import NO_DATA, MASKED_CLOUD, MASKED_CLOUD_SHADOW
 from wofs.filters import eo_filter, terrain_filter
-from datacube.storage import masking
+from datacube.utils import masking
 
 
 def fmask_filter(fmask):
