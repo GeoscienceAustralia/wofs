@@ -1,7 +1,7 @@
 #!/bin/sh
 
-docker pull opendatacube/datacube-core
+docker pull opendatacube/datacube-tests:latest
 
 # Null out the entrypoint since we aren't (yet) connecting to a database
-docker run --entrypoint "" --rm -v $PWD:/tmp/wofs -w /tmp/wofs \
-opendatacube/datacube-core:latest /bin/sh -c "pip install dist/*.whl && ./check-code.sh"
+docker run --rm -v "$PWD":/tmp/wofs -w /tmp/wofs \
+opendatacube/datacube-tests:latest /bin/sh -c "pip3 install dist/*.whl && ./check-code.sh"
