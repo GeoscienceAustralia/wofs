@@ -4,7 +4,6 @@ import datacube
 
 import yaml
 
-# from fc.fractional_cover import fractional_cover
 from wofs.vp_wofs import woffles_ard_no_terrain_filter
 
 
