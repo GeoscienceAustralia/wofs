@@ -11,6 +11,8 @@ The three entry points are:
 import copy
 import logging
 import os
+import signal
+import sys
 from collections import defaultdict
 from copy import deepcopy
 from datetime import datetime, timezone
@@ -435,6 +437,14 @@ def _skip_indexing_and_only_log(results):
         _LOG.info('Dataset %s created at %s but not indexed', dataset.id, dataset.uris)
 
 
+def handle_sigterm(signum, frame):
+    # TODO: I expect SIGTERM will be received shortly before PBS SIGKILL's the job.
+    # We could use this to print out the current progress of the job if it's incomplete
+    # Or perhaps even make it resumable.
+    pid = os.getpid()
+    _LOG.error(f'WOfS App PID: {pid}. Received SIGTERM')
+
+
 @click.group(help='Datacube WOfS')
 @click.version_option(version=__version__)
 def cli():
@@ -447,7 +457,7 @@ def cli():
          5) run
     :return: None
     """
-    pass
+    signal.signal(signal.SIGTERM, handle_sigterm)
 
 
 @cli.command(name='list', help='List installed WOfS config files')
