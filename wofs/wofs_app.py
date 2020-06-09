@@ -637,29 +637,39 @@ def run(index,
 
 @cli.command(name='mpi-convert', help='Bulk COG conversion using MPI')
 @click.option('--skip-indexing', is_flag=True, default=False,
-              help="Generate output files but don't record to a database index")
+              help="Generate output files but don't record to database")
 @click.option('--input-filename', required=True,
               help='A Tasks File to process',
-              type=click.Path(exists=True, readable=True, writable=False, dir_okay=False))
+              type=click.Path(exists=True, readable=True, writable=False,
+                              dir_okay=False))
+@click.option('--redirect-outputs',
+              help='Store output files in a different directory (for testing,'
+                   'prepended to task defined output)',
+              type=click.Path(exists=True, dir_okay=True, file_okay=False,
+                              writable=True))
 @ui.verbose_option
 @ui.pass_index(app_name=APP_NAME)
 def mpi_run(index,
             input_filename: str,
             skip_indexing: bool,
+            redirect_outputs: str,
             **kwargs):
-    """
-    Process generated task file.
+    """Process generated task file.
 
-    Iterate over the file list and assign MPI worker for processing.
-    Split the input file by the number of workers, each MPI worker completes every nth task.
-    Also, detect and fail early if not using full resources in an MPI job.
+    Iterate over the file list and assign MPI worker for processing. Split the
+    input file by the number of workers, each MPI worker completes every nth
+    task. Also, detect and fail early if not using full resources in an MPI job.
 
     Before using this command, execute the following:
       $ module use /g/data/v10/public/modules/modulefiles/
       $ module load dea
       $ module load openmpi/3.1.2
+
     """
     config, tasks = task_app.load_tasks(input_filename)
+
+    if redirect_outputs is not None:
+        tasks = _prepend_path_to_tasks(redirect_outputs, tasks)
 
     _LOG.info('Successfully loaded configuration file', config=config)
 
@@ -674,14 +684,15 @@ def mpi_run(index,
             dataset = _do_wofs_task(config, task)
             process_func(dataset)
 
-            _LOG.info(f'Successfully processed', task)
+            _LOG.info('Successfully processed', task)
         except Exception:
             _LOG.exception('Unable to process', task)
 
 
 def _mpi_init():
-    """
-    Ensure we're running within a good MPI environment, and find out the number of processes we have.
+    """Ensure we're running within a good MPI environment, and find out the number
+    of processes we have.
+
     """
     from mpi4py import MPI
     job_rank = MPI.COMM_WORLD.rank  # Rank of this process
