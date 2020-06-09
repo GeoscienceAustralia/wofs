@@ -574,12 +574,21 @@ def check_existing(input_filename: str):
     task_app.check_existing_files(_get_filename(config, *task['tile_index']) for task in tasks)
 
 
+def _prepend_path_to_tasks(prepath, tasks):
+    for task in tasks:
+        task['file_path'] = Path(prepath) / task['file_path']
+        yield task
+
+
 @cli.command(help='Process generated task file')
 @click.option('--input-filename', required=True,
               help='A Tasks File to process',
               type=click.Path(exists=True, readable=True, writable=False, dir_okay=False))
 @click.option('--skip-indexing', is_flag=True, default=False,
               help="Generate output files but don't record to a database index")
+@click.option('--redirect-outputs',
+              help='Store output files in a different directory (for testing, prepended to task defined output)',
+              type=click.Path(exists=True, dir_okay=True, file_okay=False, writable=True))
 @with_qsub_runner()
 @ui.verbose_option
 @ui.pass_index(app_name=APP_NAME)
@@ -587,12 +596,16 @@ def run(index,
         input_filename: str,
         runner: TaskRunner,
         skip_indexing: bool,
+        redirect_outputs: str,
         **kwargs):
     """
     Process WOfS tasks from a task file.
     """
     config, tasks = task_app.load_tasks(input_filename)
     work_dir = Path(input_filename).parent
+
+    if redirect_outputs is not None:
+        tasks = _prepend_path_to_tasks(redirect_outputs, tasks)
 
     # TODO: Get rid of this completely
     task_desc = TaskDescription(
