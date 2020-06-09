@@ -540,8 +540,20 @@ def generate(index: Index,
     _LOG.info('Found %d tasks', num_tasks_saved)
 
 
+@cli.command(help='Check for existing outputs')
+@click.option('--input-filename', required=True,
+              help='A Tasks File to process',
+              type=click.Path(exists=True, readable=True, writable=False, dir_okay=False))
+def check_existing(input_filename: str):
+    config, tasks = task_app.load_tasks(input_filename)
+    work_dir = Path(input_filename).parent
+
+    _LOG.info('Checking for existing output files.')
+    # tile_index is X, Y, T
+    task_app.check_existing_files(_get_filename(config, *task['tile_index']) for task in tasks)
+
+
 @cli.command(help='Process generated task file')
-@click.option('--dry-run', is_flag=True, default=False, help='Check if output files already exist')
 @click.option('--input-filename', required=True,
               help='A Tasks File to process',
               type=click.Path(exists=True, readable=True, writable=False, dir_okay=False))
@@ -551,14 +563,12 @@ def generate(index: Index,
 @ui.verbose_option
 @ui.pass_index(app_name=APP_NAME)
 def run(index,
-        dry_run: bool,
         input_filename: str,
         runner: TaskRunner,
         skip_indexing: bool,
         **kwargs):
     """
-    Process generated task file.
-    If dry run is enabled, only check for the existing files
+    Process WOfS tasks from a task file.
     """
     config, tasks = task_app.load_tasks(input_filename)
     work_dir = Path(input_filename).parent
@@ -573,12 +583,6 @@ def run(index,
         parameters=None,
         runtime_state=None,
     )
-
-    if dry_run:
-        _LOG.info('Starting WOfS Dry Run...')
-        # tile_index is X, Y, T
-        task_app.check_existing_files(_get_filename(config, *task['tile_index']) for task in tasks)
-        return 0
 
     _LOG.info('Starting WOfS processing...')
     task_func = partial(_do_wofs_task, config)
