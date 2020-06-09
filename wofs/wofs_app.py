@@ -635,7 +635,7 @@ def run(index,
     sys.exit(0)
 
 
-@cli.command(name='mpi-convert', help='Bulk COG conversion using MPI')
+@cli.command(name='run-mpi', help='Run using MPI')
 @click.option('--skip-indexing', is_flag=True, default=False,
               help="Generate output files but don't record to database")
 @click.option('--input-filename', required=True,
