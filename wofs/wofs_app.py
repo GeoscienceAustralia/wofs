@@ -597,7 +597,82 @@ def run(index,
     finally:
         runner.stop()
 
-    return 0
+    # TODO: Check for failures and return error state
+    sys.exit(0)
+
+
+@cli.command(name='mpi-convert', help='Bulk COG conversion using MPI')
+@click.option('--skip-indexing', is_flag=True, default=False,
+              help="Generate output files but don't record to a database index")
+@click.option('--input-filename', required=True,
+              help='A Tasks File to process',
+              type=click.Path(exists=True, readable=True, writable=False, dir_okay=False))
+@ui.verbose_option
+@ui.pass_index(app_name=APP_NAME)
+def mpi_run(index,
+            input_filename: str,
+            skip_indexing: bool,
+            **kwargs):
+    """
+    Process generated task file.
+
+    Iterate over the file list and assign MPI worker for processing.
+    Split the input file by the number of workers, each MPI worker completes every nth task.
+    Also, detect and fail early if not using full resources in an MPI job.
+
+    Before using this command, execute the following:
+      $ module use /g/data/v10/public/modules/modulefiles/
+      $ module load dea
+      $ module load openmpi/3.1.2
+    """
+    config, tasks = task_app.load_tasks(input_filename)
+
+    _LOG.info('Successfully loaded configuration file', config=config)
+
+    _LOG.info('Starting WOfS processing...')
+    if skip_indexing:
+        process_func = _skip_indexing_and_only_log
+    else:
+        process_func = partial(_index_datasets, index)
+
+    for task in _nth_by_mpi(tasks):
+        try:
+            dataset = _do_wofs_task(config, task)
+            process_func(dataset)
+
+            _LOG.info(f'Successfully processed', task)
+        except Exception:
+            _LOG.exception('Unable to process', task)
+
+
+def _mpi_init():
+    """
+    Ensure we're running within a good MPI environment, and find out the number of processes we have.
+    """
+    from mpi4py import MPI
+    job_rank = MPI.COMM_WORLD.rank  # Rank of this process
+    job_size = MPI.COMM_WORLD.size  # Total number of processes
+    universe_size = MPI.COMM_WORLD.Get_attr(MPI.UNIVERSE_SIZE)
+    pbs_ncpus = os.environ.get('PBS_NCPUS', None)
+    if pbs_ncpus is not None and int(universe_size) != int(pbs_ncpus):
+        _LOG.error('Running within PBS and not using all available resources. Abort!')
+        sys.exit(1)
+    _LOG.info('MPI Info', mpi_job_size=job_size, mpi_universe_size=universe_size, pbs_ncpus=pbs_ncpus)
+    return job_rank, job_size
+
+
+def _nth_by_mpi(iterator):
+    """
+    Split an iterator across MPI processes
+
+    Based on MPI pool size and rank of this process
+    """
+    from mpi4py import MPI
+    job_size = MPI.COMM_WORLD.size  # Total number of processes
+    job_rank = MPI.COMM_WORLD.rank  # Rank of this process
+    for i, element in enumerate(iterator):
+        if i % job_size == job_rank:
+            yield element
 
 
 if __name__ == '__main__':
