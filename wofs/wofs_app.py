@@ -1,4 +1,3 @@
-# coding=utf-8
 """
 Entry point for producing WOfS products.
 
@@ -21,12 +20,10 @@ from time import time as time_now
 from typing import Tuple
 
 import click
-import numpy as np
-import xarray
-from pandas import to_datetime
-
 import datacube
 import datacube.model.utils
+import numpy as np
+import xarray
 from datacube.api.grid_workflow import Tile
 from datacube.drivers.netcdf import write_dataset_to_netcdf
 from datacube.index import Index, MissingRecordError
@@ -37,6 +34,7 @@ from datacube.utils.geometry import unary_union, unary_intersection, CRS
 from digitalearthau import paths
 from digitalearthau.qsub import with_qsub_runner, TaskRunner
 from digitalearthau.runners.model import TaskDescription
+from pandas import to_datetime
 from wofs import wofls, __version__
 
 APP_NAME = 'wofs'
@@ -332,7 +330,7 @@ def _do_wofs_task(config, task):
     """
     Load data, run WOFS algorithm, attach metadata, and write output.
     :param dict config: Config object
-    :param dict task: Dictionary of tasks
+    :param dict task: Dictionary of task values
 
     :return: Dataset objects representing the generated data that can be added to the index
     :rtype: list(datacube.model.Dataset)
