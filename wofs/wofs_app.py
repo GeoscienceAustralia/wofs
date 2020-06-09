@@ -11,6 +11,7 @@ The three entry points are:
 import copy
 import logging
 import os
+import pickle
 import signal
 import sys
 from collections import defaultdict
@@ -538,6 +539,26 @@ def generate(index: Index,
         output_filename
     )
     _LOG.info('Found %d tasks', num_tasks_saved)
+
+
+@cli.command(help="Display information about a tasks file")
+@click.argument('task_file')
+def inspect_taskfile(task_file):
+    with open(task_file, 'rb') as fin:
+        config = pickle.load(fin)
+        print('CONFIGURATION')
+        print(config)
+        print('\nFIRST TASK')
+        task1 = pickle.load(fin)
+        print(task1)
+        i = 1
+        while True:
+            try:
+                _ = pickle.load(fin)
+                i += 1
+            except EOFError:
+                break
+        print(f'{i} tasks in total')
 
 
 @cli.command(help='Check for existing outputs')
