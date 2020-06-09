@@ -555,7 +555,7 @@ def run(index,
 
     # TODO: Get rid of this completely
     task_desc = TaskDescription(
-        type_='fc',
+        type_='wofs',
         task_dt=datetime.utcnow().astimezone(timezone.utc),
         events_path=work_dir,
         logs_path=work_dir,
