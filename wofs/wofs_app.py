@@ -567,7 +567,6 @@ def inspect_taskfile(task_file):
               type=click.Path(exists=True, readable=True, writable=False, dir_okay=False))
 def check_existing(input_filename: str):
     config, tasks = task_app.load_tasks(input_filename)
-    work_dir = Path(input_filename).parent
 
     _LOG.info('Checking for existing output files.')
     # tile_index is X, Y, T
@@ -575,8 +574,17 @@ def check_existing(input_filename: str):
 
 
 def _prepend_path_to_tasks(prepath, tasks):
+    """
+    Prepend prepath to each task's file_path
+
+    Taking special care when prepending to absolute paths.
+    """
     for task in tasks:
-        task['file_path'] = Path(prepath) / task['file_path']
+        file_path = task['file_path']
+        if file_path.is_absolute():
+            task['file_path'] = Path(prepath).joinpath(*file_path.parts[1:])
+        else:
+            task['file_path'] = Path(prepath) / file_path
         yield task
 
 
