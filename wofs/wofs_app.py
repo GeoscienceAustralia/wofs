@@ -671,7 +671,7 @@ def mpi_run(index,
     Before using this command, execute the following:
       $ module use /g/data/v10/public/modules/modulefiles/
       $ module load dea
-      $ module load openmpi/3.1.2
+      $ module load openmpi
 
     """
     config, tasks = task_app.load_tasks(input_filename)
