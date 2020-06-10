@@ -679,8 +679,6 @@ def mpi_run(index,
     if redirect_outputs is not None:
         tasks = _prepend_path_to_tasks(redirect_outputs, tasks)
 
-    _LOG.info('Successfully loaded configuration file', config=config)
-
     _LOG.info('Starting WOfS processing...')
     if skip_indexing:
         process_func = _skip_indexing_and_only_log
