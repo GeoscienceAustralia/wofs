@@ -70,8 +70,6 @@ log/*
 *.tif
 *.tiff
 
-# netcdf files
-*.nc
 
 # pdf files
 *.pdf
