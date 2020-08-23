@@ -9,7 +9,8 @@ Water Observation from Space (WOfS)
 
 
 This WOfS version applies the original published WOfS decision-tree algorithm, 
-but is updated to use the AGDCv2 infrastructure.
+but is updated to use the Open Data Cube and
+`xarray <http://xarray.pydata.org/en/stable/>`_ for data access.
 
 Specifically, this version also decouples the production of water extent tiles
 from the production of the statistical summary mosaics, and is intended to
@@ -23,11 +24,26 @@ The water-specific code (as distinct from packaging boilerplate) is located
 in the "wofs" directory, other than metadata that may be located in the the 
 config yaml. 
 
+Installation
+============
+
+The WOfS package can be installed by running:
+
+    pip install --index-url https://packages.dea.ga.gov.au/ wofs
+
+
+For Digital Earth Australia Users
+---------------------------------
+
+WOfS is available as a part of Digital Earth Australia environment modules on the NCI. These can be used
+after logging into the NCI by running:
+
+    module load dea
 
 Algorithm
 =========
 
-Wofls
+WOFLs
 -----
 
 Water Observation Feature Layers are the temporal foliation of water extents. 
@@ -104,41 +120,35 @@ Currently, cloud and cloud shadow are detected per scene, which is suboptimal at
 Improved masking algorithms are anticipated, e.g. as median mosaics become available, or possibly incorporating weather data.
 
 
-Packaging and Deployment
-========================
-
-Deployment
-----------
-
-WOfS is available as a part of Digital Earth Australia environment modules on the NCI. These can be used
-after logging into the NCI by running:
-
-    module load dea
+Packaging and Releases
+======================
 
 Versioning
 ----------
 
-The module version number is set in `wofs/__init__.py`. This version number is based on the **algorithm version number**, which at the moment stands at 1.4. See the `CMI Record for the WOfS Algorithm <http://cmi.ga.gov.au/node/166>`_.
+The version number is based on the **algorithm version
+number**, which at the moment stands at 1.4. See the `CMI Record for the WOfS Algorithm
+<http://cmi.ga.gov.au/node/166>`_.
 
 For minor code changes not affecting the algorithm, increment the least significant digit of the version number.
 
-When committing a version number update, please also git tag with the same version number.
+Releases
+--------
 
-Packaging
----------
+To release a new package of WOfS, `create a new release <https://github.com/GeoscienceAustralia/wofs/releases/new>`_
+using GitHub, with a suitably tagged version number.
 
-To build a new package for WOfS, update the version number in `wofs/__init__.py`. Then, from the base directory of
-the project run:
+The Continuous Integration service will run tests, create source and binary distribution packages, and upload them
+to https://packages.dea.ga.gov.au/.
+
+To build a new package for WOfS, Then, from the base directory of the project run:
 
     python setup.py sdist bdist_wheel
 
-This will create a `source distribution` and a `binary wheel` distribution in the `dist/` directory.
+This will create a ``source distribution`` and a ``binary wheel`` distribution in the ``dist/`` directory.
 
 To have the package included in the **DEA Environment Module** upload it to s3://datacube-core-deployment/wofs/ by
 running:
 
     aws s3 cp dist/ s3://datacube-core-deployment/wofs/ --recursive
 
-It can then also be installed by running:
-
-    pip install --index-url https://packages.dea.gadevs.ga/ wofs
