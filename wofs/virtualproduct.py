@@ -63,14 +63,13 @@ class WOfSClassifier(Transformation):
         if self.dsm_path is not None:
             dsm = self._load_dsm(data.geobox.buffered(self.terrain_buffer, self.terrain_buffer))
 
-        time_selectors = data.time.values
         wofs = []
-        for time in time_selectors:
+        for time_idx in range(len(data.time)):
             if self.dsm_path is None:
-                wofs.append(woffles_ard_no_terrain_filter(data.sel(time=time), masking_filter=masking_used
+                wofs.append(woffles_ard_no_terrain_filter(data.isel(time=time_idx), masking_filter=masking_used
                                                           ).to_dataset(name='water'))
             else:
-                wofs.append(woffles_ard(data.sel(time=time), dsm, masking_filter=masking_used
+                wofs.append(woffles_ard(data.isel(time=time_idx), dsm, masking_filter=masking_used
                                         ).to_dataset(name='water'))
         wofs = xr.concat(wofs, dim='time')
         wofs.attrs['crs'] = data.attrs['crs']

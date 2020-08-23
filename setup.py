@@ -35,7 +35,8 @@ setup(
     install_requires=[
         'datacube',
         'scipy',
-        'ephem'
+        'ephem',
+        'xarray>=0.14.1'
     ],
     tests_require=tests_require,
     extras_require=extras_require,
