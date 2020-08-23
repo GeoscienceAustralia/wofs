@@ -81,7 +81,7 @@ def eo_filter(source):
 
     Contiguity can easily be tested either here or using PQ.
     """
-    nodata_bools = source.apply(lambda array: array == array.nodata).to_array(dim='band')
+    nodata_bools = source.map(lambda array: array == array.nodata).to_array(dim='band')
 
     nothingness = nodata_bools.all(dim='band')
     noncontiguous = nodata_bools.any(dim='band')
