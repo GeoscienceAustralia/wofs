@@ -14,7 +14,7 @@ from wofs.vp_wofs import woffles_ard_no_terrain_filter
 def test_virtualproduct():
     data = xr.open_dataset(Path(__file__).parent / 'sample_c3_sr.nc', mask_and_scale=False)
     data = data.rename({'oa_fmask': 'fmask'})
-    data = data.expand_dims({'time': [datetime.now()]})
+    # data = data.expand_dims({'time': [datetime.now()]})
     # data.attrs['crs'] = datacube.utils.geometry.CRS('EPSG:32754')
     data.attrs['crs'] = 'EPSG:32754'
 
@@ -25,7 +25,9 @@ def test_virtualproduct():
     transform = WOfSClassifier()
     wofl = transform.compute(data)
 
-    sample = xr.open_dataset(Path(__file__).parent / 'sample_wofl.nc')
+    # wofl.to_netcdf(Path(__file__).parent / 'sample_wofl.nc')
+
+    sample = xr.open_dataset(Path(__file__).parent / 'sample_wofl.nc', mask_and_scale=False)
 
     assert sample.equals(wofl)
 
