@@ -82,7 +82,7 @@ def solar_vector(point, time, crs):
 
 
 # pylint: disable=too-many-locals
-def shadows_and_slope(tile, time, pixel_scale_m=25.0):  # TODO proper res
+def shadows_and_slope(tile, time):
     """
     Terrain shadow masking (Greg's implementation) and slope masking.
 
@@ -102,6 +102,10 @@ def shadows_and_slope(tile, time, pixel_scale_m=25.0):  # TODO proper res
 
     y_size, x_size = tile.elevation.shape
 
+    # row spacing
+    pixel_scale_m = abs(tile.affine.e)
+    
+    # gradient and slope
     xgrad = ndimage.sobel(tile.elevation, axis=1) / abs(8 * tile.affine.a)
     ygrad = ndimage.sobel(tile.elevation, axis=0) / abs(8 * tile.affine.e)
 

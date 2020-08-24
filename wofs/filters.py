@@ -50,7 +50,7 @@ def pq_filter(pq):
 
     masking = np.zeros(ipq.shape, dtype=np.uint8)
     masking[(ipq & (PQA_SATURATION_BITS | PQA_CONTIGUITY_BITS)).astype(np.bool)] = constants.MASKED_NO_CONTIGUITY
-    masking[(ipq & PQA_SEA_WATER_BIT).astype(np.bool)] += constants.MASKED_SEA_WATER
+    #masking[(ipq & PQA_SEA_WATER_BIT).astype(np.bool)] += constants.MASKED_SEA_WATER
     masking[dilate(ipq & PQA_CLOUD_BITS)] += constants.MASKED_CLOUD
     masking[dilate(ipq & PQA_CLOUD_SHADOW_BITS)] += constants.MASKED_CLOUD_SHADOW
     return masking
@@ -64,11 +64,13 @@ def terrain_filter(dsm, nbar):
 
     shadows, slope, sia = terrain.shadows_and_slope(dsm, nbar.blue.time.values)
 
-    shadowy = dilate(shadows != terrain.LIT) | (sia < constants.LOW_SOLAR_INCIDENCE_THRESHOLD_DEGREES)
+    shadowy = dilate(shadows != terrain.LIT)
+
+    low_sia = (sia < constants.LOW_SOLAR_INCIDENCE_THRESHOLD_DEGREES)
 
     steep = (slope > constants.SLOPE_THRESHOLD_DEGREES)
 
-    result = np.uint8(constants.MASKED_TERRAIN_SHADOW) * shadowy | np.uint8(constants.MASKED_HIGH_SLOPE) * steep
+    result = np.uint8(constants.MASKED_TERRAIN_SHADOW) * shadowy | np.uint8(constants.MASKED_HIGH_SLOPE) * steep | np.uint8(constants.MASKED_LOW_SOLAR_ANGLE) * low_sia
 
     return xarray.DataArray(result, coords=[dsm.y, dsm.x])  # note, assumes (y,x) axis ordering
 
