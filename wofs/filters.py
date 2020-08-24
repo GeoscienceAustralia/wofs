@@ -3,15 +3,16 @@ Set individual bitflags needed for wofls.
 """
 import numpy as np
 import scipy.ndimage
-from wofs import terrain, constants, boilerplate
 import xarray
+
+from wofs import terrain, constants, boilerplate
 
 
 def dilate(array):
     """Dilation e.g. for cloud and cloud/terrain shadow"""
     # kernel = [[1] * 7] * 7 # blocky 3-pixel dilation
     y, x = np.ogrid[-3:4, -3:4]
-    kernel = ((x * x) + (y * y) <= 3.5**2)  # disk-like 3-pixel radial dilation
+    kernel = ((x * x) + (y * y) <= 3.5 ** 2)  # disk-like 3-pixel radial dilation
     return scipy.ndimage.binary_dilation(array, structure=kernel)
 
 
@@ -50,7 +51,7 @@ def pq_filter(pq):
 
     masking = np.zeros(ipq.shape, dtype=np.uint8)
     masking[(ipq & (PQA_SATURATION_BITS | PQA_CONTIGUITY_BITS)).astype(np.bool)] = constants.MASKED_NO_CONTIGUITY
-    #masking[(ipq & PQA_SEA_WATER_BIT).astype(np.bool)] += constants.MASKED_SEA_WATER
+    # masking[(ipq & PQA_SEA_WATER_BIT).astype(np.bool)] += constants.MASKED_SEA_WATER
     masking[dilate(ipq & PQA_CLOUD_BITS)] += constants.MASKED_CLOUD
     masking[dilate(ipq & PQA_CLOUD_SHADOW_BITS)] += constants.MASKED_CLOUD_SHADOW
     return masking
@@ -70,7 +71,8 @@ def terrain_filter(dsm, nbar):
 
     steep = (slope > constants.SLOPE_THRESHOLD_DEGREES)
 
-    result = np.uint8(constants.MASKED_TERRAIN_SHADOW) * shadowy | np.uint8(constants.MASKED_HIGH_SLOPE) * steep | np.uint8(constants.MASKED_LOW_SOLAR_ANGLE) * low_sia
+    result = np.uint8(constants.MASKED_TERRAIN_SHADOW) * shadowy | np.uint8(
+        constants.MASKED_HIGH_SLOPE) * steep | np.uint8(constants.MASKED_LOW_SOLAR_ANGLE) * low_sia
 
     return xarray.DataArray(result, coords=[dsm.y, dsm.x])  # note, assumes (y,x) axis ordering
 

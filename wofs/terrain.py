@@ -1,10 +1,11 @@
-import numpy
-import ephem
-from scipy import ndimage
-from pandas import to_datetime
-from datacube.utils.geometry import CRS, line
 import math
+
+import ephem
+import numpy
 import xarray
+from datacube.utils.geometry import CRS, line
+from pandas import to_datetime
+from scipy import ndimage
 
 UNKNOWN = -1
 LIT = 255
@@ -104,7 +105,7 @@ def shadows_and_slope(tile, time):
 
     # row spacing
     pixel_scale_m = abs(tile.affine.e)
-    
+
     # gradient and slope
     xgrad = ndimage.sobel(tile.elevation, axis=1) / abs(8 * tile.affine.a)
     ygrad = ndimage.sobel(tile.elevation, axis=0) / abs(8 * tile.affine.e)
