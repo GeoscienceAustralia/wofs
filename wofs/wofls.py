@@ -28,9 +28,9 @@ def woffles(nbar, pq, dsm):
     """Generate a Water Observation Feature Layer from NBAR, PQ and surface elevation inputs."""
 
     water = classifier.classify(nbar.to_array(dim='band')) \
-            | filters.eo_filter(nbar) \
-            | filters.pq_filter(pq.pqa) \
-            | filters.terrain_filter(dsm, nbar)
+        | filters.eo_filter(nbar) \
+        | filters.pq_filter(pq.pqa) \
+        | filters.terrain_filter(dsm, nbar)
 
     _fix_nodata_to_single_value(water)
 
@@ -43,8 +43,8 @@ def woffles_ard(ard, dsm):
     """Generate a Water Observation Feature Layer from ARD (NBART and FMASK) and surface elevation inputs."""
     nbar_bands = spectral_bands(ard)
     water = classifier.classify(nbar_bands) \
-            | eo_filter(ard) \
-            | fmask_filter(ard.fmask) \
+        | eo_filter(ard) \
+        | fmask_filter(ard.fmask)
 
     if dsm is not None:
         # terrain_filter arbitrarily expects a band named 'blue'
