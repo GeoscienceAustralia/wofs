@@ -18,7 +18,6 @@ Issues:
     - Yet to profile memory, CPU or IO usage.
 """
 import numpy as np
-from wofs.vp_wofs import _fix_nodata_to_single_value
 
 from wofs import classifier, filters
 from wofs.constants import NO_DATA
@@ -38,3 +37,42 @@ def woffles(nbar, pq, dsm):
     assert water.dtype == np.uint8
 
     return water
+
+
+def woffles_ard(ard, dsm):
+    """Generate a Water Observation Feature Layer from ARD (NBART and FMASK) and surface elevation inputs."""
+    nbar_bands = spectral_bands(ard)
+    water = classifier.classify(nbar_bands) \
+            | eo_filter(ard) \
+            | fmask_filter(ard.fmask) \
+
+    if dsm is not None:
+        # terrain_filter arbitrarily expects a band named 'blue'
+        water |= terrain_filter(dsm, ard.rename({"nbart_blue": "blue"}))
+
+    _fix_nodata_to_single_value(water)
+
+    assert water.dtype == np.uint8
+
+    return water
+
+
+def spectral_bands(ds):
+    bands = [
+        "nbart_blue",
+        "nbart_green",
+        "nbart_red",
+        "nbart_nir",
+        "nbart_swir_1",
+        "nbart_swir_2",
+    ]
+    return ds[bands].to_array(dim="band")
+
+
+def _fix_nodata_to_single_value(dataarray):
+    # Force any values with the NODATA bit set, to be the nodata value
+    nodata_set = np.bitwise_and(dataarray.data, NO_DATA) == NO_DATA
+
+    # If we don't specifically set the dtype in the following line,
+    # dask arrays explode to int64s. Make sure it stays a uint8!
+    dataarray.data[nodata_set] = np.array(NO_DATA, dtype="uint8")

@@ -60,9 +60,9 @@ def pq_filter(pq):
 
 
 def terrain_filter(dsm, nbar):
-    """
-        Terrain shadow masking, slope masking, solar incidence angle masking.
-        Input: xarray DataSets
+    """ Terrain shadow masking, slope masking, solar incidence angle masking.
+
+    Input: xarray DataSets
     """
 
     shadows, slope, sia = terrain.shadows_and_slope(dsm, nbar.blue.time.values)

@@ -6,7 +6,7 @@ from datacube.testutils.io import dc_read
 from datacube.virtual import Transformation, Measurement
 from xarray import Dataset
 
-from wofs.wofls import woffles_ard, woffles_ard_no_terrain_filter
+from wofs.wofls import woffles_ard
 
 WOFS_OUTPUT = [{
     'name': 'water',
@@ -30,25 +30,25 @@ class WOfSClassifier(Transformation):
         self.terrain_buffer = terrain_buffer
         self.output_measurements = {m['name']: Measurement(**m) for m in WOFS_OUTPUT}
         if dsm_path is None:
+            # TODO: This should be recorded in the dataset metadata, but we haven't allowed for this
+            # in Transformation classes.
             _LOG.warning('WARNING: Path or URL to a DSM is not set. Terrain shadow mask will not be calculated.')
 
     def measurements(self, input_measurements) -> Dict[str, Measurement]:
         return self.output_measurements
 
     def compute(self, data) -> Dataset:
-
         _LOG.info(data.geobox)
         _LOG.info(repr(data.geobox))
 
         if self.dsm_path is not None:
             dsm = self._load_dsm(data.geobox.buffered(self.terrain_buffer, self.terrain_buffer))
+        else:
+            dsm = None
 
         wofs = []
         for time_idx in range(len(data.time)):
-            if self.dsm_path is None:
-                wofs.append(woffles_ard_no_terrain_filter(data.isel(time=time_idx)).to_dataset(name='water'))
-            else:
-                wofs.append(woffles_ard(data.isel(time=time_idx), dsm).to_dataset(name='water'))
+            wofs.append(woffles_ard(data.isel(time=time_idx), dsm).to_dataset(name='water'))
         wofs = xr.concat(wofs, dim='time')
         wofs.attrs['crs'] = data.attrs['crs']
         return wofs
