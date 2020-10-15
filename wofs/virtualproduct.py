@@ -1,13 +1,12 @@
-import xarray as xr
-from typing import Dict
-from xarray import Dataset
 import logging
-import numpy
+from typing import Dict
 
+import xarray as xr
 from datacube.testutils.io import dc_read
 from datacube.virtual import Transformation, Measurement
-from datacube.storage.masking import valid_data_mask
-from wofs.vp_wofs import woffles_ard, woffles_ard_no_terrain_filter, fmask_filter, fmask_filter_c2
+from xarray import Dataset
+
+from wofs.wofls import woffles_ard, woffles_ard_no_terrain_filter
 
 WOFS_OUTPUT = [{
     'name': 'water',
@@ -26,10 +25,9 @@ class WOfSClassifier(Transformation):
     Terrain buffer is specified in CRS Units (typically meters)
     """
 
-    def __init__(self, dsm_path=None, terrain_buffer=0, c2=False):
+    def __init__(self, dsm_path=None, terrain_buffer=0):
         self.dsm_path = dsm_path
         self.terrain_buffer = terrain_buffer
-        self.c2 = c2
         self.output_measurements = {m['name']: Measurement(**m) for m in WOFS_OUTPUT}
         if dsm_path is None:
             _LOG.warning('WARNING: Path or URL to a DSM is not set. Terrain shadow mask will not be calculated.')
@@ -39,26 +37,8 @@ class WOfSClassifier(Transformation):
 
     def compute(self, data) -> Dataset:
 
-        print(data.geobox)
-        print(repr(data.geobox))
-
-        masking_used = fmask_filter
-        if self.c2:
-            masking_used = fmask_filter_c2
-            # The C2 data needs to be scaled
-            bands = ['nbart_blue', 'nbart_green', 'nbart_red', 'nbart_nir', 'nbart_swir_1', 'nbart_swir_2']
-
-            for band in bands:
-                dtype = data[band].dtype
-                nodata = data[band].attrs['nodata']
-                attrs = data[band].attrs
-
-                is_valid_array = valid_data_mask(data[band])
-
-                data[band] = data[band].where(is_valid_array)
-                data[band] = numpy.clip((data[band] * 2.75e-5 - 0.2) * 10000, 0, 10000)
-                data[band] = data[band].astype(dtype).where(is_valid_array, nodata)
-                data[band].attrs = attrs
+        _LOG.info(data.geobox)
+        _LOG.info(repr(data.geobox))
 
         if self.dsm_path is not None:
             dsm = self._load_dsm(data.geobox.buffered(self.terrain_buffer, self.terrain_buffer))
@@ -66,11 +46,9 @@ class WOfSClassifier(Transformation):
         wofs = []
         for time_idx in range(len(data.time)):
             if self.dsm_path is None:
-                wofs.append(woffles_ard_no_terrain_filter(data.isel(time=time_idx), masking_filter=masking_used
-                                                          ).to_dataset(name='water'))
+                wofs.append(woffles_ard_no_terrain_filter(data.isel(time=time_idx)).to_dataset(name='water'))
             else:
-                wofs.append(woffles_ard(data.isel(time=time_idx), dsm, masking_filter=masking_used
-                                        ).to_dataset(name='water'))
+                wofs.append(woffles_ard(data.isel(time=time_idx), dsm).to_dataset(name='water'))
         wofs = xr.concat(wofs, dim='time')
         wofs.attrs['crs'] = data.attrs['crs']
         return wofs
@@ -82,9 +60,7 @@ class WOfSClassifier(Transformation):
                           attrs={'crs': gbox.crs})
 
 
-def _to_xarray_coords(geobox):
-    return tuple((dim, coord.values) for dim, coord in geobox.coordinates.items())
-
-
 def _to_xrds_coords(geobox):
     return {dim: coord.values for dim, coord in geobox.coordinates.items()}
+
+

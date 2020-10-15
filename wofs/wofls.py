@@ -18,17 +18,20 @@ Issues:
     - Yet to profile memory, CPU or IO usage.
 """
 import numpy as np
-from wofs import classifier, filters
 from wofs.vp_wofs import _fix_nodata_to_single_value
+
+from wofs import classifier, filters
+from wofs.constants import NO_DATA
+from wofs.filters import eo_filter, fmask_filter, terrain_filter
 
 
 def woffles(nbar, pq, dsm):
     """Generate a Water Observation Feature Layer from NBAR, PQ and surface elevation inputs."""
 
     water = classifier.classify(nbar.to_array(dim='band')) \
-        | filters.eo_filter(nbar) \
-        | filters.pq_filter(pq.pqa) \
-        | filters.terrain_filter(dsm, nbar)
+            | filters.eo_filter(nbar) \
+            | filters.pq_filter(pq.pqa) \
+            | filters.terrain_filter(dsm, nbar)
 
     _fix_nodata_to_single_value(water)
 
