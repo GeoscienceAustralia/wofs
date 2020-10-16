@@ -4,8 +4,10 @@ Set individual bitflags needed for wofls.
 import numpy as np
 import scipy.ndimage
 import xarray
+from datacube.utils import masking
 
 from wofs import terrain, constants, boilerplate
+from wofs.constants import MASKED_CLOUD, MASKED_CLOUD_SHADOW, NO_DATA
 
 
 def dilate(array):
@@ -58,9 +60,9 @@ def pq_filter(pq):
 
 
 def terrain_filter(dsm, nbar):
-    """
-        Terrain shadow masking, slope masking, solar incidence angle masking.
-        Input: xarray DataSets
+    """ Terrain shadow masking, slope masking, solar incidence angle masking.
+
+    Input: xarray DataSets
     """
 
     shadows, slope, sia = terrain.shadows_and_slope(dsm, nbar.blue.time.values)
@@ -91,3 +93,12 @@ def eo_filter(source):
     noncontiguous = nodata_bools.any(dim='band')
 
     return np.uint8(constants.NO_DATA) * nothingness | np.uint8(constants.MASKED_NO_CONTIGUITY) * noncontiguous
+
+
+def fmask_filter(fmask):
+    masking = np.zeros(fmask.shape, dtype=np.uint8)
+    masking[fmask == 0] += NO_DATA
+    masking[fmask == 2] += MASKED_CLOUD
+    masking[fmask == 3] += MASKED_CLOUD_SHADOW
+
+    return masking

@@ -96,3 +96,5 @@ scratch/*
 .vscode
 
 wofs/_version.py
+.benchmarks/
+tests/.benchmarks/
