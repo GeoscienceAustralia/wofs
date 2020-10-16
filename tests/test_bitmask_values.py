@@ -8,14 +8,13 @@ from datacube.utils.geometry import GeoBox, CRS
 from wofs.virtualproduct import WOfSClassifier
 
 
-@pytest.mark.parametrize("c2_data", [False, True], ids=["ga_landsat", "usgs_col2"])
-def test_nodata_bit_setting(sample_data, c2_data):
+def test_nodata_bit_setting(sample_data):
     """
 
     If no-data bit (bit 1) is set, all other bits should be 0. -- Recommendation from Norman Mueller.
     """
 
-    classifier = WOfSClassifier(c2=c2_data)
+    classifier = WOfSClassifier()
 
     wofl = classifier.compute(sample_data)
     wofl = wofl.compute()
@@ -28,6 +27,7 @@ def test_nodata_bit_setting(sample_data, c2_data):
 
 @pytest.fixture(params=[np, da], ids=["numpy", "dask.array"])
 def sample_data(request):
+    """Load sample Surface reflectance and QA data"""
     required_bands = ['nbart_blue', 'nbart_green', 'nbart_red', 'nbart_nir', 'nbart_swir_1', 'nbart_swir_2', 'fmask']
 
     test_data = xr.Dataset(

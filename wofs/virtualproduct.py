@@ -62,4 +62,3 @@ class WOfSClassifier(Transformation):
 
 def _to_xrds_coords(geobox):
     return {dim: coord.values for dim, coord in geobox.coordinates.items()}
-
