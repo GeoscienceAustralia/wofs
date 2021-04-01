@@ -25,8 +25,9 @@ class WOfSClassifier(Transformation):
     Terrain buffer is specified in CRS Units (typically meters)
     """
 
-    def __init__(self, dsm_path=None, terrain_buffer=0):
+    def __init__(self, dsm_path=None, c2_scaling=False, terrain_buffer=0):
         self.dsm_path = dsm_path
+        self.c2_scaling = c2_scaling
         self.terrain_buffer = terrain_buffer
         self.output_measurements = {m['name']: Measurement(**m) for m in WOFS_OUTPUT}
         if dsm_path is None:
@@ -40,7 +41,11 @@ class WOfSClassifier(Transformation):
     def compute(self, data) -> Dataset:
         _LOG.info(data.geobox)
         _LOG.info(repr(data.geobox))
-
+        
+        if self.c2_scaling:
+            # The C2 data need to be scaled
+            data = scale_usgs_collection2(data)
+        
         if self.dsm_path is not None:
             dsm = self._load_dsm(data.geobox.buffered(self.terrain_buffer, self.terrain_buffer))
         else:
@@ -59,6 +64,9 @@ class WOfSClassifier(Transformation):
         return xr.Dataset(data_vars={'elevation': (('y', 'x'), dsm)}, coords=_to_xrds_coords(gbox),
                           attrs={'crs': gbox.crs})
 
+def scale_usgs_collection2(data):
+    return data.apply(scale_and_clip_dataarray, keep_attrs=True,
+                      scale_factor=2.75, add_offset=-2000, clip_range=(0, 10000))
 
 def _to_xrds_coords(geobox):
     return {dim: coord.values for dim, coord in geobox.coordinates.items()}
