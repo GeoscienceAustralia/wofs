@@ -66,7 +66,7 @@ class WOfSClassifier(Transformation):
 
 def scale_usgs_collection2(data):
     return data.apply(scale_and_clip_dataarray, keep_attrs=True,
-                      scale_factor=2.75, add_offset=-2000, clip_range=(0, 10000))
+                      scale_factor=0.275, add_offset=-2000, clip_range=(0, 10000))
 
 def scale_and_clip_dataarray(dataarray: xr.DataArray, *, scale_factor=1, add_offset=0, clip_range=None,
                              new_nodata=-999, new_dtype='int16'):
