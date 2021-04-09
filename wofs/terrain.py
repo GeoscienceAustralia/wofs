@@ -130,7 +130,8 @@ def shadows_and_slope(tile, time):
     # print solar_vec, rot_degrees, sun_alt_deg
     no_data = -1000
 
-    rotated_elv_array = ndimage.interpolation.rotate(tile.elevation.values,
+    buff_elv_array = numpy.pad(tile.elevation.values, 3, mode='edge')
+    rotated_elv_array = ndimage.interpolation.rotate(buff_elv_array,
                                                      rot_degrees,
                                                      reshape=True,
                                                      output=numpy.float32,
