@@ -56,7 +56,8 @@ PQA_SEA_WATER_BIT = 0x0200
     # masking[(ipq & PQA_SEA_WATER_BIT).astype(np.bool)] += constants.MASKED_SEA_WATER
     masking[dilate(ipq & PQA_CLOUD_BITS)] += constants.MASKED_CLOUD
     masking[dilate(ipq & PQA_CLOUD_SHADOW_BITS)] += constants.MASKED_CLOUD_SHADOW
-    return masking'''
+    return masking
+'''
 
 def pq_filter(pq):
     """
