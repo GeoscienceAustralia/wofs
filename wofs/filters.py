@@ -26,38 +26,38 @@ PQA_SEA_WATER_BIT = 0x0200
 
 
 @boilerplate.simple_numpify
-'''def pq_filter(pq):
-    """
-         Propagate flags from the pixel quality product.
+#def pq_filter(pq):
+#    """
+#         Propagate flags from the pixel quality product.
+#
+#         PQ specs: 16 bits.
+#           0-7 non-saturation of bands 1-5, 6.1, 6.2, 7. (Note bands 6 are thermal, irrelevent to standard WOfS.)
+#           8 contiguity (presumably including thermal bands)
+#           9 land (versus sea)
+#           10-11 no cloud (ACCA, Fmask)
+#           12-13 no cloud shadow (ACCA, Fmask)
+#           14 topographic shadow (not implemented)
+#           15 unspecified
+#
+#          Over/under-saturation is flagged in the WOfS journal paper, but may not be previously implemented.
+#
+#          Notes:
+#            - will output same flag to indicate noncontiguity, oversaturation and undersaturation.
+#            - disregarding PQ contiguity flag (see eo_filter instead) to exclude thermal bands.
+#            - permitting simultaneous flags (through addition syntax) since constants happen to be
+#              different powers of the same base.
+#            - dilates the cloud and cloud shadow. (Previous implementation eroded the negation.)
+#            - input must be numpy not xarray.DataArray (due to depreciated boolean fancy indexing behaviour)
+#    """
+#    ipq = ~pq  # bitwise-not, e.g. flag cloudiness rather than cloudfree
+#
+#    masking = np.zeros(ipq.shape, dtype=np.uint8)
+#    masking[(ipq & (PQA_SATURATION_BITS | PQA_CONTIGUITY_BITS)).astype(np.bool)] = constants.MASKED_NO_CONTIGUITY
+#    # masking[(ipq & PQA_SEA_WATER_BIT).astype(np.bool)] += constants.MASKED_SEA_WATER
+#    masking[dilate(ipq & PQA_CLOUD_BITS)] += constants.MASKED_CLOUD
+#    masking[dilate(ipq & PQA_CLOUD_SHADOW_BITS)] += constants.MASKED_CLOUD_SHADOW
+#    return masking
 
-         PQ specs: 16 bits.
-           0-7 non-saturation of bands 1-5, 6.1, 6.2, 7. (Note bands 6 are thermal, irrelevent to standard WOfS.)
-           8 contiguity (presumably including thermal bands)
-           9 land (versus sea)
-           10-11 no cloud (ACCA, Fmask)
-           12-13 no cloud shadow (ACCA, Fmask)
-           14 topographic shadow (not implemented)
-           15 unspecified
-
-          Over/under-saturation is flagged in the WOfS journal paper, but may not be previously implemented.
-
-          Notes:
-            - will output same flag to indicate noncontiguity, oversaturation and undersaturation.
-            - disregarding PQ contiguity flag (see eo_filter instead) to exclude thermal bands.
-            - permitting simultaneous flags (through addition syntax) since constants happen to be
-              different powers of the same base.
-            - dilates the cloud and cloud shadow. (Previous implementation eroded the negation.)
-            - input must be numpy not xarray.DataArray (due to depreciated boolean fancy indexing behaviour)
-    """
-    ipq = ~pq  # bitwise-not, e.g. flag cloudiness rather than cloudfree
-
-    masking = np.zeros(ipq.shape, dtype=np.uint8)
-    masking[(ipq & (PQA_SATURATION_BITS | PQA_CONTIGUITY_BITS)).astype(np.bool)] = constants.MASKED_NO_CONTIGUITY
-    # masking[(ipq & PQA_SEA_WATER_BIT).astype(np.bool)] += constants.MASKED_SEA_WATER
-    masking[dilate(ipq & PQA_CLOUD_BITS)] += constants.MASKED_CLOUD
-    masking[dilate(ipq & PQA_CLOUD_SHADOW_BITS)] += constants.MASKED_CLOUD_SHADOW
-    return masking
-'''
 
 def pq_filter(pq):
     """
