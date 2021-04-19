@@ -21,7 +21,7 @@ import numpy as np
 
 from wofs import classifier, filters
 from wofs.constants import NO_DATA
-from wofs.filters import eo_filter, fmask_filter, terrain_filter
+from wofs.filters import eo_filter, fmask_filter, terrain_filter, pq_filter
 
 
 def woffles(nbar, pq, dsm):
@@ -44,7 +44,8 @@ def woffles_ard(ard, dsm):
     nbar_bands = spectral_bands(ard)
     water = classifier.classify(nbar_bands) \
         | eo_filter(ard) \
-        | fmask_filter(ard.fmask)
+        | pq_filter(ard.pq)
+        #| fmask_filter(ard.fmask)
 
     if dsm is not None:
         # terrain_filter arbitrarily expects a band named 'blue'
