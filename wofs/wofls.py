@@ -44,8 +44,9 @@ def woffles_ard(ard, dsm):
     nbar_bands = spectral_bands(ard)
     water = classifier.classify(nbar_bands) \
         | eo_filter(ard) \
+        | fmask_filter(ard.fmask)        
         #| pq_filter(ard.pixel_quality)
-        | fmask_filter(ard.fmask)
+
 
     if dsm is not None:
         # terrain_filter arbitrarily expects a band named 'blue'
