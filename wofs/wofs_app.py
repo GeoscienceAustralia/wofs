@@ -229,7 +229,7 @@ def _generate_tasks(index, config, time, extent=None):
 
     for input_source in INPUT_SOURCES:
         gqa_filter = dict(product=input_source['source_product'], time=time, gqa_iterative_mean_xy=(0, 1))
-        nbart_loadables = gw.list_tiles(product=input_source['nbart'], time=time, **extent)
+        nbart_loadables = gw.list_tiles(product=input_source['nbart'], time=time, source_filter=gqa_filter, **extent)
         pq_loadables = gw.list_tiles(product=input_source['pq'], time=time, tile_buffer=pq_padding, **extent)
 
         _LOG.info('Found %d nbart loadables for %r input source', len(nbart_loadables), input_source['nbart'])
