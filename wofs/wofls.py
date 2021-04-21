@@ -21,7 +21,7 @@ import numpy as np
 
 from wofs import classifier, filters
 from wofs.constants import NO_DATA
-from wofs.filters import eo_filter, fmask_filter, terrain_filter, pq_filter
+from wofs.filters import eo_filter, fmask_filter, terrain_filter, pq_filter, c2_filter
 
 
 def woffles(nbar, pq, dsm):
