@@ -6,7 +6,7 @@ from datacube.testutils.io import dc_read
 from datacube.virtual import Transformation, Measurement
 from xarray import Dataset
 
-from wofs.wofls import woffles_ard
+from wofs.wofls import woffles_ard, woffles_c2
 
 WOFS_OUTPUT = [{
     'name': 'water',
@@ -53,7 +53,8 @@ class WOfSClassifier(Transformation):
 
         wofs = []
         for time_idx in range(len(data.time)):
-            wofs.append(woffles_ard(data.isel(time=time_idx), dsm).to_dataset(name='water'))
+            wofs.append(woffles_c2(data.isel(time=time_idx), dsm).to_dataset(name='water'))
+            #wofs.append(woffles_ard(data.isel(time=time_idx), dsm).to_dataset(name='water'))
         wofs = xr.concat(wofs, dim='time')
         wofs.attrs['crs'] = data.attrs['crs']
         return wofs
