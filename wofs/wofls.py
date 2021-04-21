@@ -63,7 +63,7 @@ def woffles_c2(c2, dsm):
     nbar_bands = spectral_bands(c2)
     water = classifier.classify(nbar_bands) \
         | eo_filter(c2) \
-        | c2_filter(c2.pixel_quality)        
+        | c2_filter(c2.fmask)        
         #| pq_filter(ard.pixel_quality)
 
 
