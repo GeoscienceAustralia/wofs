@@ -95,8 +95,10 @@ def c2_filter(pq):
 
     masking = np.zeros(ipq.shape, dtype=np.uint8)
     #masking[(ipq & (C2_NODATA_BITS)).astype(np.bool)] = constants.NO_DATA
-    masking[dilate(ipq & C2_CLOUD_BITS)] += constants.MASKED_CLOUD
-    masking[dilate(ipq & C2_CLOUD_SHADOW_BITS)] += constants.MASKED_CLOUD_SHADOW
+    masking[(ipq & C2_CLOUD_BITS)] += constants.MASKED_CLOUD
+    masking[(ipq & C2_CLOUD_SHADOW_BITS)] += constants.MASKED_CLOUD_SHADOW
+    #masking[dilate(ipq & C2_CLOUD_BITS)] += constants.MASKED_CLOUD
+    #masking[dilate(ipq & C2_CLOUD_SHADOW_BITS)] += constants.MASKED_CLOUD_SHADOW
     return masking
 
 def terrain_filter(dsm, nbar):
