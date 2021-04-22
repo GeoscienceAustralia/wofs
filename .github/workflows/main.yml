@@ -29,6 +29,7 @@ jobs:
       with:
         python-version: ${{ matrix.python-version }}
 
+    - run: pip3 install wheel
     - name: Check python environment
       run: pip3 freeze
 
