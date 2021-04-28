@@ -91,14 +91,14 @@ def c2_filter(pq):
             - dilates the cloud and cloud shadow. (Previous implementation eroded the negation.)
             - input must be numpy not xarray.DataArray (due to depreciated boolean fancy indexing behaviour)
     """
-    ipq = ~pq  # bitwise-not, e.g. flag cloudiness rather than cloudfree
+    #ipq = ~pq  # bitwise-not, e.g. flag cloudiness rather than cloudfree
 
-    masking = np.zeros(ipq.shape, dtype=np.uint8)
+    masking = np.zeros(pq.shape, dtype=np.uint8)
     #masking[(ipq & (C2_NODATA_BITS)).astype(np.bool)] = constants.NO_DATA
     #masking[(ipq & C2_CLOUD_BITS)] += constants.MASKED_CLOUD
     #masking[(ipq & C2_CLOUD_SHADOW_BITS)] += constants.MASKED_CLOUD_SHADOW
-    masking[dilate(ipq & C2_CLOUD_BITS)] += constants.MASKED_CLOUD
-    masking[dilate(ipq & C2_CLOUD_SHADOW_BITS)] += constants.MASKED_CLOUD_SHADOW
+    masking[dilate(pq & C2_CLOUD_BITS)] += constants.MASKED_CLOUD
+    masking[dilate(pq & C2_CLOUD_SHADOW_BITS)] += constants.MASKED_CLOUD_SHADOW
     return masking
 
 def terrain_filter(dsm, nbar):
