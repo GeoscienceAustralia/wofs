@@ -60,26 +60,36 @@ def pq_filter(pq):
 
 
 C2_NODATA_BITS = 0x0001 # 0001 0th bit
-C2_CLOUD_BITS = 0x000C # 1100 2nd and 3rd bit
+#C2_CLOUD_BITS = #0x000C # 1100 2nd and 3rd bit #try doing them as 2 checks instead of one
+C2_CLOUD_BITS = 0x0008 # 1000 3rd bit
 C2_CLOUD_SHADOW_BITS = 0x0010 # 0001 0000 4th bit
+C2_CLEAR_BITS = 0x0040
+C2_CIRRUS_BITS = 0x0004 # 0100 2nd bit
+C2_DILATED_BITS = 0x0002 # 0010 1st bit
+
+
+# could also use clear which is reverse of cloud+dilation or try dilated clouds
+# use clear and then also use cirrus as a second check? | is or
+# not clear | cirrus
+# 
 
 def c2_filter(pq):
     """
          Propagate flags from the pixel quality product.
 
          PQ specs: 16 bits.
-           0 no data
-           1 dilated cloud
-           2 cirrus
-           3 cloud
-           4 cloud shadow
-           5 now
-           6 clear
-           7 water
-           8-9 cloud confidence
-           10-11 cloud shadow confidence
-           12-13 snow_ice confidence
-           14-15 cirrus confidence
+           0 no data # dec 1
+           1 dilated cloud # dec 2
+           2 cirrus # dec 4
+           3 cloud # dec 8
+           4 cloud shadow # dec 16
+           5 snow # dec 32
+           6 clear # dec 64
+           7 water # dec 128
+           8-9 cloud confidence # dec 256/512
+           10-11 cloud shadow confidence # dec 1024/2048
+           12-13 snow_ice confidence # dec 4096/8192
+           14-15 cirrus confidence # dec 16384/32768
 
           Over/under-saturation is flagged in the WOfS journal paper, but may not be previously implemented.
 
@@ -94,10 +104,11 @@ def c2_filter(pq):
     #ipq = ~pq  # bitwise-not, e.g. flag cloudiness rather than cloudfree
 
     masking = np.zeros(pq.shape, dtype=np.uint8)
-    #masking[(ipq & (C2_NODATA_BITS)).astype(np.bool)] = constants.NO_DATA
+    masking[(pq & C2_NODATA_BITS).astype(np.bool)] = constants.NO_DATA #retry the no data when it's not inverted
     #masking[(ipq & C2_CLOUD_BITS)] += constants.MASKED_CLOUD
-    #masking[(ipq & C2_CLOUD_SHADOW_BITS)] += constants.MASKED_CLOUD_SHADOW
-    masking[dilate(pq & C2_CLOUD_BITS)] += constants.MASKED_CLOUD
+    #masking[(ipq & C2_CLOUD_SHADOW_BITS)] += constants.MASKED_CLOUD_SHADOW #if you take dilate out, need astype bool
+    #masking[(pq & C2_CLOUD_BITS).astype(np.bool)] += constants.MASKED_CLOUD
+    masking[((~pq & C2_CLEAR_BITS) | (pq & C2_CIRRUS_BITS)).astype(np.bool)] += constants.MASKED_CLOUD
     masking[dilate(pq & C2_CLOUD_SHADOW_BITS)] += constants.MASKED_CLOUD_SHADOW
     return masking
 
