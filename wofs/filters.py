@@ -109,7 +109,8 @@ def c2_filter(pq):
     #masking[(ipq & C2_CLOUD_SHADOW_BITS)] += constants.MASKED_CLOUD_SHADOW #if you take dilate out, need astype bool
     #masking[(pq & C2_CLOUD_BITS).astype(np.bool)] += constants.MASKED_CLOUD
     #masking[((~pq & C2_CLEAR_BITS) | (pq & C2_CIRRUS_BITS)).astype(np.bool)] += constants.MASKED_CLOUD
-    masking[((pq & C2_DILATED_BITS) | (pq & C2_CIRRUS_BITS)).astype(np.bool)] += constants.MASKED_CLOUD
+    #masking[((pq & C2_DILATED_BITS) | (pq & C2_CIRRUS_BITS)).astype(np.bool)] += constants.MASKED_CLOUD
+    masking[((pq & C2_DILATED_BITS)).astype(np.bool)] += constants.MASKED_CLOUD
     masking[dilate(pq & C2_CLOUD_SHADOW_BITS)] += constants.MASKED_CLOUD_SHADOW
     return masking
 
