@@ -64,9 +64,6 @@ def woffles_usgs_c2(c2, dsm):
     water = classifier.classify(nbar_bands) \
         | eo_filter(c2) \
         | c2_filter(c2.fmask)        
-
-
-
     if dsm is not None:
         # terrain_filter arbitrarily expects a band named 'blue'
         water |= terrain_filter(dsm, c2.rename({"nbart_blue": "blue"}))
