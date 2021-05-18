@@ -58,13 +58,13 @@ def woffles_ard(ard, dsm):
 
     return water
 
-def woffles_c2(c2, dsm):
-    """Generate a Water Observation Feature Layer from ARD (NBART and FMASK) and surface elevation inputs."""
+def woffles_usgs_c2(c2, dsm):
+    """Generate a Water Observation Feature Layer from USGS Collection 2 and surface elevation inputs."""
     nbar_bands = spectral_bands(c2)
     water = classifier.classify(nbar_bands) \
         | eo_filter(c2) \
         | c2_filter(c2.fmask)        
-        #| pq_filter(ard.pixel_quality)
+
 
 
     if dsm is not None:
