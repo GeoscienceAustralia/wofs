@@ -6,7 +6,7 @@ from datacube.testutils.io import dc_read
 from datacube.virtual import Transformation, Measurement
 from xarray import Dataset
 
-from wofs.wofls import woffles_ard, woffles_c2
+from wofs.wofls import woffles_ard, woffles_usgs_c2
 
 WOFS_OUTPUT = [{
     'name': 'water',
@@ -55,7 +55,7 @@ class WOfSClassifier(Transformation):
         for time_idx in range(len(data.time)):
             if self.c2_scaling:
                 # C2 wofls
-                wofs.append(woffles_c2(data.isel(time=time_idx), dsm).to_dataset(name='water'))
+                wofs.append(woffles_usgs_c2(data.isel(time=time_idx), dsm).to_dataset(name='water'))
             else:
                 wofs.append(woffles_ard(data.isel(time=time_idx), dsm).to_dataset(name='water'))
         wofs = xr.concat(wofs, dim='time')
@@ -69,6 +69,7 @@ class WOfSClassifier(Transformation):
                           attrs={'crs': gbox.crs})
 
 def scale_usgs_collection2(data):
+    """These are taken from the Fractional Cover scaling values"""
     return data.apply(scale_and_clip_dataarray, keep_attrs=True,
                       scale_factor=0.275, add_offset=-2000, clip_range=(0, 10000))
 
