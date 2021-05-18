@@ -6,7 +6,7 @@ from datacube.testutils.io import dc_read
 from datacube.virtual import Transformation, Measurement
 from xarray import Dataset
 
-from wofs.wofls import woffles_ard
+from wofs.wofls import woffles_ard, woffles_c2
 
 WOFS_OUTPUT = [{
     'name': 'water',
@@ -53,7 +53,11 @@ class WOfSClassifier(Transformation):
 
         wofs = []
         for time_idx in range(len(data.time)):
-            wofs.append(woffles_ard(data.isel(time=time_idx), dsm).to_dataset(name='water'))
+            if self.c2_scaling:
+                # C2 wofls
+                wofs.append(woffles_c2(data.isel(time=time_idx), dsm).to_dataset(name='water'))
+            else:
+                wofs.append(woffles_ard(data.isel(time=time_idx), dsm).to_dataset(name='water'))
         wofs = xr.concat(wofs, dim='time')
         wofs.attrs['crs'] = data.attrs['crs']
         return wofs
@@ -75,7 +79,7 @@ def scale_and_clip_dataarray(dataarray: xr.DataArray, *, scale_factor=1, add_off
 
     mask = dataarray.data == nodata
 
-    dataarray = dataarray * scale_factor + add_offset
+    dataarray = dataarray * scale_factor + add_offset # add another mask here for if data > 10000 then also make that nodata
 
     if clip_range is not None:
         clip_min, clip_max = clip_range
