@@ -6,7 +6,7 @@ from datacube.testutils.io import dc_read
 from datacube.virtual import Transformation, Measurement
 from xarray import Dataset
 
-from wofs.wofls import woffles_ard
+from wofs.wofls import woffles_ard, woffles_usgs_c2
 
 WOFS_OUTPUT = [{
     'name': 'water',
@@ -25,8 +25,9 @@ class WOfSClassifier(Transformation):
     Terrain buffer is specified in CRS Units (typically meters)
     """
 
-    def __init__(self, dsm_path=None, terrain_buffer=0):
+    def __init__(self, dsm_path=None, c2_scaling=False, terrain_buffer=0):
         self.dsm_path = dsm_path
+        self.c2_scaling = c2_scaling
         self.terrain_buffer = terrain_buffer
         self.output_measurements = {m['name']: Measurement(**m) for m in WOFS_OUTPUT}
         if dsm_path is None:
@@ -40,7 +41,15 @@ class WOfSClassifier(Transformation):
     def compute(self, data) -> Dataset:
         _LOG.info(data.geobox)
         _LOG.info(repr(data.geobox))
-
+        
+        if self.c2_scaling:
+            # The C2 data need to be scaled
+            orig_attrs = data.attrs
+            spectral_data = data[['nbart_blue', 'nbart_green', 'nbart_red', 'nbart_nir', 'nbart_swir_1', 'nbart_swir_2']]
+            mask_data = data[['fmask']]
+            data = xr.merge([scale_usgs_collection2(spectral_data), mask_data])
+            data.attrs = orig_attrs
+        
         if self.dsm_path is not None:
             dsm = self._load_dsm(data.geobox.buffered(self.terrain_buffer, self.terrain_buffer))
         else:
@@ -48,7 +57,11 @@ class WOfSClassifier(Transformation):
 
         wofs = []
         for time_idx in range(len(data.time)):
-            wofs.append(woffles_ard(data.isel(time=time_idx), dsm).to_dataset(name='water'))
+            if self.c2_scaling:
+                # C2 wofls
+                wofs.append(woffles_usgs_c2(data.isel(time=time_idx), dsm).to_dataset(name='water'))
+            else:
+                wofs.append(woffles_ard(data.isel(time=time_idx), dsm).to_dataset(name='water'))
         wofs = xr.concat(wofs, dim='time')
         wofs.attrs['crs'] = data.attrs['crs']
         return wofs
@@ -59,6 +72,31 @@ class WOfSClassifier(Transformation):
         return xr.Dataset(data_vars={'elevation': (('y', 'x'), dsm)}, coords=_to_xrds_coords(gbox),
                           attrs={'crs': gbox.crs})
 
+def scale_usgs_collection2(data):
+    """These are taken from the Fractional Cover scaling values"""
+    return data.apply(scale_and_clip_dataarray, keep_attrs=True,
+                      scale_factor=0.275, add_offset=-2000, clip_range=(0, 10000))
+
+def scale_and_clip_dataarray(dataarray: xr.DataArray, *, scale_factor=1, add_offset=0, clip_range=None,
+                             new_nodata=-999, new_dtype='int16'):
+    orig_attrs = dataarray.attrs
+    nodata = dataarray.attrs['nodata']
+
+    mask = dataarray.data == nodata
+
+    dataarray = dataarray * scale_factor + add_offset # add another mask here for if data > 10000 then also make that nodata
+
+    if clip_range is not None:
+        clip_min, clip_max = clip_range
+        dataarray.clip(clip_min, clip_max)
+
+    dataarray = dataarray.astype(new_dtype)
+
+    dataarray.data[mask] = new_nodata
+    dataarray.attrs = orig_attrs
+    dataarray.attrs['nodata'] = new_nodata
+
+    return dataarray
 
 def _to_xrds_coords(geobox):
     return {dim: coord.values for dim, coord in geobox.coordinates.items()}
