@@ -44,7 +44,11 @@ class WOfSClassifier(Transformation):
         
         if self.c2_scaling:
             # The C2 data need to be scaled
-            data = scale_usgs_collection2(data)
+            orig_attrs = data.attrs
+            spectral_data = data[['nbart_blue', 'nbart_green', 'nbart_red', 'nbart_nir', 'nbart_swir_1', 'nbart_swir_2']]
+            mask_data = data[['fmask']]
+            data = xr.merge([scale_usgs_collection2(spectral_data), mask_data])
+            data.attrs = orig_attrs
         
         if self.dsm_path is not None:
             dsm = self._load_dsm(data.geobox.buffered(self.terrain_buffer, self.terrain_buffer))

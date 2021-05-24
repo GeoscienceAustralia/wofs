@@ -59,12 +59,12 @@ def pq_filter(pq):
     return masking
 
 
-C2_NODATA_BITS = 0x0001 # 0001 0th bit
+#C2_NODATA_BITS = 0x0001 # 0001 0th bit
+C2_DILATED_BITS = 0x0002 # 0010 1st bit
 C2_CLOUD_BITS = 0x0008 # 1000 3rd bit
 C2_CLOUD_SHADOW_BITS = 0x0010 # 0001 0000 4th bit
-C2_CLEAR_BITS = 0x0040
-C2_CIRRUS_BITS = 0x0004 # 0100 2nd bit
-C2_DILATED_BITS = 0x0002 # 0010 1st bit
+#C2_CLEAR_BITS = 0x0040
+#C2_CIRRUS_BITS = 0x0004 # 0100 2nd bit
 
 def c2_filter(pq):
     """
@@ -84,19 +84,16 @@ def c2_filter(pq):
            12-13 snow_ice confidence # dec 4096/8192
            14-15 cirrus confidence # dec 16384/32768
 
-          Over/under-saturation is flagged in the WOfS journal paper, but may not be previously implemented.
-
           Notes:
-            - will output same flag to indicate noncontiguity, oversaturation and undersaturation.
-            - disregarding PQ contiguity flag (see eo_filter instead) to exclude thermal bands.
             - permitting simultaneous flags (through addition syntax) since constants happen to be
               different powers of the same base.
-            - dilates the cloud and cloud shadow. (Previous implementation eroded the negation.)
+            - dilates the cloud shadow. (cloud already dilated.)
             - input must be numpy not xarray.DataArray (due to depreciated boolean fancy indexing behaviour)
     """
     
     masking = np.zeros(pq.shape, dtype=np.uint8)
     masking[((pq & C2_DILATED_BITS)).astype(np.bool)] += constants.MASKED_CLOUD
+    masking[((pq & C2_CLOUD_BITS)).astype(np.bool)] += constants.MASKED_CLOUD
     masking[dilate(pq & C2_CLOUD_SHADOW_BITS)] += constants.MASKED_CLOUD_SHADOW
     return masking
 
