@@ -6,7 +6,7 @@ from datacube.testutils.io import dc_read
 from datacube.virtual import Transformation, Measurement
 from xarray import Dataset
 
-from wofs.wofls import woffles_ard
+from wofs.wofls import woffles_ard, woffles_usgs_c2
 
 WOFS_OUTPUT = [{
     'name': 'water',
@@ -44,7 +44,11 @@ class WOfSClassifier(Transformation):
         
         if self.c2_scaling:
             # The C2 data need to be scaled
-            data = scale_usgs_collection2(data)
+            orig_attrs = data.attrs
+            spectral_data = data[['nbart_blue', 'nbart_green', 'nbart_red', 'nbart_nir', 'nbart_swir_1', 'nbart_swir_2']]
+            mask_data = data[['fmask']]
+            data = xr.merge([scale_usgs_collection2(spectral_data), mask_data])
+            data.attrs = orig_attrs
         
         if self.dsm_path is not None:
             dsm = self._load_dsm(data.geobox.buffered(self.terrain_buffer, self.terrain_buffer))
@@ -53,7 +57,11 @@ class WOfSClassifier(Transformation):
 
         wofs = []
         for time_idx in range(len(data.time)):
-            wofs.append(woffles_ard(data.isel(time=time_idx), dsm).to_dataset(name='water'))
+            if self.c2_scaling:
+                # C2 wofls
+                wofs.append(woffles_usgs_c2(data.isel(time=time_idx), dsm).to_dataset(name='water'))
+            else:
+                wofs.append(woffles_ard(data.isel(time=time_idx), dsm).to_dataset(name='water'))
         wofs = xr.concat(wofs, dim='time')
         wofs.attrs['crs'] = data.attrs['crs']
         return wofs
@@ -65,6 +73,7 @@ class WOfSClassifier(Transformation):
                           attrs={'crs': gbox.crs})
 
 def scale_usgs_collection2(data):
+    """These are taken from the Fractional Cover scaling values"""
     return data.apply(scale_and_clip_dataarray, keep_attrs=True,
                       scale_factor=0.275, add_offset=-2000, clip_range=(0, 10000))
 
@@ -75,7 +84,7 @@ def scale_and_clip_dataarray(dataarray: xr.DataArray, *, scale_factor=1, add_off
 
     mask = dataarray.data == nodata
 
-    dataarray = dataarray * scale_factor + add_offset
+    dataarray = dataarray * scale_factor + add_offset # add another mask here for if data > 10000 then also make that nodata
 
     if clip_range is not None:
         clip_min, clip_max = clip_range
