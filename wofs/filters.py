@@ -64,7 +64,7 @@ C2_DILATED_BITS = 0x0002 # 0010 1st bit
 C2_CLOUD_BITS = 0x0008 # 1000 3rd bit
 C2_CLOUD_SHADOW_BITS = 0x0010 # 0001 0000 4th bit
 #C2_CLEAR_BITS = 0x0040
-#C2_CIRRUS_BITS = 0x0004 # 0100 2nd bit
+C2_CIRRUS_BITS = 0x0004 # 0100 2nd bit
 
 def c2_filter(pq):
     """
@@ -92,8 +92,7 @@ def c2_filter(pq):
     """
     
     masking = np.zeros(pq.shape, dtype=np.uint8)
-    masking[((pq & C2_DILATED_BITS)).astype(np.bool)] += constants.MASKED_CLOUD
-    masking[((pq & C2_CLOUD_BITS)).astype(np.bool)] += constants.MASKED_CLOUD
+    masking[((pq & C2_DILATED_BITS)).astype(np.bool) | ((pq & C2_CLOUD_BITS)).astype(np.bool) | ((pq & C2_CIRRUS_BITS)).astype(np.bool)] += constants.MASKED_CLOUD
     masking[dilate(pq & C2_CLOUD_SHADOW_BITS)] += constants.MASKED_CLOUD_SHADOW
     return masking
 
