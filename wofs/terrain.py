@@ -52,7 +52,7 @@ def vector_to_crs(point, vector, original_crs, destination_crs):
     original_line = line([point, tuple(map(sum, zip(point, vector)))], crs=original_crs)
     transformed_line = original_line.to_crs(destination_crs)
 
-    transformed_point, transformed_end = transformed_line.points
+    transformed_point, _ = transformed_line.points
 
     # take difference (i.e. remove origin offset)
     transformed_vector = tuple(map(lambda x: x[1] - x[0], zip(*transformed_line.points)))
@@ -83,7 +83,7 @@ def solar_vector(point, time, crs):
 
 
 # pylint: disable=too-many-locals
-def shadows_and_slope(tile, time):
+def shadows_and_slope(tile, time, no_data=-1000):
     """
     Terrain shadow masking (Greg's implementation) and slope masking.
 
@@ -112,10 +112,6 @@ def shadows_and_slope(tile, time):
 
     # length of the terrain normal vector
     norm_len = numpy.sqrt((xgrad * xgrad) + (ygrad * ygrad) + 1.0)
-
-    # hypot = numpy.hypot(xgrad, ygrad)
-    # slope = numpy.degrees(numpy.arctan(hypot))
-
     slope = numpy.degrees(numpy.arccos(1.0 / norm_len))
 
     x, y = tile.dims.keys()
@@ -124,11 +120,7 @@ def shadows_and_slope(tile, time):
     sia = (solar_vec[2] - (xgrad * solar_vec[0]) - (ygrad * solar_vec[1])) / norm_len
     sia = 90 - numpy.degrees(numpy.arccos(sia))
 
-    # # TODO: water_band=SolarTerrainShadowSlope(self.dsm_path).filter(water_band)
     rot_degrees = 90.0 + math.degrees(solar_vec[3])
-    sun_alt_deg = math.degrees(solar_vec[4])
-    # print solar_vec, rot_degrees, sun_alt_deg
-    no_data = -1000
 
     buff_elv_array = numpy.pad(tile.elevation.values, 4, mode='edge')
     rotated_elv_array = ndimage.interpolation.rotate(buff_elv_array,
