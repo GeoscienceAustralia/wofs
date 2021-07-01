@@ -3,6 +3,7 @@ Test some of the terrain masking functions
 """
 
 import pytest
+import hypothesis
 from hypothesis import given
 from hypothesis import strategies as st
 
@@ -17,8 +18,7 @@ points_3577 = st.tuples(st.integers(min_value=-5000000, max_value=-3000000),
 vectors = st.tuples(st.integers(min_value=-100, max_value=100),
                     st.integers(min_value=-100, max_value=100))
 
-
-@pytest.mark.skip(reason="This test is failing currently, not sure why... FIXME")
+@hypothesis.settings(deadline=500)
 @given(points_3577, vectors)
 def test_vector_to_crs(orig_point, orig_vect):
     """
