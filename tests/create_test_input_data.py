@@ -16,7 +16,7 @@ def create_sample_file():
 
     to_load = [(name, in_dir / details['path'])
                for name, details in doc['measurements'].items()
-               if name.startswith('nbart') or 'fmask' in name]
+               if name.startswith('nbart') or name.startswith('oa_nbart') or 'fmask' in name]
     to_load = sorted(to_load, key=lambda tup: tup[1])
 
     def load_band(fname):
