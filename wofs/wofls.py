@@ -45,11 +45,12 @@ def woffles(nbar, pq, dsm, dsm_no_data=-1000, ignore_dsm_no_data=False):
 
 def woffles_ard(ard, dsm, dsm_no_data=-1000, ignore_dsm_no_data=False):
     """Generate a Water Observation Feature Layer from ARD (NBART and FMASK) and surface elevation inputs."""
+    print(ard.__dict__.keys())
     nbar_bands = spectral_bands(ard)
     water = classifier.classify(nbar_bands) \
         | eo_filter(ard) \
         | fmask_filter(ard.fmask) \
-        | contiguous_filter(ard.contiguous)
+        | contiguous_filter(ard.contiguity)
 
     if dsm is not None:
         # terrain_filter arbitrarily expects a band named 'blue'
