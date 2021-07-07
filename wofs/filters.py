@@ -165,3 +165,28 @@ def fmask_filter(fmask):
     masking[fmask == 3] += MASKED_CLOUD_SHADOW
 
     return masking
+
+
+def contiguous_filter(contiguous):
+    """
+    The flags_definition of oa_nbart_contiguity is:
+        name: oa_nbart_contiguity
+        dtype: uint8
+        units: '1'
+        nodata: 255
+        aliases:
+        - nbart_contiguity
+        flags_definition:
+            contiguous:
+            bits:
+            - 0
+            values:
+                '0': false
+                '1': true
+    When it is True, we want to keep this pixel. So we return
+    all False values as masking.
+    """
+    masking = np.zeros(contiguous.shape, dtype=np.uint8)
+    masking[contiguous == 0] += MASKED_NO_CONTIGUITY # if the value is 0 (false), we treat this pixel as MASKED_NO_CONTIGUITY.
+
+    return masking
