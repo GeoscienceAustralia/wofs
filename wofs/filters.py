@@ -187,6 +187,6 @@ def contiguous_filter(contiguous):
     all False values as masking.
     """
     masking = np.zeros(contiguous.shape, dtype=np.uint8)
-    masking[contiguous == 0] += MASKED_NO_CONTIGUITY # if the value is 0 (false), we treat this pixel as MASKED_NO_CONTIGUITY.
+    masking[contiguous == 0] += constants.MASKED_NO_CONTIGUITY # if the value is 0 (false), we treat this pixel as MASKED_NO_CONTIGUITY.
 
     return masking
