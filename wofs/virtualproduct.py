@@ -86,7 +86,7 @@ class WOfSClassifier(Transformation):
             spectral_data = data[
                 ['nbart_blue', 'nbart_green', 'nbart_red', 'nbart_nir', 'nbart_swir_1', 'nbart_swir_2']
             ]
-            mask_data = data[['fmask']]
+            mask_data = data[['fmask','qa']]
             data = xr.merge([scale_usgs_collection2(spectral_data), mask_data])
             data.attrs = orig_attrs
 

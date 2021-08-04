@@ -99,6 +99,48 @@ def c2_filter(pq):
     masking[dilate(pq & C2_CLOUD_SHADOW_BITS)] += constants.MASKED_CLOUD_SHADOW
     return masking
 
+AEROSOL_HIGH_BITS = 0x00C0 #1100 0000 
+
+def aero_filter(qa):
+    """
+    Propagate flags from the qa_aerosol or atmospheric opacity product.
+
+    qa_aerosol specs: 8 bits.
+      0 no data # dec 1
+      1 valid_aerosol_retrieval # dec 2
+      2 water # dec 4
+      5 interpolated_aerosol # dec 32
+      6 aerosol_level # dec 64
+      7 aerosol_level # dec 128
+
+     Notes:
+       - permitting simultaneous flags (through addition syntax) since constants happen to be
+         different powers of the same base.
+       - dilates the cloud shadow. (cloud already dilated.)
+       - input must be numpy not xarray.DataArray (due to depreciated boolean fancy indexing behaviour)
+    """
+
+    masking = np.zeros(qa.shape, dtype=np.uint8)
+    masking[((qa & AEROSOL_HIGH_BITS) == AEROSOL_HIGH_BITS).astype(np.bool)] += constants.MASKED_AEROSOL
+
+    return masking
+
+def opac_filter(qa):
+    """
+    if the opacity is over 300, remove it.    
+    """
+
+    masking = np.zeros(qa.shape, dtype=np.uint8)
+    #Mask -9999 as NaNs, then multiply by scaling factor
+    #opaque = qa.where(qa != -9999) * 0.001
+    #Threshold opacity layer to set bad pixels to True
+    #opaque = opaque < 0.3
+    #opaque += constants.MASKED_AEROSOL
+    #masking[opaque.astype(np.bool)] += constants.MASKED_AEROSOL
+    masking[(qa > 300).astype(np.bool)] += constants.MASKED_AEROSOL
+
+    return masking
+
 
 def terrain_filter(dsm, nbar, no_data=-1000, ignore_dsm_no_data=False):
     """Terrain shadow masking, slope masking, solar incidence angle masking.
