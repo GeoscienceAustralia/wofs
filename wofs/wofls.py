@@ -21,16 +21,20 @@ import numpy as np
 
 from wofs import classifier, filters
 from wofs.constants import NO_DATA
-from wofs.filters import eo_filter, fmask_filter, terrain_filter, pq_filter, c2_filter
+from wofs.filters import eo_filter, fmask_filter, terrain_filter, c2_filter, aero_filter, opac_filter
 
 
-def woffles(nbar, pq, dsm):
+def woffles(nbar, pq, dsm, dsm_no_data=-1000, ignore_dsm_no_data=False):
     """Generate a Water Observation Feature Layer from NBAR, PQ and surface elevation inputs."""
 
     water = classifier.classify(nbar.to_array(dim='band')) \
         | filters.eo_filter(nbar) \
         | filters.pq_filter(pq.pqa) \
-        | filters.terrain_filter(dsm, nbar)
+        | filters.terrain_filter(
+            dsm,
+            nbar,
+            no_data=dsm_no_data,
+            ignore_dsm_no_data=ignore_dsm_no_data)
 
     _fix_nodata_to_single_value(water)
 
@@ -39,18 +43,21 @@ def woffles(nbar, pq, dsm):
     return water
 
 
-def woffles_ard(ard, dsm):
+def woffles_ard(ard, dsm, dsm_no_data=-1000, ignore_dsm_no_data=False):
     """Generate a Water Observation Feature Layer from ARD (NBART and FMASK) and surface elevation inputs."""
     nbar_bands = spectral_bands(ard)
     water = classifier.classify(nbar_bands) \
         | eo_filter(ard) \
-        | fmask_filter(ard.fmask)        
-        #| pq_filter(ard.pixel_quality)
-
+        | fmask_filter(ard.fmask)
 
     if dsm is not None:
         # terrain_filter arbitrarily expects a band named 'blue'
-        water |= terrain_filter(dsm, ard.rename({"nbart_blue": "blue"}))
+        water |= terrain_filter(
+            dsm,
+            ard.rename({"nbart_blue": "blue"}),
+            no_data=dsm_no_data,
+            ignore_dsm_no_data=ignore_dsm_no_data
+        )
 
     _fix_nodata_to_single_value(water)
 
@@ -58,15 +65,23 @@ def woffles_ard(ard, dsm):
 
     return water
 
-def woffles_usgs_c2(c2, dsm):
+
+def woffles_usgs_c2(c2, dsm, dsm_no_data=-1000, ignore_dsm_no_data=False):
     """Generate a Water Observation Feature Layer from USGS Collection 2 and surface elevation inputs."""
     nbar_bands = spectral_bands(c2)
     water = classifier.classify(nbar_bands) \
         | eo_filter(c2) \
-        | c2_filter(c2.fmask)        
+        | c2_filter(c2.fmask) \
+        | aero_filter(c2.qa)
+        #| opac_filter(c2.qa)
     if dsm is not None:
         # terrain_filter arbitrarily expects a band named 'blue'
-        water |= terrain_filter(dsm, c2.rename({"nbart_blue": "blue"}))
+        water |= terrain_filter(
+            dsm,
+            c2.rename({"nbart_blue": "blue"}),
+            no_data=dsm_no_data,
+            ignore_dsm_no_data=ignore_dsm_no_data
+        )
 
     _fix_nodata_to_single_value(water)
 
