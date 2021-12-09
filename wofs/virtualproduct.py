@@ -35,16 +35,15 @@ def scale_and_clip_dataarray(dataarray: xr.DataArray, *, scale_factor=1, add_off
     dataarray = dataarray * scale_factor + add_offset
 
     if clip_range is not None:
-        clip_min, clip_max = clip_range
-        dataarray.clip(clip_min, clip_max)
+        dataarray = dataarray.clip(*clip_range)
 
     dataarray = dataarray.astype(new_dtype)
 
     dataarray.data[mask] = new_nodata
     if valid_range is not None:
         valid_min, valid_max = valid_range
-        dataarray = dataarray.where(dataarray>= valid_min, new_nodata)
-        dataarray = dataarray.where(dataarray<= valid_max, new_nodata)
+        dataarray = dataarray.where(dataarray >= valid_min, new_nodata)
+        dataarray = dataarray.where(dataarray <= valid_max, new_nodata)
     dataarray.attrs = orig_attrs
     dataarray.attrs['nodata'] = new_nodata
 
