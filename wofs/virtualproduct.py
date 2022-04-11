@@ -19,9 +19,12 @@ _LOG = logging.getLogger(__file__)
 
 def scale_usgs_collection2(data):
     """These are taken from the Fractional Cover scaling values"""
-    return data.apply(scale_and_clip_dataarray, keep_attrs=True,
-                      scale_factor=0.275, add_offset=-2000, 
-                      clip_range=None, valid_range=(0, 10000))
+    attrs = data.attrs
+    data =  data.apply(scale_and_clip_dataarray, keep_attrs=False,
+                       scale_factor=0.275, add_offset=-2000,
+                       clip_range=None, valid_range=(0, 10000))
+    data.attrs = attrs
+    return data
 
 
 def scale_and_clip_dataarray(dataarray: xr.DataArray, *, scale_factor=1, add_offset=0, clip_range=None,
