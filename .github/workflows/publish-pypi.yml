@@ -6,9 +6,7 @@ on:
 
 jobs:
   publish_pypi:
-    if: |
-      github.repository == 'GeoscienceAustralia/wofs'
-      && github.event.release.conclusion == 'success'
+    if: github.repository == 'GeoscienceAustralia/wofs'
 
     runs-on: ubuntu-latest
 
