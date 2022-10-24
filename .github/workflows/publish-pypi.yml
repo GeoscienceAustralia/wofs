@@ -45,10 +45,8 @@ jobs:
           find . -name _version.py | xargs python ./scripts/patch_version.py ${GITHUB_RUN_NUMBER:-0}
 
       - name: Upload to PyPI
-        env:
-          TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
-          TWINE_USERNAME: __token__
-
-        run: |
-          ls wheels/clean/
-          twine upload --non-interactive --skip-existing wheels/clean/*
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          password: ${{ secrets.PYPI_TOKEN }}
+          packages_dir: wheels/clean/
+          skip_existing: true
