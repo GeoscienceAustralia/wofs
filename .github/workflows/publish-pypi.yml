@@ -33,6 +33,17 @@ jobs:
            twine
           python -m pip freeze
 
+      - name: Build Clean Packages
+        run: |
+          mkdir -p ./wheels/clean
+          python setup.py bdist_wheel --dist-dir ./wheels/clean/
+          python setup.py sdist --dist-dir ./wheels/clean/
+          find ./wheels/clean -type f
+
+      - name: Patch Package Versions
+        run: |
+          find . -name _version.py | xargs python ./scripts/patch_version.py ${GITHUB_RUN_NUMBER:-0}
+
       - name: Upload to PyPI
         env:
           TWINE_PASSWORD: ${{ secrets.PYPI_TOKEN }}
