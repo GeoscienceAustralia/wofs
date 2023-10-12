@@ -40,6 +40,15 @@ after logging into the NCI by running:
 
     module load dea
 
+Example Usage
+=============
+
+See the `example notebook showing loading Digital Earth Australia ARD data, running the WOfS classifier, and plotting the output <examples/Running_WOfS.ipynb>`_.
+
+.. image:: examples/plotted_wofs.png
+   :target: examples/Running_WOfS.ipynb
+
+
 Algorithm
 =========
 
