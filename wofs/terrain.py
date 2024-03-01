@@ -114,7 +114,7 @@ def shadows_and_slope(tile, time, no_data=-1000):
     norm_len = numpy.sqrt((xgrad * xgrad) + (ygrad * ygrad) + 1.0)
     slope = numpy.degrees(numpy.arccos(1.0 / norm_len))
 
-    x, y = tile.dims.keys()
+    y, x = tile.dims.keys()
     tile_center = (tile[x].values[x_size // 2], tile[y].values[y_size // 2])
     solar_vec = solar_vector(tile_center, to_datetime(time), tile.crs)
     sia = (solar_vec[2] - (xgrad * solar_vec[0]) - (ygrad * solar_vec[1])) / norm_len
