@@ -91,8 +91,8 @@ class fuser:
         for tile in self.tiles[1:]:
             # TODO: could numexpr
             subsequent = tile.water
-            empty = (output & 1).astype(np.bool)
-            both = ~empty & ~((subsequent & 1).astype(np.bool))
+            empty = (output & 1).astype(bool)
+            both = ~empty & ~((subsequent & 1).astype(bool))
             output[empty] = subsequent[empty]
             output[both] |= subsequent[both]
         return output
