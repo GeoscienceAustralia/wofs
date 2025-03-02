@@ -51,9 +51,9 @@ def pq_filter(pq):
 
     masking = np.zeros(ipq.shape, dtype=np.uint8)
     masking[
-        (ipq & (PQA_SATURATION_BITS | PQA_CONTIGUITY_BITS)).astype(np.bool)
+        (ipq & (PQA_SATURATION_BITS | PQA_CONTIGUITY_BITS)).astype(bool)
     ] = constants.MASKED_NO_CONTIGUITY
-    # masking[(ipq & PQA_SEA_WATER_BIT).astype(np.bool)] += constants.MASKED_SEA_WATER
+    # masking[(ipq & PQA_SEA_WATER_BIT).astype(bool)] += constants.MASKED_SEA_WATER
     masking[dilate(ipq & PQA_CLOUD_BITS)] += constants.MASKED_CLOUD
     masking[dilate(ipq & PQA_CLOUD_SHADOW_BITS)] += constants.MASKED_CLOUD_SHADOW
     return masking
@@ -94,9 +94,9 @@ def c2_filter(pq):
 
     masking = np.zeros(pq.shape, dtype=np.uint8)
     masking[
-        ((pq & C2_DILATED_BITS)).astype(np.bool)
-        | ((pq & C2_CLOUD_BITS)).astype(np.bool)
-        | ((pq & C2_CIRRUS_BITS)).astype(np.bool)
+        ((pq & C2_DILATED_BITS)).astype(bool)
+        | ((pq & C2_CLOUD_BITS)).astype(bool)
+        | ((pq & C2_CIRRUS_BITS)).astype(bool)
     ] += constants.MASKED_CLOUD
     masking[dilate(pq & C2_CLOUD_SHADOW_BITS)] += constants.MASKED_CLOUD_SHADOW
     return masking
