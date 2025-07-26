@@ -123,12 +123,12 @@ def shadows_and_slope(tile, time, no_data=-1000):
     rot_degrees = 90.0 + math.degrees(solar_vec[3])
 
     buff_elv_array = numpy.pad(tile.elevation.values, 4, mode='edge')
-    rotated_elv_array = ndimage.interpolation.rotate(buff_elv_array,
-                                                     rot_degrees,
-                                                     reshape=True,
-                                                     output=numpy.float32,
-                                                     cval=no_data,
-                                                     prefilter=False)
+    rotated_elv_array = ndimage.rotate(buff_elv_array,
+                                       rot_degrees,
+                                       reshape=True,
+                                       output=numpy.float32,
+                                       cval=no_data,
+                                       prefilter=False)
 
     # create the shadow mask by ray-tracying along each row
     shadows = numpy.zeros_like(rotated_elv_array)
@@ -138,8 +138,8 @@ def shadows_and_slope(tile, time, no_data=-1000):
     del rotated_elv_array
     del buff_elv_array
 
-    shadows = ndimage.interpolation.rotate(shadows, -rot_degrees, reshape=False, output=numpy.float32, cval=no_data,
-                                           prefilter=False)
+    shadows = ndimage.rotate(shadows, -rot_degrees, reshape=False,
+                             output=numpy.float32, cval=no_data, prefilter=False)
 
     dr = (shadows.shape[0] - y_size) // 2
     dc = (shadows.shape[1] - x_size) // 2
