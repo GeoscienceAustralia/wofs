@@ -1,5 +1,4 @@
-from pkg_resources import get_distribution, DistributionNotFound
 try:
-    __version__ = get_distribution(__name__).version
-except DistributionNotFound:
-    __version__ = "package is not installed"
+    from .version import version as __version__
+except ImportError:
+    __version__ = "Unknown/Not Installed"
