@@ -7,7 +7,8 @@ on:
 jobs:
   publish_pypi:
     if: github.repository == 'GeoscienceAustralia/wofs'
-
+    permissions:
+      id-token: write
     runs-on: ubuntu-latest
 
     steps:
